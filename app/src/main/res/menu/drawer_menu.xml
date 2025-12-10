@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_home"
+        android:title="Inicio"
+        android:icon="@drawable/ic_home_24" />
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_list"
+            android:title="Transacciones"
+            android:icon="@drawable/ic_receipt_long" />
+
+        <item
+            android:id="@+id/nav_budget"
+            android:title="Presupuesto"
+            android:icon="@drawable/ic_wallet_24" />
+
+        <item
+            android:id="@+id/nav_goals"
+            android:title="Metas"
+            android:icon="@drawable/ic_flag" />
+
+        <item
+            android:id="@+id/nav_reminders"
+            android:title="Recordatorios"
+            android:icon="@drawable/ic_notifications" />
+
+        <item
+            android:id="@+id/nav_imports"
+            android:title="Importaciones"
+            android:icon="@drawable/ic_upload" />
+
+        <item
+            android:id="@+id/nav_households"
+            android:title="Hogares"
+            android:icon="@drawable/ic_groups" />
+
+        <item
+            android:id="@+id/nav_perfil"
+            android:title="Perfil"
+            android:icon="@drawable/ic_perfil_24" />
+    </group>
+
+    <item
+        android:id="@+id/nav_logout"
+        android:title="Cerrar sesión"
+        android:icon="@drawable/ic_logout_24" />
+
+</menu>

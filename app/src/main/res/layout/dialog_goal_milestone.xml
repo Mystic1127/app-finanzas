@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <EditText
+        android:id="@+id/etMilestoneTitulo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/goal_milestone_title"
+        android:inputType="textCapSentences" />
+
+    <EditText
+        android:id="@+id/etMilestoneMonto"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/goal_milestone_amount"
+        android:inputType="numberDecimal" />
+
+    <EditText
+        android:id="@+id/etMilestoneFecha"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/goal_field_deadline"
+        android:inputType="date" />
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/swMilestoneNotificar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/goal_milestone_notify" />
+
+    <EditText
+        android:id="@+id/etMilestoneDias"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/goal_milestone_days"
+        android:inputType="number" />
+
+    <CheckBox
+        android:id="@+id/cbMilestoneCompletado"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/goal_milestone_completed" />
+
+</LinearLayout>

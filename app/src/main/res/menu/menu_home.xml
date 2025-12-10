@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_customize_dashboard"
+        android:title="@string/dashboard_customize_title"
+        android:icon="@drawable/ic_drag_handle_24"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_travel_settings"
+        android:title="@string/travel_settings_title"
+        app:showAsAction="never" />
+</menu>

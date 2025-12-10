@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_login">
+
+    <!-- LOGOUT GLOBAL -->
+    <action
+        android:id="@+id/action_global_logout"
+        app:destination="@id/nav_login"
+        app:popUpTo="@id/nav_graph"
+        app:popUpToInclusive="true" />
+
+    <!-- LOGIN -->
+    <fragment
+        android:id="@+id/nav_login"
+        android:name="com.example.finanzas.ui.LoginFragment"
+        android:label="Iniciar sesión"
+        tools:layout="@layout/fragment_login">
+        <action
+            android:id="@+id/action_login_to_register"
+            app:destination="@id/nav_register" />
+    </fragment>
+
+    <!-- REGISTRO -->
+    <fragment
+        android:id="@+id/nav_register"
+        android:name="com.example.finanzas.ui.RegisterFragment"
+        android:label="Crear cuenta"
+        tools:layout="@layout/fragment_register">
+        <action
+            android:id="@+id/action_register_to_login"
+            app:destination="@id/nav_login"
+            app:popUpTo="@id/nav_register"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <!-- HOME -->
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.example.finanzas.ui.HomeFragment"
+        android:label="Inicio"
+        tools:layout="@layout/fragment_home">
+        <action
+            android:id="@+id/action_home_to_list"
+            app:destination="@id/nav_list" />
+        <action
+            android:id="@+id/action_home_to_budget"
+            app:destination="@id/nav_budget" />
+        <action
+            android:id="@+id/action_home_to_new"
+            app:destination="@id/nav_new" />
+        <action
+            android:id="@+id/action_home_to_perfil"
+            app:destination="@id/nav_perfil" />
+    </fragment>
+
+    <!-- LISTA -->
+    <fragment
+        android:id="@+id/nav_list"
+        android:name="com.example.finanzas.ui.ListaTransaccionesFragment"
+        android:label="Transacciones"
+        tools:layout="@layout/fragment_lista_transacciones">
+        <action
+            android:id="@+id/action_list_to_new"
+            app:destination="@id/nav_new" />
+    </fragment>
+
+    <!-- PRESUPUESTO -->
+    <fragment
+        android:id="@+id/nav_budget"
+        android:name="com.example.finanzas.ui.PresupuestoFragment"
+        android:label="Presupuesto"
+        tools:layout="@layout/fragment_presupuesto" />
+
+    <fragment
+        android:id="@+id/nav_goals"
+        android:name="com.example.finanzas.ui.GoalsFragment"
+        android:label="Metas"
+        tools:layout="@layout/fragment_goals" />
+
+    <fragment
+        android:id="@+id/nav_reminders"
+        android:name="com.example.finanzas.ui.RemindersFragment"
+        android:label="Recordatorios"
+        tools:layout="@layout/fragment_reminders" />
+
+    <fragment
+        android:id="@+id/nav_imports"
+        android:name="com.example.finanzas.ui.ImportFragment"
+        android:label="Importaciones"
+        tools:layout="@layout/fragment_imports" />
+
+    <fragment
+        android:id="@+id/nav_households"
+        android:name="com.example.finanzas.ui.HouseholdsFragment"
+        android:label="Hogares"
+        tools:layout="@layout/fragment_households" />
+
+    <!-- NUEVA TRANSACCIÓN -->
+    <fragment
+        android:id="@+id/nav_new"
+        android:name="com.example.finanzas.ui.NuevaTransaccionFragment"
+        android:label="Nueva transacción"
+        tools:layout="@layout/fragment_nueva_transaccion" />
+
+    <!-- PERFIL -->
+    <fragment
+        android:id="@+id/nav_perfil"
+        android:name="com.example.finanzas.ui.PerfilFragment"
+        android:label="Perfil"
+        tools:layout="@layout/fragment_perfil">
+        <action
+            android:id="@+id/action_perfil_to_change_pass"
+            app:destination="@id/nav_change_password" />
+        <action
+            android:id="@+id/action_perfil_to_pin_setup"
+            app:destination="@id/nav_pin_setup" />
+    </fragment>
+
+    <!-- CAMBIAR CONTRASEÑA -->
+    <fragment
+        android:id="@+id/nav_change_password"
+        android:name="com.example.finanzas.ui.ChangePasswordFragment"
+        android:label="Cambiar contraseña"
+        tools:layout="@layout/fragment_change_password" />
+
+    <fragment
+        android:id="@+id/nav_pin_lock"
+        android:name="com.example.finanzas.ui.PinLockFragment"
+        android:label="@string/pin_lock_title"
+        tools:layout="@layout/fragment_pin_lock" />
+
+    <fragment
+        android:id="@+id/nav_pin_setup"
+        android:name="com.example.finanzas.ui.PinSetupFragment"
+        android:label="@string/pin_setup_title"
+        tools:layout="@layout/fragment_pin_setup" />
+</navigation>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#2E7D5B</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorAccent">#5FB489</color>
+    <color name="danger">#D22F4C</color>
+    <color name="bg">#F6FBF7</color>
+    <color name="md_theme_primary">#2E7D5B</color>
+    <color name="md_theme_onPrimary">@color/colorOnPrimary</color>
+    <color name="md_theme_secondary">#5F7D69</color>
+    <color name="md_theme_onSecondary">#F4FFF7</color>
+    <color name="md_theme_background">@color/bg</color>
+    <color name="md_theme_onBackground">#1F2A24</color>
+    <color name="md_theme_surface">#FFFFFF</color>
+    <color name="md_theme_onSurface">#1F2A24</color>
+    <color name="md_theme_outline">#C6D7CC</color>
+    <color name="md_theme_error">@color/danger</color>
+    <color name="md_theme_onSecondaryContainer">#1C2C23</color>
+    <color name="income">#218A5C</color>
+    <color name="expense">#D0444F</color>
+    <color name="md_theme_outlineVariant">#E3EFE6</color>
+    <color name="md_theme_onSurfaceVariant">#4C5A53</color>
+    <color name="chartBudget">#4FA679</color>
+    <color name="chartBalance">#2B8D67</color>
+    <color name="md_theme_primaryContainer">#D9F2E6</color>
+    <color name="md_theme_onPrimaryContainer">#0F3322</color>
+
+    <color name="md_theme_secondaryContainer">#E8F3EC</color>
+
+    <color name="md_theme_tertiary">#4E6F60</color>
+    <color name="md_theme_onTertiary">#F5FFF8</color>
+    <color name="md_theme_tertiaryContainer">#DCECE4</color>
+    <color name="md_theme_onTertiaryContainer">#23362E</color>
+
+    <color name="md_theme_onError">#FFFFFF</color>
+    <color name="md_theme_errorContainer">#FFD5DE</color>
+    <color name="md_theme_onErrorContainer">#5C0B1B</color>
+
+
+    <!-- Colores para el chip de riesgo -->
+    <color name="risk_low_bg">#D9F2E6</color>
+    <color name="risk_low_text">#1E7A53</color>
+
+    <color name="risk_medium_bg">#FFF7DA</color>
+    <color name="risk_medium_text">#C47A0F</color>
+
+    <color name="risk_high_bg">#FFE3DF</color>
+    <color name="risk_high_text">#B23B3B</color>
+
+    <!-- Colores adicionales para UI -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#0E1511</color>
+    <color name="gray_light">#EEF4EF</color>
+    <color name="gray_medium">#9EB0A5</color>
+    <color name="gray_dark">#2F3D35</color>
+
+    <!-- Gradientes para fondos -->
+    <color name="gradient_start">#3C8E69</color>  <!-- Verde un poco más claro -->
+    <color name="gradient_end">#2E7D5B</color>    <!-- Tu color principal original -->
+
+
+
+</resources>
