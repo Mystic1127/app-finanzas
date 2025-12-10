@@ -32,6 +32,7 @@
     <string name="auth_btn_registrarse">Registrarme</string>
     <string name="auth_link_registro">¿No tienes cuenta? Crear una</string>
     <string name="auth_link_login">¿Ya tienes cuenta? Inicia sesión</string>
+    <string name="auth_link_register">Crear cuenta</string>
 
     <string name="home_saldo_mes">Saldo del mes</string>
     <string name="home_ingresos">Ingresos</string>
@@ -271,6 +272,7 @@
 
     <string name="perfil_security">Seguridad</string>
     <string name="perfil_change_password">Cambiar contraseña</string>
+    <string name="perfil_cambiar_pass">Cambiar contraseña</string>
     <string name="perfil_config_pin">Configurar PIN</string>
     <string name="perfil_remove_pin">Quitar PIN</string>
 

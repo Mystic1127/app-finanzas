@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.data.model.CategoryBudgetSummary;
