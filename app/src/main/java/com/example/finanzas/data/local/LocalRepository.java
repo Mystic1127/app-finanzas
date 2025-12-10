@@ -21,6 +21,9 @@ import com.example.finanzas.data.model.Transaccion;
 
 import org.json.JSONObject;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -136,24 +139,92 @@ public class LocalRepository {
     }
 
     public int createTransaccion(int categoriaId, boolean esIngreso, double monto, String nota) {
+        return createTransaccion(categoriaId, esIngreso, monto, nota, System.currentTimeMillis());
+    }
+
+    public int createTransaccion(int categoriaId, boolean esIngreso, double monto, String nota, long fecha) {
         SQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("categoria_id", categoriaId);
         cv.put("es_ingreso", esIngreso ? 1 : 0);
         cv.put("monto", monto);
-        cv.put("fecha", System.currentTimeMillis());
+        cv.put("fecha", fecha);
         cv.put("nota", nota);
         return (int) db.insert("transacciones", null, cv);
     }
 
-    public boolean updateTransaccion(int id, int categoriaId, boolean esIngreso, double monto, String nota) {
+    public boolean updateTransaccion(int id, int categoriaId, boolean esIngreso, double monto, String nota, long fecha) {
         SQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("categoria_id", categoriaId);
         cv.put("es_ingreso", esIngreso ? 1 : 0);
         cv.put("monto", monto);
+        cv.put("fecha", fecha);
         cv.put("nota", nota);
         return db.update("transacciones", cv, "id=?", new String[]{String.valueOf(id)}) > 0;
+    }
+
+    public List<Transaccion> listTodasTransacciones() {
+        List<Transaccion> out = new ArrayList<>();
+        SQLiteDatabase db = helper.getReadableDatabase();
+        String sql = "SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
+                "FROM transacciones t JOIN categorias c ON c.id = t.categoria_id ORDER BY t.fecha DESC";
+        try (Cursor c = db.rawQuery(sql, null)) {
+            while (c.moveToNext()) {
+                Transaccion t = new Transaccion(
+                        c.getInt(0),
+                        c.getInt(1),
+                        c.getString(2),
+                        c.getInt(3) == 1,
+                        c.getDouble(4),
+                        new Date(c.getLong(5)),
+                        c.getString(6)
+                );
+                out.add(t);
+            }
+        }
+        return out;
+    }
+
+    public String exportTransacciones() throws Exception {
+        List<Transaccion> transacciones = listTodasTransacciones();
+        if (transacciones.isEmpty()) {
+            throw new IllegalStateException("No hay transacciones para exportar");
+        }
+
+        File dir = new File(helper.getContext().getFilesDir(), "exports");
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new IllegalStateException("No se pudo crear el directorio de exportación");
+        }
+
+        SimpleDateFormat fileDf = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US);
+        SimpleDateFormat dateDf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        File outFile = new File(dir, "transacciones-" + fileDf.format(new Date()) + ".txt");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("ID | Fecha | Categoría | Tipo | Monto | Nota\n");
+        for (Transaccion t : transacciones) {
+            String fecha = dateDf.format(t.getFecha());
+            String tipo = t.isEsIngreso() ? "Ingreso" : "Gasto";
+            sb.append(t.getId())
+                    .append(" | ")
+                    .append(fecha)
+                    .append(" | ")
+                    .append(t.getCategoriaNombre())
+                    .append(" | ")
+                    .append(tipo)
+                    .append(" | ")
+                    .append(t.getMonto())
+                    .append(" | ")
+                    .append(t.getNota() == null ? "" : t.getNota())
+                    .append('\n');
+        }
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
+            writer.write(sb.toString());
+        }
+
+        return outFile.getAbsolutePath();
     }
 
     public boolean deleteTransaccion(int id) {

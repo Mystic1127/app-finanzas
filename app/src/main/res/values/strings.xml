@@ -13,11 +13,13 @@
     <string name="categoria_cd">Selector de categoría</string>
 
     <string name="hint_nota_opcional">Nota (opcional)</string>
+    <string name="hint_fecha">Fecha (AAAA-MM-DD)</string>
     <string name="btn_guardar">Guardar</string>
     <string name="btn_eliminar">Eliminar</string>
     <string name="trans_saved">Transacción guardada</string>
     <string name="trans_updated">Transacción actualizada</string>
     <string name="error_guardar_transaccion">No se pudo guardar la transacción</string>
+    <string name="error_formato_fecha">Ingresa una fecha válida en formato AAAA-MM-DD.</string>
     <string name="error_cargar_categorias">No se pudieron cargar las categorías</string>
 
     <string name="auth_titulo_login">Iniciar sesión</string>
@@ -140,6 +142,9 @@
     <string name="transactions_period_reset">Volver al mes actual</string>
     <string name="transactions_loaded_period">Mostrando transacciones de %1$s</string>
     <string name="pres_confirm_delete">¿Eliminar esta transacción?</string>
+    <string name="transactions_export">Exportar movimientos a .txt</string>
+    <string name="transactions_export_success">Archivo seguro guardado en: %1$s</string>
+    <string name="transactions_export_error">No se pudo exportar las transacciones.</string>
 
     <string name="imports_title">Importaciones bancarias</string>
     <string name="imports_new">Nueva importación</string>

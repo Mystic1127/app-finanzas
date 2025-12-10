@@ -10,6 +10,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public static final int DB_VERSION = 1;
 
     private static LocalDatabase instance;
+    private final Context context;
 
     public static synchronized LocalDatabase getInstance(Context context) {
         if (instance == null) {
@@ -20,6 +21,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     private LocalDatabase(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
+        this.context = context;
     }
 
     @Override
@@ -62,5 +64,9 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS import_rules");
         db.execSQL("DROP TABLE IF EXISTS households");
         onCreate(db);
+    }
+
+    public Context getContext() {
+        return context;
     }
 }

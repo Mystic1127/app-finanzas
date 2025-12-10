@@ -2,6 +2,7 @@ package com.example.finanzas.ui;
 
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.text.InputFilter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,14 +21,19 @@ import com.example.finanzas.data.api.SuggestionService;
 import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.Categoria;
+import com.example.finanzas.util.DateInputMask;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class NuevaTransaccionFragment extends Fragment {
 
@@ -37,8 +43,9 @@ public class NuevaTransaccionFragment extends Fragment {
     public static final String EXTRA_ES_INGRESO = "EXTRA_ES_INGRESO";
     public static final String EXTRA_MONTO      = "EXTRA_MONTO";
     public static final String EXTRA_NOTA       = "EXTRA_NOTA";
+    public static final String EXTRA_FECHA      = "EXTRA_FECHA";
 
-    private TextInputEditText etMonto, etNota;
+    private TextInputEditText etMonto, etNota, etFecha;
     private MaterialSwitch swTipo;
     private MaterialAutoCompleteTextView actCategoria;
     private MaterialButton btnGuardar;
@@ -51,6 +58,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private ArrayAdapter<String> catAdapter;
     private CategorySuggestion currentSuggestion;
     private Integer pendingSuggestedCategoryId;
+    private final SimpleDateFormat inputDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
     private final CompoundButton.OnCheckedChangeListener switchListener = (buttonView, isChecked) ->
             aplicarFiltroYRefrescar(isChecked, false, null);
 
@@ -67,11 +75,17 @@ public class NuevaTransaccionFragment extends Fragment {
 
         etMonto       = v.findViewById(R.id.etMonto);
         etNota        = v.findViewById(R.id.etNota);
+        etFecha       = v.findViewById(R.id.etFecha);
         swTipo        = v.findViewById(R.id.swTipo);
         actCategoria  = v.findViewById(R.id.actCategoria);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
         btnSugerir    = v.findViewById(R.id.btnSugerir);
         chipSugerencia = v.findViewById(R.id.chipSugerencia);
+
+        if (etFecha != null) {
+            etFecha.setFilters(new InputFilter[]{new InputFilter.LengthFilter(10)});
+            etFecha.addTextChangedListener(new DateInputMask(etFecha));
+        }
 
         actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
         actCategoria.setOnClickListener(view -> actCategoria.showDropDown());
@@ -90,6 +104,10 @@ public class NuevaTransaccionFragment extends Fragment {
 
         precargarDesdeArgs();
         cargarCategoriasYRefrescar();
+
+        if (etFecha != null && etFecha.getText() == null) {
+            etFecha.setText(inputDateFormat.format(new Date()));
+        }
 
         btnGuardar.setOnClickListener(this::onGuardar);
     }
@@ -238,9 +256,15 @@ public class NuevaTransaccionFragment extends Fragment {
             boolean esIngreso = args.getBoolean(EXTRA_ES_INGRESO, false);
             swTipo.setChecked(esIngreso);
 
+            long fechaMs = args.getLong(EXTRA_FECHA, -1L);
+            if (fechaMs > 0) {
+                if (etFecha != null) etFecha.setText(inputDateFormat.format(new Date(fechaMs)));
+            }
+
             btnGuardar.setText(R.string.btn_guardar);
         } else {
             btnGuardar.setText(R.string.btn_guardar);
+            if (etFecha != null) etFecha.setText(inputDateFormat.format(new Date()));
         }
     }
 
@@ -250,6 +274,15 @@ public class NuevaTransaccionFragment extends Fragment {
             Toast.makeText(requireContext(),"Ingresa un monto",Toast.LENGTH_SHORT).show();
             return;
         }
+
+        String sFecha = etFecha != null && etFecha.getText() != null
+                ? etFecha.getText().toString().trim() : "";
+        Date fechaSeleccionada = parseFechaSegura(sFecha);
+        if (fechaSeleccionada == null) {
+            Toast.makeText(requireContext(), R.string.error_formato_fecha, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final long fechaMs = fechaSeleccionada.getTime();
 
         String nombreSel = actCategoria.getText() == null ? "" : actCategoria.getText().toString().trim();
         Categoria seleccionada = null;
@@ -278,7 +311,7 @@ public class NuevaTransaccionFragment extends Fragment {
         btnGuardar.setEnabled(false);
 
         if (editingIdLocal == null || editingIdLocal < 0) {
-            TransService.create(requireContext(), catSel.id, esIngresoLocal, montoLocal, notaLocal,
+            TransService.create(requireContext(), catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs,
                     new TransService.SimpleCb() {
                         @Override public void onOk(int newId) {
                             btnGuardar.setEnabled(true);
@@ -296,7 +329,7 @@ public class NuevaTransaccionFragment extends Fragment {
                     });
 
         } else {
-            TransService.update(requireContext(), editingIdLocal, catSel.id, esIngresoLocal, montoLocal, notaLocal,
+            TransService.update(requireContext(), editingIdLocal, catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs,
                     new TransService.VoidCb() {
                         @Override public void onOk() {
                             btnGuardar.setEnabled(true);
@@ -312,6 +345,16 @@ public class NuevaTransaccionFragment extends Fragment {
                             }
                         }
                     });
+        }
+    }
+
+    private Date parseFechaSegura(String raw) {
+        if (raw == null || raw.length() != 10) return null;
+        try {
+            inputDateFormat.setLenient(false);
+            return inputDateFormat.parse(raw);
+        } catch (ParseException e) {
+            return null;
         }
     }
 

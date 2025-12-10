@@ -21,6 +21,7 @@ import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.ui.adapter.TransaccionAdapter;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.Prefs;
+import com.google.android.material.button.MaterialButton;
 
 import org.json.JSONObject;
 
@@ -38,6 +39,7 @@ public class ListaTransaccionesFragment extends Fragment {
     private int selectedMonth = 0;
     private boolean announcePeriod = false;
     private boolean pendingPrefClear = false;
+    private MaterialButton btnExportar;
 
     @Nullable
     @Override
@@ -55,6 +57,7 @@ public class ListaTransaccionesFragment extends Fragment {
         tvPeriodo = v.findViewById(R.id.tvPeriodo);
         progress = v.findViewById(R.id.progressLista);
         swipeRefreshLayout = v.findViewById(R.id.swipeTransacciones);
+        btnExportar = v.findViewById(R.id.btnExportar);
         adapter = new TransaccionAdapter(requireContext(), new ArrayList<>());
         listView.setAdapter(adapter);
 
@@ -70,6 +73,9 @@ public class ListaTransaccionesFragment extends Fragment {
             args.putDouble(NuevaTransaccionFragment.EXTRA_MONTO, t.getMonto());
             args.putString(NuevaTransaccionFragment.EXTRA_NOTA,
                     t.getNota() == null ? "" : t.getNota());
+            if (t.getFecha() != null) {
+                args.putLong(NuevaTransaccionFragment.EXTRA_FECHA, t.getFecha().getTime());
+            }
 
             Navigation.findNavController(view).navigate(R.id.nav_new, args);
         });
@@ -89,6 +95,10 @@ public class ListaTransaccionesFragment extends Fragment {
 
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setOnRefreshListener(this::cargarTransacciones);
+        }
+
+        if (btnExportar != null) {
+            btnExportar.setOnClickListener(v1 -> exportarTransacciones());
         }
     }
 
@@ -203,6 +213,28 @@ public class ListaTransaccionesFragment extends Fragment {
                 } else {
                     Toast.makeText(requireContext(), R.string.error_eliminar_transaccion, Toast.LENGTH_SHORT).show();
                 }
+            }
+        });
+    }
+
+    private void exportarTransacciones() {
+        showLoading(true);
+        TransService.exportToTxt(requireContext(), new TransService.FileCb() {
+            @Override
+            public void onOk(String path) {
+                showLoading(false);
+                Toast.makeText(requireContext(),
+                        getString(R.string.transactions_export_success, path),
+                        Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onError(@Nullable String message) {
+                showLoading(false);
+                String msg = message == null || message.isEmpty()
+                        ? getString(R.string.transactions_export_error)
+                        : message;
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
             }
         });
     }
