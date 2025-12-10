@@ -18,6 +18,7 @@
     <color name="md_theme_outlineVariant">#223029</color>
     <color name="md_theme_onSurfaceVariant">#B6C4BC</color>
     <color name="md_theme_onSecondaryContainer">#E4E8E3</color>
+    <color name="md_theme_error">@color/danger</color>
     <color name="income">#8DE9BB</color>
     <color name="expense">#F08A94</color>
     <color name="md_theme_primaryContainer">#1E2C25</color>

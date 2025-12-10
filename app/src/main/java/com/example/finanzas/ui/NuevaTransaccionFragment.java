@@ -1,5 +1,6 @@
 package com.example.finanzas.ui;
 
+import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.InputFilter;
@@ -34,6 +35,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -92,6 +94,7 @@ public class NuevaTransaccionFragment extends Fragment {
         if (etFecha != null) {
             etFecha.setFilters(new InputFilter[]{new InputFilter.LengthFilter(10)});
             etFecha.addTextChangedListener(new DateInputMask(etFecha));
+            setupDatePicker(etFecha);
         }
 
         actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
@@ -123,6 +126,30 @@ public class NuevaTransaccionFragment extends Fragment {
                 .setView(dialogContent)
                 .setCancelable(true)
                 .create();
+        dialog.show();
+    }
+
+    private void setupDatePicker(@NonNull TextInputEditText input) {
+        input.setFocusable(false);
+        input.setOnClickListener(v -> showDatePicker(input));
+        input.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) showDatePicker(input); });
+    }
+
+    private void showDatePicker(@NonNull TextInputEditText input) {
+        Calendar calendar = Calendar.getInstance();
+        String current = input.getText() == null ? "" : input.getText().toString();
+        try {
+            Date parsed = inputDateFormat.parse(current);
+            if (parsed != null) calendar.setTime(parsed);
+        } catch (ParseException ignored) { }
+
+        DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
+            calendar.set(Calendar.YEAR, year);
+            calendar.set(Calendar.MONTH, month);
+            calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+            input.setText(inputDateFormat.format(calendar.getTime()));
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+
         dialog.show();
     }
 
