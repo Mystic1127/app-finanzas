@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.data.model.CategoryBudgetSummary;
@@ -18,9 +19,13 @@ import com.example.finanzas.data.model.ImportRule;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.data.model.TransaccionFiltro;
 
 import org.json.JSONObject;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -106,6 +111,10 @@ public class LocalRepository {
 
     // region Transacciones
     public List<Transaccion> listTransacciones(int anio, int mes) {
+        return listTransacciones(anio, mes, null);
+    }
+
+    public List<Transaccion> listTransacciones(int anio, int mes, @Nullable TransaccionFiltro filtro) {
         Calendar cal = Calendar.getInstance();
         cal.set(anio, mes - 1, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
@@ -113,12 +122,43 @@ public class LocalRepository {
         cal.add(Calendar.MONTH, 1);
         long end = cal.getTimeInMillis();
 
+        if (filtro != null) {
+            if (filtro.getFechaInicio() != null) start = filtro.getFechaInicio();
+            if (filtro.getFechaFin() != null) end = filtro.getFechaFin();
+        }
+
         List<Transaccion> out = new ArrayList<>();
         SQLiteDatabase db = helper.getReadableDatabase();
-        String sql = "SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
+        StringBuilder sql = new StringBuilder("SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
                 "FROM transacciones t JOIN categorias c ON c.id = t.categoria_id " +
-                "WHERE t.fecha >= ? AND t.fecha < ? ORDER BY t.fecha DESC";
-        try (Cursor c = db.rawQuery(sql, new String[]{String.valueOf(start), String.valueOf(end)})) {
+                "WHERE t.fecha >= ? AND t.fecha < ?");
+        List<String> args = new ArrayList<>();
+        args.add(String.valueOf(start));
+        args.add(String.valueOf(end));
+
+        if (filtro != null && filtro.getCategoriaId() != null) {
+            sql.append(" AND t.categoria_id = ?");
+            args.add(String.valueOf(filtro.getCategoriaId()));
+        }
+
+        String order = "t.fecha";
+        if (filtro != null && filtro.getOrden() != null) {
+            switch (filtro.getOrden()) {
+                case NOMBRE:
+                    order = "t.nota";
+                    break;
+                case CATEGORIA:
+                    order = "c.nombre";
+                    break;
+                default:
+                    order = "t.fecha";
+                    break;
+            }
+        }
+        order = order + (filtro != null && filtro.isAscendente() ? " ASC" : " DESC");
+        sql.append(" ORDER BY ").append(order);
+
+        try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
             while (c.moveToNext()) {
                 Transaccion t = new Transaccion(
                         c.getInt(0),
@@ -136,24 +176,92 @@ public class LocalRepository {
     }
 
     public int createTransaccion(int categoriaId, boolean esIngreso, double monto, String nota) {
+        return createTransaccion(categoriaId, esIngreso, monto, nota, System.currentTimeMillis());
+    }
+
+    public int createTransaccion(int categoriaId, boolean esIngreso, double monto, String nota, long fecha) {
         SQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("categoria_id", categoriaId);
         cv.put("es_ingreso", esIngreso ? 1 : 0);
         cv.put("monto", monto);
-        cv.put("fecha", System.currentTimeMillis());
+        cv.put("fecha", fecha);
         cv.put("nota", nota);
         return (int) db.insert("transacciones", null, cv);
     }
 
-    public boolean updateTransaccion(int id, int categoriaId, boolean esIngreso, double monto, String nota) {
+    public boolean updateTransaccion(int id, int categoriaId, boolean esIngreso, double monto, String nota, long fecha) {
         SQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("categoria_id", categoriaId);
         cv.put("es_ingreso", esIngreso ? 1 : 0);
         cv.put("monto", monto);
+        cv.put("fecha", fecha);
         cv.put("nota", nota);
         return db.update("transacciones", cv, "id=?", new String[]{String.valueOf(id)}) > 0;
+    }
+
+    public List<Transaccion> listTodasTransacciones() {
+        List<Transaccion> out = new ArrayList<>();
+        SQLiteDatabase db = helper.getReadableDatabase();
+        String sql = "SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
+                "FROM transacciones t JOIN categorias c ON c.id = t.categoria_id ORDER BY t.fecha DESC";
+        try (Cursor c = db.rawQuery(sql, null)) {
+            while (c.moveToNext()) {
+                Transaccion t = new Transaccion(
+                        c.getInt(0),
+                        c.getInt(1),
+                        c.getString(2),
+                        c.getInt(3) == 1,
+                        c.getDouble(4),
+                        new Date(c.getLong(5)),
+                        c.getString(6)
+                );
+                out.add(t);
+            }
+        }
+        return out;
+    }
+
+    public String exportTransacciones() throws Exception {
+        List<Transaccion> transacciones = listTodasTransacciones();
+        if (transacciones.isEmpty()) {
+            throw new IllegalStateException("No hay transacciones para exportar");
+        }
+
+        File dir = new File(helper.getContext().getFilesDir(), "exports");
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new IllegalStateException("No se pudo crear el directorio de exportación");
+        }
+
+        SimpleDateFormat fileDf = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US);
+        SimpleDateFormat dateDf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        File outFile = new File(dir, "transacciones-" + fileDf.format(new Date()) + ".txt");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("ID | Fecha | Categoría | Tipo | Monto | Nota\n");
+        for (Transaccion t : transacciones) {
+            String fecha = dateDf.format(t.getFecha());
+            String tipo = t.isEsIngreso() ? "Ingreso" : "Gasto";
+            sb.append(t.getId())
+                    .append(" | ")
+                    .append(fecha)
+                    .append(" | ")
+                    .append(t.getCategoriaNombre())
+                    .append(" | ")
+                    .append(tipo)
+                    .append(" | ")
+                    .append(t.getMonto())
+                    .append(" | ")
+                    .append(t.getNota() == null ? "" : t.getNota())
+                    .append('\n');
+        }
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
+            writer.write(sb.toString());
+        }
+
+        return outFile.getAbsolutePath();
     }
 
     public boolean deleteTransaccion(int id) {
@@ -490,34 +598,6 @@ public class LocalRepository {
     }
     // endregion
 
-    // region Hogares
-    public List<com.example.finanzas.data.model.HouseholdSummary> listHouseholds() {
-        List<com.example.finanzas.data.model.HouseholdSummary> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, nombre, rol FROM households", null)) {
-            while (c.moveToNext()) {
-                com.example.finanzas.data.model.HouseholdSummary h = new com.example.finanzas.data.model.HouseholdSummary();
-                h.setId(c.getInt(0));
-                h.setNombre(c.getString(1));
-                h.setRol(c.getString(2));
-                h.setMiembros(1);
-                h.setBalance(0);
-                out.add(h);
-            }
-        }
-        return out;
-    }
-
-    public int createHousehold(String nombre) {
-        SQLiteDatabase db = helper.getWritableDatabase();
-        ContentValues cv = new ContentValues();
-        cv.put("nombre", nombre);
-        cv.put("rol", "admin");
-        cv.put("codigo", nombre.substring(0, Math.min(4, nombre.length())).toUpperCase(Locale.ROOT) + System.currentTimeMillis());
-        return (int) db.insert("households", null, cv);
-    }
-    // endregion
-
     // region Dashboard
     public HomeSummary buildHomeSummary(int anio, int mes) {
         HomeSummary summary = new HomeSummary();
@@ -546,7 +626,6 @@ public class LocalRepository {
         summary.getMetas().addAll(listGoals());
         summary.getRecordatorios().addAll(listReminders(false));
         summary.setImportacionesPendientes(listImports().size());
-        summary.getHogares().addAll(listHouseholds());
         return summary;
     }
     // endregion

@@ -11,7 +11,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.navigation.Navigation;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.UserService;
@@ -37,9 +37,9 @@ public class ChangePasswordFragment extends Fragment {
         MaterialButton btnSave = v.findViewById(R.id.btnGuardarPass);
 
         btnSave.setOnClickListener(view -> {
-            String oldP = etOld.getText()==null? "": etOld.getText().toString().trim();
-            String newP = etNew.getText()==null? "": etNew.getText().toString().trim();
-            String conf = etConf.getText()==null? "": etConf.getText().toString().trim();
+            String oldP = etOld.getText() == null ? "" : etOld.getText().toString().trim();
+            String newP = etNew.getText() == null ? "" : etNew.getText().toString().trim();
+            String conf = etConf.getText() == null ? "" : etConf.getText().toString().trim();
 
             if (TextUtils.isEmpty(oldP) || TextUtils.isEmpty(newP) || TextUtils.isEmpty(conf)) {
                 Toast.makeText(requireContext(), "Completa todos los campos", Toast.LENGTH_SHORT).show();
@@ -66,7 +66,7 @@ public class ChangePasswordFragment extends Fragment {
                             .edit().clear().apply();
                     com.example.finanzas.util.Prefs.setToken(requireContext(), null);
 
-                    Navigation.findNavController(view).navigate(R.id.nav_login);
+                    NavHostFragment.findNavController(ChangePasswordFragment.this).navigate(R.id.nav_login);
                 }
 
                 @Override
@@ -77,5 +77,6 @@ public class ChangePasswordFragment extends Fragment {
                 }
             });
         });
+
     }
 }

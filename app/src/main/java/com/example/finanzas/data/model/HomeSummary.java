@@ -25,7 +25,6 @@ public class HomeSummary {
     private final List<CategoryChartSlice> chartCategorias = new ArrayList<>();
     private final List<MonthlyTrendPoint> tendenciaMensual = new ArrayList<>();
     private int importacionesPendientes;
-    private final List<HouseholdSummary> hogares = new ArrayList<>();
     private final List<ExchangeRate> tiposCambio = new ArrayList<>();
     private ConversionSummary conversion;
     private final List<DashboardModulePref> dashboardPreferencias = new ArrayList<>();
@@ -87,8 +86,6 @@ public class HomeSummary {
 
     public int getImportacionesPendientes() { return importacionesPendientes; }
     public void setImportacionesPendientes(int importacionesPendientes) { this.importacionesPendientes = importacionesPendientes; }
-
-    public List<HouseholdSummary> getHogares() { return hogares; }
 
     public List<ExchangeRate> getTiposCambio() { return tiposCambio; }
 

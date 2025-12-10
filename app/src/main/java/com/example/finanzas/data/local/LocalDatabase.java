@@ -10,6 +10,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
     public static final int DB_VERSION = 1;
 
     private static LocalDatabase instance;
+    private final Context context;
 
     public static synchronized LocalDatabase getInstance(Context context) {
         if (instance == null) {
@@ -20,6 +21,7 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     private LocalDatabase(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
+        this.context = context;
     }
 
     @Override
@@ -34,7 +36,6 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE recordatorios (id INTEGER PRIMARY KEY AUTOINCREMENT, titulo TEXT, monto REAL, fecha_vencimiento INTEGER, pagado INTEGER, categoria_id INTEGER, hora_recordatorio TEXT, frecuencia TEXT, notificar INTEGER, dias_recordatorio INTEGER, google_event_id TEXT, notification_id TEXT)");
         db.execSQL("CREATE TABLE import_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, tipo TEXT, estado TEXT, lineas TEXT)");
         db.execSQL("CREATE TABLE import_rules (id INTEGER PRIMARY KEY AUTOINCREMENT, patron TEXT, es_ingreso INTEGER, categoria_id INTEGER, nota TEXT)");
-        db.execSQL("CREATE TABLE households (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, codigo TEXT, rol TEXT)");
         seedCategorias(db);
     }
 
@@ -60,7 +61,10 @@ public class LocalDatabase extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS recordatorios");
         db.execSQL("DROP TABLE IF EXISTS import_jobs");
         db.execSQL("DROP TABLE IF EXISTS import_rules");
-        db.execSQL("DROP TABLE IF EXISTS households");
         onCreate(db);
+    }
+
+    public Context getContext() {
+        return context;
     }
 }

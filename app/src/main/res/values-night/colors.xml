@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#8DE9BB</color>
+    <color name="colorOnPrimary">#0B2217</color>
+    <color name="colorAccent">#6BD8A8</color>
+    <color name="danger">#FFB3C0</color>
+    <color name="bg">#0F1713</color>
+
+    <color name="md_theme_primary">#6BD8A8</color>
+    <color name="md_theme_onPrimary">#0C2519</color>
+    <color name="md_theme_secondary">#88C2A5</color>
+    <color name="md_theme_onSecondary">#0F1D17</color>
+    <color name="md_theme_background">@color/bg</color>
+    <color name="md_theme_onBackground">#E4E8E3</color>
+    <color name="md_theme_surface">#141D18</color>
+    <color name="md_theme_onSurface">#E4E8E3</color>
+    <color name="md_theme_outline">#3B4B43</color>
+    <color name="md_theme_outlineVariant">#223029</color>
+    <color name="md_theme_onSurfaceVariant">#B6C4BC</color>
+    <color name="md_theme_onSecondaryContainer">#E4E8E3</color>
+    <color name="md_theme_error">@color/danger</color>
+    <color name="income">#8DE9BB</color>
+    <color name="expense">#F08A94</color>
+    <color name="md_theme_primaryContainer">#1E2C25</color>
+    <color name="md_theme_onPrimaryContainer">#C6F3DF</color>
+    <color name="md_theme_secondaryContainer">#1D2B24</color>
+    <color name="md_theme_tertiary">#9CC7B5</color>
+    <color name="md_theme_onTertiary">#10201A</color>
+    <color name="md_theme_tertiaryContainer">#1E2F27</color>
+    <color name="md_theme_onTertiaryContainer">#CDEAD9</color>
+    <color name="md_theme_onError">#2D0A12</color>
+    <color name="md_theme_errorContainer">#5C1B29</color>
+    <color name="md_theme_onErrorContainer">#FFDDE4</color>
+
+    <color name="risk_low_bg">#1F2C24</color>
+    <color name="risk_low_text">#A5E6C7</color>
+    <color name="risk_medium_bg">#2F2A1C</color>
+    <color name="risk_medium_text">#F1C27D</color>
+    <color name="risk_high_bg">#3A2424</color>
+    <color name="risk_high_text">#FFB3C0</color>
+
+    <color name="white">#E4E8E3</color>
+    <color name="black">#0B0F0D</color>
+    <color name="gray_light">#2A342F</color>
+    <color name="gray_medium">#5C6B63</color>
+    <color name="gray_dark">#A9B7B0</color>
+
+    <color name="gradient_start">#1E2C25</color>
+    <color name="gradient_end">#14211B</color>
+</resources>

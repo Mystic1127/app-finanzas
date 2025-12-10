@@ -1,6 +1,7 @@
 package com.example.finanzas.ui;
 
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -28,6 +29,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import org.json.JSONObject;
 
+import java.util.Calendar;
 import java.util.List;
 
 public class GoalsFragment extends Fragment {
@@ -100,6 +102,8 @@ public class GoalsFragment extends Fragment {
         EditText etActual = form.findViewById(R.id.etGoalActual);
         EditText etFecha = form.findViewById(R.id.etGoalFecha);
 
+        setupDatePicker(etFecha);
+
         boolean editando = goal != null;
         if (editando) {
             etTitulo.setText(goal.getTitulo());
@@ -150,6 +154,31 @@ public class GoalsFragment extends Fragment {
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private void setupDatePicker(@NonNull EditText input) {
+        input.setFocusable(false);
+        input.setOnClickListener(v -> showDatePicker(input));
+        input.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) showDatePicker(input); });
+    }
+
+    private void showDatePicker(@NonNull EditText input) {
+        java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        Calendar calendar = Calendar.getInstance();
+        String current = input.getText() == null ? "" : input.getText().toString();
+        try {
+            java.util.Date parsed = df.parse(current);
+            if (parsed != null) calendar.setTime(parsed);
+        } catch (Exception ignored) { }
+
+        DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
+            calendar.set(Calendar.YEAR, year);
+            calendar.set(Calendar.MONTH, month);
+            calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+            input.setText(df.format(calendar.getTime()));
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+
+        dialog.show();
     }
 
     private void confirmarEliminar(SavingsGoal goal) {

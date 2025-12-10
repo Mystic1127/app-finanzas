@@ -13,7 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavOptions;
-import androidx.navigation.Navigation;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.AuthService;
@@ -35,7 +35,7 @@ public class LoginFragment extends Fragment {
                 requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
                         .getLong("user_id", -1) > 0) {
             NavOptions opts = new NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build();
-            Navigation.findNavController(v).navigate(R.id.nav_home, null, opts);
+            NavHostFragment.findNavController(this).navigate(R.id.nav_home, null, opts);
             return;
         }
 
@@ -45,7 +45,7 @@ public class LoginFragment extends Fragment {
         View linkRegistro   = v.findViewById(R.id.tvIrRegistro);
 
         linkRegistro.setOnClickListener(view ->
-                Navigation.findNavController(view).navigate(R.id.nav_register));
+                NavHostFragment.findNavController(this).navigate(R.id.nav_register));
 
         btnLogin.setOnClickListener(view -> {
             String email = etEmail.getText()    == null ? "" : etEmail.getText().toString().trim();
@@ -69,7 +69,7 @@ public class LoginFragment extends Fragment {
 
                     Toast.makeText(requireContext(), "¡Bienvenido, " + nombre + "!", Toast.LENGTH_SHORT).show();
                     NavOptions opts = new NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build();
-                    Navigation.findNavController(view).navigate(R.id.nav_home, null, opts);
+                    NavHostFragment.findNavController(LoginFragment.this).navigate(R.id.nav_home, null, opts);
                 }
 
                 @Override public void onError() {
@@ -80,5 +80,6 @@ public class LoginFragment extends Fragment {
                 }
             });
         });
+
     }
 }
