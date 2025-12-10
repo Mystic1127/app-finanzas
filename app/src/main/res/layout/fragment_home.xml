@@ -431,14 +431,6 @@
                             android:drawableStart="@drawable/ic_box_search_48"
                             android:text="@string/home_reminders" />
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnHogares"
-                            style="@style/Widget.Finanzas.Button.Outlined"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:drawableStart="@drawable/ic_group_24"
-                            android:text="@string/home_households" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -505,40 +497,6 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:textColor="@color/md_theme_error"
-                        android:visibility="gone" />
-                </LinearLayout>
-
-                <!-- Hogares -->
-                <LinearLayout
-                    android:id="@+id/moduleHouseholds"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
-                        android:text="@string/home_households_title"
-                        android:textColor="@color/md_theme_onSurface"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rvHogares"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
-                        android:nestedScrollingEnabled="false" />
-
-                    <TextView
-                        android:id="@+id/tvHogaresEmpty"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:layout_marginBottom="16dp"
-                        android:text="@string/home_households_empty"
-                        android:textColor="@color/md_theme_onSurfaceVariant"
                         android:visibility="gone" />
                 </LinearLayout>
 

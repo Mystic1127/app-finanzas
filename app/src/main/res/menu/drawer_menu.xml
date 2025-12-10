@@ -33,11 +33,6 @@
             android:icon="@drawable/ic_upload" />
 
         <item
-            android:id="@+id/nav_households"
-            android:title="Hogares"
-            android:icon="@drawable/ic_groups" />
-
-        <item
             android:id="@+id/nav_perfil"
             android:title="Perfil"
             android:icon="@drawable/ic_perfil_24" />

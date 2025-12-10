@@ -84,12 +84,6 @@
     <string name="home_automation_imports">Importaciones bancarias</string>
     <string name="home_automation_imports_none">No hay importaciones pendientes</string>
     <string name="home_automation_imports_pending">Pendientes: %1$d</string>
-    <string name="home_households">Hogares</string>
-    <string name="home_households_title">Hogares compartidos</string>
-    <string name="home_households_empty">Invita a tu familia o crea un hogar para compartir presupuestos.</string>
-    <string name="household_role_label">Rol: %1$s</string>
-    <string name="household_members_label">Miembros: %1$d</string>
-    <string name="household_totals_label">Ingresos %1$s • Gastos %2$s • Saldo %3$s</string>
     <string name="import_status_format">Estado: %1$s</string>
     <string name="import_counts_format">Total %1$d • Procesados %2$d • Pendientes %3$d • Errores %4$d</string>
     <string name="import_process">Procesar</string>
@@ -138,6 +132,17 @@
     <string name="error_cargar_transacciones">No se pudieron cargar las transacciones</string>
     <string name="error_eliminar_transaccion">No se pudo eliminar la transacción</string>
     <string name="trans_deleted">Transacción eliminada</string>
+    <string name="transactions_filter">Ordenar y filtrar</string>
+    <string name="transactions_filter_title">Filtros de transacciones</string>
+    <string name="transactions_filter_start">Fecha inicio (AAAA-MM-DD)</string>
+    <string name="transactions_filter_end">Fecha fin (AAAA-MM-DD)</string>
+    <string name="transactions_filter_category">Categoría</string>
+    <string name="transactions_filter_order_date">Ordenar por fecha</string>
+    <string name="transactions_filter_order_name">Ordenar por nota</string>
+    <string name="transactions_filter_order_category">Ordenar por categoría</string>
+    <string name="transactions_filter_sort_direction">Orden ascendente</string>
+    <string name="transactions_filter_clear">Limpiar filtros</string>
+    <string name="transactions_filter_apply">Aplicar</string>
     <string name="transactions_period_label">Mostrando: %1$s</string>
     <string name="transactions_period_reset">Volver al mes actual</string>
     <string name="transactions_loaded_period">Mostrando transacciones de %1$s</string>
@@ -208,7 +213,6 @@
     <string name="dashboard_module_quick">Acciones rápidas</string>
     <string name="dashboard_module_gamification">Retos y consejos</string>
     <string name="dashboard_module_alerts">Alertas</string>
-    <string name="dashboard_module_households">Hogares</string>
     <string name="dashboard_module_budgets">Presupuestos</string>
     <string name="dashboard_module_goals">Metas</string>
     <string name="dashboard_module_reminders">Recordatorios</string>
@@ -290,34 +294,6 @@
     <string name="pin_removed_success">PIN desactivado. Tus datos ya no están protegidos.</string>
     <string name="pin_setup_remove">Quitar PIN</string>
     <string name="pin_setup_remove_confirm">¿Seguro que quieres quitar el PIN de acceso?</string>
-
-
-    <string name="household_intro">Organiza tus finanzas familiares y comparte presupuestos con las personas de tu hogar.</string>
-    <string name="household_create">Crear hogar</string>
-    <string name="household_join">Unirme con código</string>
-    <string name="household_create_title">Nuevo hogar</string>
-    <string name="household_create_hint">Nombre del hogar</string>
-    <string name="household_error_name">Ingresa un nombre para tu hogar.</string>
-    <string name="household_create_error">No se pudo crear el hogar.</string>
-    <string name="household_list_error">No se pudieron cargar tus hogares.</string>
-    <string name="household_join_title">Unirse a un hogar</string>
-    <string name="household_join_code_hint">Código de invitación</string>
-    <string name="household_join_role_hint">Rol en el hogar</string>
-    <string name="household_role_viewer">Solo lectura</string>
-    <string name="household_role_admin">Administrador</string>
-    <string name="household_join_code_error">Ingresa el código de invitación.</string>
-    <string name="household_join_ok">¡Bienvenido al hogar!</string>
-    <string name="household_join_error">No se pudo unir al hogar.</string>
-    <string name="household_invite">Generar invitación</string>
-    <string name="household_invite_error">No se pudo generar el código.</string>
-    <string name="household_code_title">Comparte este código</string>
-    <string name="household_code_message">Código: %1$s
-Compártelo con quien quieras invitar.</string>
-    <string name="household_code_copy">Copiar</string>
-    <string name="household_code_copied">Código copiado.</string>
-    <string name="household_detail_totals">%1$d integrantes • Tu rol: %2$s • Hogar: %3$s</string>
-    <string name="household_member_entry">%1$s • Ingresos %2$s • Gastos %3$s • Saldo %4$s</string>
-
     <string name="import_delete_rule_confirm">¿Eliminar regla?</string>
     <string name="import_refresh">Refrescar todo</string>
     <string name="import_empty">Aún no hay importaciones</string>
@@ -341,13 +317,4 @@ Compártelo con quien quieras invitar.</string>
         <item>@string/import_type_excel</item>
     </string-array>
 
-    <string-array name="household_role_labels">
-        <item>@string/household_role_viewer</item>
-        <item>@string/household_role_admin</item>
-    </string-array>
-
-    <string-array name="household_role_values">
-        <item>viewer</item>
-        <item>admin</item>
-    </string-array>
 </resources>

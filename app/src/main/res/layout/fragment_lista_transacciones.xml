@@ -33,6 +33,14 @@
                 android:textColor="@color/md_theme_onSurfaceVariant" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFiltros"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/transactions_filter" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnExportar"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"

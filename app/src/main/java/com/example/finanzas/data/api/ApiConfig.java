@@ -45,11 +45,6 @@ public class ApiConfig {
     public static final String IMPORT_RULES_SAVE   = "importaciones/reglas/save.php";
     public static final String IMPORT_RULES_DELETE = "importaciones/reglas/delete.php";
 
-    public static final String HOGARES_LIST   = "hogares/list.php";
-    public static final String HOGARES_CREATE = "hogares/create.php";
-    public static final String HOGARES_INVITE = "hogares/invite.php";
-    public static final String HOGARES_JOIN   = "hogares/join.php";
-    public static final String HOGARES_REMOVE = "hogares/remove.php";
 
 
     public static String TOKEN = null;

@@ -38,7 +38,6 @@ import com.example.finanzas.ui.adapter.CategoryBudgetSummaryAdapter;
 import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
 import com.example.finanzas.ui.adapter.GoalSummaryAdapter;
 import com.example.finanzas.ui.adapter.ReminderSummaryAdapter;
-import com.example.finanzas.ui.adapter.HouseholdSummaryAdapter;
 import com.example.finanzas.util.Format;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
@@ -80,7 +79,6 @@ public class HomeFragment extends Fragment {
     private static final String MODULE_QUICK = "quick";
     private static final String MODULE_GAMIFICATION = "gamification";
     private static final String MODULE_ALERTS = "alerts";
-    private static final String MODULE_HOUSEHOLDS = "households";
     private static final String MODULE_BUDGETS = "budgets";
     private static final String MODULE_GOALS = "goals";
     private static final String MODULE_REMINDERS = "reminders";
@@ -96,7 +94,6 @@ public class HomeFragment extends Fragment {
             MODULE_QUICK,
             MODULE_GAMIFICATION,
             MODULE_ALERTS,
-            MODULE_HOUSEHOLDS,
             MODULE_BUDGETS,
             MODULE_GOALS,
             MODULE_REMINDERS,
@@ -125,7 +122,6 @@ public class HomeFragment extends Fragment {
     private TextView tvPredictDays;
     private TextView tvPredictAlerts;
     private TextView tvImportPend;
-    private TextView tvHogaresEmpty;
     private TextView tvSimResultado;
     private TextView tvSimDetalle;
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
@@ -134,7 +130,6 @@ public class HomeFragment extends Fragment {
     private CategoryBudgetSummaryAdapter budgetAdapter;
     private GoalSummaryAdapter goalAdapter;
     private ReminderSummaryAdapter reminderAdapter;
-    private HouseholdSummaryAdapter householdAdapter;
     private BarChart chartCategorias;
     private LineChart chartTrend;
     private BarChart chartBalance;
@@ -185,7 +180,6 @@ public class HomeFragment extends Fragment {
         tvPredictDays = v.findViewById(R.id.tvPredictDays);
         tvPredictAlerts = v.findViewById(R.id.tvPredictAlerts);
         tvImportPend = v.findViewById(R.id.tvImportPend);
-        tvHogaresEmpty = v.findViewById(R.id.tvHogaresEmpty);
         chipRiesgo = v.findViewById(R.id.chipRiesgo);
         chipGamificacion = v.findViewById(R.id.chipGamificacion);
         tvGamificacionEmpty = v.findViewById(R.id.tvGamificacionEmpty);
@@ -210,22 +204,18 @@ public class HomeFragment extends Fragment {
         androidx.recyclerview.widget.RecyclerView rvBudgets = v.findViewById(R.id.rvBudgets);
         androidx.recyclerview.widget.RecyclerView rvGoals = v.findViewById(R.id.rvGoals);
         androidx.recyclerview.widget.RecyclerView rvReminders = v.findViewById(R.id.rvReminders);
-        RecyclerView rvHogares = v.findViewById(R.id.rvHogares);
 
         rvBudgets.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvGoals.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvReminders.setLayoutManager(new LinearLayoutManager(requireContext()));
-        rvHogares.setLayoutManager(new LinearLayoutManager(requireContext()));
 
         budgetAdapter = new CategoryBudgetSummaryAdapter();
         goalAdapter = new GoalSummaryAdapter();
         reminderAdapter = new ReminderSummaryAdapter();
-        householdAdapter = new HouseholdSummaryAdapter();
 
         rvBudgets.setAdapter(budgetAdapter);
         rvGoals.setAdapter(goalAdapter);
         rvReminders.setAdapter(reminderAdapter);
-        rvHogares.setAdapter(householdAdapter);
 
         setupChart(chartCategorias);
         setupChart(chartTrend);
@@ -242,8 +232,6 @@ public class HomeFragment extends Fragment {
                 .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_reminders));
         v.findViewById(R.id.btnImportaciones)
                 .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_imports));
-        v.findViewById(R.id.btnHogares)
-                .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_households));
 
         FloatingActionButton fabNueva = v.findViewById(R.id.fabNueva);
         fabNueva.setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_new));
@@ -336,12 +324,10 @@ public class HomeFragment extends Fragment {
         budgetAdapter.setItems(summary.getPresupuestosCategoria());
         goalAdapter.setItems(summary.getMetas());
         reminderAdapter.setItems(summary.getRecordatorios());
-        householdAdapter.setItems(summary.getHogares());
 
         tvBudgetsEmpty.setVisibility(budgetAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
         tvGoalsEmpty.setVisibility(goalAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
         tvRemindersEmpty.setVisibility(reminderAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
-        tvHogaresEmpty.setVisibility(householdAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
 
         renderGamification(summary);
         renderBudgetChart(summary.getChartCategorias());
@@ -777,7 +763,6 @@ public class HomeFragment extends Fragment {
         moduleViews.put(MODULE_QUICK, root.findViewById(R.id.moduleQuick));
         moduleViews.put(MODULE_GAMIFICATION, root.findViewById(R.id.moduleGamification));
         moduleViews.put(MODULE_ALERTS, root.findViewById(R.id.moduleAlerts));
-        moduleViews.put(MODULE_HOUSEHOLDS, root.findViewById(R.id.moduleHouseholds));
         moduleViews.put(MODULE_BUDGETS, root.findViewById(R.id.moduleBudgets));
         moduleViews.put(MODULE_GOALS, root.findViewById(R.id.moduleGoals));
         moduleViews.put(MODULE_REMINDERS, root.findViewById(R.id.moduleReminders));
@@ -873,8 +858,6 @@ public class HomeFragment extends Fragment {
                 return getString(R.string.dashboard_module_gamification);
             case MODULE_ALERTS:
                 return getString(R.string.dashboard_module_alerts);
-            case MODULE_HOUSEHOLDS:
-                return getString(R.string.dashboard_module_households);
             case MODULE_BUDGETS:
                 return getString(R.string.dashboard_module_budgets);
             case MODULE_GOALS:

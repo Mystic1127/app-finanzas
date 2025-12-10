@@ -18,6 +18,7 @@ import com.example.finanzas.data.model.ImportRule;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.data.model.TransaccionFiltro;
 
 import org.json.JSONObject;
 
@@ -109,6 +110,10 @@ public class LocalRepository {
 
     // region Transacciones
     public List<Transaccion> listTransacciones(int anio, int mes) {
+        return listTransacciones(anio, mes, null);
+    }
+
+    public List<Transaccion> listTransacciones(int anio, int mes, @Nullable TransaccionFiltro filtro) {
         Calendar cal = Calendar.getInstance();
         cal.set(anio, mes - 1, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
@@ -116,12 +121,43 @@ public class LocalRepository {
         cal.add(Calendar.MONTH, 1);
         long end = cal.getTimeInMillis();
 
+        if (filtro != null) {
+            if (filtro.getFechaInicio() != null) start = filtro.getFechaInicio();
+            if (filtro.getFechaFin() != null) end = filtro.getFechaFin();
+        }
+
         List<Transaccion> out = new ArrayList<>();
         SQLiteDatabase db = helper.getReadableDatabase();
-        String sql = "SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
+        StringBuilder sql = new StringBuilder("SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
                 "FROM transacciones t JOIN categorias c ON c.id = t.categoria_id " +
-                "WHERE t.fecha >= ? AND t.fecha < ? ORDER BY t.fecha DESC";
-        try (Cursor c = db.rawQuery(sql, new String[]{String.valueOf(start), String.valueOf(end)})) {
+                "WHERE t.fecha >= ? AND t.fecha < ?");
+        List<String> args = new ArrayList<>();
+        args.add(String.valueOf(start));
+        args.add(String.valueOf(end));
+
+        if (filtro != null && filtro.getCategoriaId() != null) {
+            sql.append(" AND t.categoria_id = ?");
+            args.add(String.valueOf(filtro.getCategoriaId()));
+        }
+
+        String order = "t.fecha";
+        if (filtro != null && filtro.getOrden() != null) {
+            switch (filtro.getOrden()) {
+                case NOMBRE:
+                    order = "t.nota";
+                    break;
+                case CATEGORIA:
+                    order = "c.nombre";
+                    break;
+                default:
+                    order = "t.fecha";
+                    break;
+            }
+        }
+        order = order + (filtro != null && filtro.isAscendente() ? " ASC" : " DESC");
+        sql.append(" ORDER BY ").append(order);
+
+        try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
             while (c.moveToNext()) {
                 Transaccion t = new Transaccion(
                         c.getInt(0),
@@ -561,34 +597,6 @@ public class LocalRepository {
     }
     // endregion
 
-    // region Hogares
-    public List<com.example.finanzas.data.model.HouseholdSummary> listHouseholds() {
-        List<com.example.finanzas.data.model.HouseholdSummary> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, nombre, rol FROM households", null)) {
-            while (c.moveToNext()) {
-                com.example.finanzas.data.model.HouseholdSummary h = new com.example.finanzas.data.model.HouseholdSummary();
-                h.setId(c.getInt(0));
-                h.setNombre(c.getString(1));
-                h.setRol(c.getString(2));
-                h.setMiembros(1);
-                h.setBalance(0);
-                out.add(h);
-            }
-        }
-        return out;
-    }
-
-    public int createHousehold(String nombre) {
-        SQLiteDatabase db = helper.getWritableDatabase();
-        ContentValues cv = new ContentValues();
-        cv.put("nombre", nombre);
-        cv.put("rol", "admin");
-        cv.put("codigo", nombre.substring(0, Math.min(4, nombre.length())).toUpperCase(Locale.ROOT) + System.currentTimeMillis());
-        return (int) db.insert("households", null, cv);
-    }
-    // endregion
-
     // region Dashboard
     public HomeSummary buildHomeSummary(int anio, int mes) {
         HomeSummary summary = new HomeSummary();
@@ -617,7 +625,6 @@ public class LocalRepository {
         summary.getMetas().addAll(listGoals());
         summary.getRecordatorios().addAll(listReminders(false));
         summary.setImportacionesPendientes(listImports().size());
-        summary.getHogares().addAll(listHouseholds());
         return summary;
     }
     // endregion

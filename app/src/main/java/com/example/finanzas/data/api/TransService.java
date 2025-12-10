@@ -6,6 +6,7 @@ import androidx.annotation.Nullable;
 
 import com.example.finanzas.data.local.LocalRepository;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.data.model.TransaccionFiltro;
 
 import java.util.List;
 
@@ -17,8 +18,12 @@ public class TransService {
     public interface FileCb   { void onOk(String path);    void onError(@Nullable String message); }
 
     public static void list(Context ctx, int anio, int mes, ListCb cb){
+        list(ctx, anio, mes, null, cb);
+    }
+
+    public static void list(Context ctx, int anio, int mes, @Nullable TransaccionFiltro filtro, ListCb cb){
         try {
-            List<Transaccion> list = LocalRepository.getInstance(ctx).listTransacciones(anio, mes);
+            List<Transaccion> list = LocalRepository.getInstance(ctx).listTransacciones(anio, mes, filtro);
             cb.onOk(list);
         } catch (Exception e) {
             cb.onError();

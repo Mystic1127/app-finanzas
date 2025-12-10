@@ -58,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
                 R.id.nav_goals,
                 R.id.nav_reminders,
                 R.id.nav_imports,
-                R.id.nav_households,
                 R.id.nav_perfil,
                 R.id.nav_login,
                 R.id.nav_register
@@ -136,7 +135,6 @@ public class MainActivity extends AppCompatActivity {
                 || destId == R.id.nav_goals
                 || destId == R.id.nav_reminders
                 || destId == R.id.nav_imports
-                || destId == R.id.nav_households
                 || destId == R.id.nav_perfil) {
             navController.navigate(destId, null, opts);
             return true;

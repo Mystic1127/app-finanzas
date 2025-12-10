@@ -92,12 +92,6 @@
         android:label="Importaciones"
         tools:layout="@layout/fragment_imports" />
 
-    <fragment
-        android:id="@+id/nav_households"
-        android:name="com.example.finanzas.ui.HouseholdsFragment"
-        android:label="Hogares"
-        tools:layout="@layout/fragment_households" />
-
     <!-- NUEVA TRANSACCIÓN -->
     <fragment
         android:id="@+id/nav_new"

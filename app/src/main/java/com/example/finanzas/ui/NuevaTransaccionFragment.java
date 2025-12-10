@@ -8,12 +8,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
+import android.widget.FrameLayout;
 import android.widget.Toast;
-import androidx.navigation.Navigation;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.CategoryStore;
@@ -22,6 +24,7 @@ import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.util.DateInputMask;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -51,6 +54,8 @@ public class NuevaTransaccionFragment extends Fragment {
     private MaterialButton btnGuardar;
     private MaterialButton btnSugerir;
     private Chip chipSugerencia;
+    private AlertDialog dialog;
+    private View dialogContent;
 
     private Integer editingId = null;
     private List<Categoria> categorias;
@@ -66,21 +71,23 @@ public class NuevaTransaccionFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_nueva_transaccion, container, false);
+        return new FrameLayout(inflater.getContext());
     }
 
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
 
-        etMonto       = v.findViewById(R.id.etMonto);
-        etNota        = v.findViewById(R.id.etNota);
-        etFecha       = v.findViewById(R.id.etFecha);
-        swTipo        = v.findViewById(R.id.swTipo);
-        actCategoria  = v.findViewById(R.id.actCategoria);
-        btnGuardar    = v.findViewById(R.id.btnGuardar);
-        btnSugerir    = v.findViewById(R.id.btnSugerir);
-        chipSugerencia = v.findViewById(R.id.chipSugerencia);
+        dialogContent = LayoutInflater.from(requireContext()).inflate(R.layout.fragment_nueva_transaccion, null, false);
+
+        etMonto       = dialogContent.findViewById(R.id.etMonto);
+        etNota        = dialogContent.findViewById(R.id.etNota);
+        etFecha       = dialogContent.findViewById(R.id.etFecha);
+        swTipo        = dialogContent.findViewById(R.id.swTipo);
+        actCategoria  = dialogContent.findViewById(R.id.actCategoria);
+        btnGuardar    = dialogContent.findViewById(R.id.btnGuardar);
+        btnSugerir    = dialogContent.findViewById(R.id.btnSugerir);
+        chipSugerencia = dialogContent.findViewById(R.id.chipSugerencia);
 
         if (etFecha != null) {
             etFecha.setFilters(new InputFilter[]{new InputFilter.LengthFilter(10)});
@@ -105,11 +112,18 @@ public class NuevaTransaccionFragment extends Fragment {
         precargarDesdeArgs();
         cargarCategoriasYRefrescar();
 
-        if (etFecha != null && etFecha.getText() == null) {
+        if (etFecha != null && (etFecha.getText() == null || TextUtils.isEmpty(etFecha.getText().toString()))) {
             etFecha.setText(inputDateFormat.format(new Date()));
         }
 
         btnGuardar.setOnClickListener(this::onGuardar);
+
+        dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(editingId == null ? getString(R.string.cd_nueva_transaccion) : getString(R.string.btn_guardar))
+                .setView(dialogContent)
+                .setCancelable(true)
+                .create();
+        dialog.show();
     }
 
     private void cargarCategoriasYRefrescar() {
@@ -316,7 +330,8 @@ public class NuevaTransaccionFragment extends Fragment {
                         @Override public void onOk(int newId) {
                             btnGuardar.setEnabled(true);
                             Toast.makeText(requireContext(), R.string.trans_saved, Toast.LENGTH_SHORT).show();
-                            Navigation.findNavController(view).popBackStack();
+                            NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
+                            dismissDialog();
                         }
                         @Override public void onError(@Nullable String message) {
                             btnGuardar.setEnabled(true);
@@ -334,7 +349,8 @@ public class NuevaTransaccionFragment extends Fragment {
                         @Override public void onOk() {
                             btnGuardar.setEnabled(true);
                             Toast.makeText(requireContext(), R.string.trans_updated, Toast.LENGTH_SHORT).show();
-                            Navigation.findNavController(view).popBackStack();
+                            NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
+                            dismissDialog();
                         }
                         @Override public void onError(@Nullable String message) {
                             btnGuardar.setEnabled(true);
@@ -386,6 +402,18 @@ public class NuevaTransaccionFragment extends Fragment {
             return Double.parseDouble(limpio);
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        dismissDialog();
+        super.onDestroyView();
+    }
+
+    private void dismissDialog() {
+        if (dialog != null && dialog.isShowing()) {
+            dialog.dismiss();
         }
     }
 }
