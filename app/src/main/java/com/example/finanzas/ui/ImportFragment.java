@@ -87,7 +87,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
     private void cargarCategorias() {
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
             @Override
-            public void onReady(List<Categoria> cats) {
+            public void onReady(List<? extends Categoria> cats) {
                 categorias.clear();
                 categoriaNombres.clear();
                 categoriasPorTipo.clear();
@@ -116,10 +116,10 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         swipe.setRefreshing(true);
         ImportService.list(requireContext(), new ImportService.ListCallback() {
             @Override
-            public void onSuccess(List<ImportJob> items) {
+            public void onSuccess(List<? extends ImportJob> items) {
                 if (!isAdded()) return;
                 swipe.setRefreshing(false);
-                jobAdapter.setItems(items);
+                jobAdapter.setItems(new ArrayList<>(items));
                 tvImportsEmpty.setVisibility(items == null || items.isEmpty() ? View.VISIBLE : View.GONE);
             }
 
@@ -133,9 +133,9 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
 
         ImportService.listRules(requireContext(), new ImportService.RulesCallback() {
             @Override
-            public void onSuccess(List<ImportRule> rules) {
+            public void onSuccess(List<? extends ImportRule> rules) {
                 if (!isAdded()) return;
-                ruleAdapter.setItems(rules);
+                ruleAdapter.setItems(new ArrayList<>(rules));
                 tvRulesEmpty.setVisibility(rules == null || rules.isEmpty() ? View.VISIBLE : View.GONE);
             }
 

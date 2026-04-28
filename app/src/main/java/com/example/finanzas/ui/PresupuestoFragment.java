@@ -120,7 +120,7 @@ public class PresupuestoFragment extends Fragment {
     private void cargarCategorias() {
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
             @Override
-            public void onReady(List<Categoria> cats) {
+            public void onReady(List<? extends Categoria> cats) {
                 List<CategoryBudgetInput> inputs = new ArrayList<>();
                 for (Categoria c : cats) {
                     if (c != null && !c.esIngreso) {
@@ -146,7 +146,7 @@ public class PresupuestoFragment extends Fragment {
     private void cargarPresupuestosGuardados() {
         CategoryBudgetService.list(requireContext(), anio, mes, new CategoryBudgetService.ListCb() {
             @Override
-            public void onOk(List<CategoryBudgetSummary> items) {
+            public void onOk(List<? extends CategoryBudgetSummary> items) {
                 List<CategoryBudgetInput> current = categoryAdapter.getItems();
                 for (CategoryBudgetInput input : current) {
                     for (CategoryBudgetSummary summary : items) {

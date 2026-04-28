@@ -29,6 +29,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
@@ -81,8 +82,8 @@ public class GoalsFragment extends Fragment {
         swipe.setRefreshing(true);
         GoalService.list(requireContext(), new GoalService.ListCb() {
             @Override
-            public void onOk(List<SavingsGoal> items) {
-                adapter.setItems(items);
+            public void onOk(List<? extends SavingsGoal> items) {
+                adapter.setItems(new ArrayList<>(items));
                 tvEmpty.setVisibility(items == null || items.isEmpty() ? View.VISIBLE : View.GONE);
                 swipe.setRefreshing(false);
             }
