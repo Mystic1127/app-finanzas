@@ -142,8 +142,8 @@ public class NuevaTransaccionFragment extends Fragment {
     private void cargarCategoriasYRefrescar() {
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
             @Override
-            public void onReady(List<Categoria> cats) {
-                categorias = cats;
+            public void onReady(List<? extends Categoria> cats) {
+                categorias = new ArrayList<>(cats);
                 boolean esIngreso = swTipo.isChecked();
                 String catDeseada = getArguments() != null ? getArguments().getString(EXTRA_CAT_NOMBRE) : null;
                 aplicarFiltroYRefrescar(esIngreso, true, catDeseada);

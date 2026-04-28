@@ -1,6 +1,5 @@
 package com.example.finanzas.ui;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.widget.Toast;
@@ -91,9 +90,7 @@ public class MainActivity extends AppCompatActivity {
 
             if (navView != null) {
                 String token = Prefs.getToken(this);
-                boolean loggedIn = token != null ||
-                        getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-                                .getLong("user_id", -1) > 0;
+                boolean loggedIn = token != null || Prefs.isLoggedIn(this);
 
                 MenuItem logoutItem = navView.getMenu().findItem(R.id.nav_logout);
                 if (logoutItem != null) logoutItem.setVisible(loggedIn);
@@ -143,11 +140,6 @@ public class MainActivity extends AppCompatActivity {
         if (destId == R.id.nav_logout) {
 
             Prefs.clearAuth(this);
-            getSharedPreferences("user_prefs", Context.MODE_PRIVATE).edit()
-                    .remove("user_id")
-                    .remove("user_email")
-                    .remove("user_name")
-                    .apply();
 
             PinSession.lock();
 

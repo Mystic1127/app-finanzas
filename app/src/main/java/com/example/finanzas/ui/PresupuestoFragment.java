@@ -120,7 +120,7 @@ public class PresupuestoFragment extends Fragment {
     private void cargarCategorias() {
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
             @Override
-            public void onReady(List<Categoria> cats) {
+            public void onReady(List<? extends Categoria> cats) {
                 List<CategoryBudgetInput> inputs = new ArrayList<>();
                 for (Categoria c : cats) {
                     if (c != null && !c.esIngreso) {
@@ -146,7 +146,7 @@ public class PresupuestoFragment extends Fragment {
     private void cargarPresupuestosGuardados() {
         CategoryBudgetService.list(requireContext(), anio, mes, new CategoryBudgetService.ListCb() {
             @Override
-            public void onOk(List<CategoryBudgetSummary> items) {
+            public void onOk(List<? extends CategoryBudgetSummary> items) {
                 List<CategoryBudgetInput> current = categoryAdapter.getItems();
                 for (CategoryBudgetInput input : current) {
                     for (CategoryBudgetSummary summary : items) {
@@ -194,26 +194,31 @@ public class PresupuestoFragment extends Fragment {
         }
 
         btnAgregarCategoria.setEnabled(false);
-        Categoria nueva = CategoryStore.createCategoria(requireContext(), nombre, false);
-        btnAgregarCategoria.setEnabled(true);
+        CategoryStore.createCategoria(requireContext(), nombre, false, new CategoryStore.CreateCallback() {
+            @Override
+            public void onReady(Categoria nueva) {
+                btnAgregarCategoria.setEnabled(true);
 
-        if (nueva == null) {
-            Toast.makeText(requireContext(), R.string.pres_category_create_error, Toast.LENGTH_SHORT).show();
-            return;
-        }
+                CategoryBudgetInput input = new CategoryBudgetInput();
+                input.setCategoriaId(nueva.id);
+                input.setCategoriaNombre(nueva.nombre);
+                input.setMonto(0);
 
-        CategoryBudgetInput input = new CategoryBudgetInput();
-        input.setCategoriaId(nueva.id);
-        input.setCategoriaNombre(nueva.nombre);
-        input.setMonto(0);
+                List<CategoryBudgetInput> current = categoryAdapter.getItems();
+                current.add(input);
+                Collections.sort(current, Comparator.comparing(CategoryBudgetInput::getCategoriaNombre,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+                categoryAdapter.setItems(current);
+                etNuevaCategoria.setText("");
+                Toast.makeText(requireContext(), R.string.pres_category_created, Toast.LENGTH_SHORT).show();
+            }
 
-        List<CategoryBudgetInput> current = categoryAdapter.getItems();
-        current.add(input);
-        Collections.sort(current, Comparator.comparing(CategoryBudgetInput::getCategoriaNombre,
-                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
-        categoryAdapter.setItems(current);
-        etNuevaCategoria.setText("");
-        Toast.makeText(requireContext(), R.string.pres_category_created, Toast.LENGTH_SHORT).show();
+            @Override
+            public void onError() {
+                btnAgregarCategoria.setEnabled(true);
+                Toast.makeText(requireContext(), R.string.pres_category_create_error, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void stopRefreshing() {

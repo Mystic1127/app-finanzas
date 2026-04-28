@@ -29,6 +29,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -80,8 +81,8 @@ public class RemindersFragment extends Fragment {
         swipe.setRefreshing(true);
         ReminderService.list(requireContext(), false, new ReminderService.ListCb() {
             @Override
-            public void onOk(List<PaymentReminder> items) {
-                adapter.setItems(items);
+            public void onOk(List<? extends PaymentReminder> items) {
+                adapter.setItems(new ArrayList<>(items));
                 tvEmpty.setVisibility(items == null || items.isEmpty() ? View.VISIBLE : View.GONE);
                 if (items != null) {
                     for (PaymentReminder item : items) {
