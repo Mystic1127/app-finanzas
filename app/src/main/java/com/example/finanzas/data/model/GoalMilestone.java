@@ -29,12 +29,14 @@ public class GoalMilestone {
     public void setFechaObjetivo(Date fechaObjetivo) { this.fechaObjetivo = fechaObjetivo; }
 
     public boolean isNotificar() { return notificar; }
+    public boolean getNotificar() { return notificar; }
     public void setNotificar(boolean notificar) { this.notificar = notificar; }
 
     public int getDiasRecordatorio() { return diasRecordatorio; }
     public void setDiasRecordatorio(int diasRecordatorio) { this.diasRecordatorio = diasRecordatorio; }
 
     public boolean isCompletado() { return completado; }
+    public boolean getCompletado() { return completado; }
     public void setCompletado(boolean completado) { this.completado = completado; }
 
     public Integer getDiasRestantes() { return diasRestantes; }
