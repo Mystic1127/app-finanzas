@@ -11,22 +11,16 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.finanzas.R;
-import com.example.finanzas.data.api.BudgetService;
-import com.example.finanzas.data.api.CategoryBudgetService;
-import com.example.finanzas.data.api.CategoryStore;
 import com.example.finanzas.data.model.CategoryBudgetInput;
-import com.example.finanzas.data.model.CategoryBudgetSummary;
-import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
+import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 public class PresupuestoFragment extends Fragment {
@@ -39,6 +33,7 @@ public class PresupuestoFragment extends Fragment {
     private SwipeRefreshLayout swipeRefreshLayout;
     private int anio;
     private int mes;
+    private BudgetViewModel viewModel;
 
     @Nullable
     @Override
@@ -62,6 +57,7 @@ public class PresupuestoFragment extends Fragment {
         rvCategory.setLayoutManager(new LinearLayoutManager(requireContext()));
         categoryAdapter = new CategoryBudgetEditAdapter();
         rvCategory.setAdapter(categoryAdapter);
+        viewModel = new ViewModelProvider(this).get(BudgetViewModel.class);
 
         Calendar cal = Calendar.getInstance();
         anio = cal.get(Calendar.YEAR);
@@ -74,27 +70,13 @@ public class PresupuestoFragment extends Fragment {
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setOnRefreshListener(this::recargarDatos);
         }
+        observeViewModel();
 
         recargarDatos();
     }
 
     private void recargarDatos() {
-        if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(true);
-        cargarPresupuestoMensual();
-        cargarCategorias();
-    }
-
-    private void cargarPresupuestoMensual() {
-        BudgetService.get(requireContext(), anio, mes, new BudgetService.GetCb() {
-            @Override public void onOk(double monto) {
-                etPresupuesto.setText(String.valueOf(monto));
-                stopRefreshing();
-            }
-            @Override public void onFail() {
-                Toast.makeText(requireContext(), R.string.error_cargar_presupuesto, Toast.LENGTH_SHORT).show();
-                stopRefreshing();
-            }
-        });
+        viewModel.load(anio, mes);
     }
 
     private void guardarPresupuesto() {
@@ -107,83 +89,13 @@ public class PresupuestoFragment extends Fragment {
             return;
         }
 
-        BudgetService.set(requireContext(), anio, mes, val, new BudgetService.SimpleCb() {
-            @Override public void onOk() {
-                Toast.makeText(requireContext(), R.string.pres_guardado, Toast.LENGTH_SHORT).show();
-            }
-            @Override public void onFail() {
-                Toast.makeText(requireContext(), R.string.error_guardar_presupuesto, Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void cargarCategorias() {
-        CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
-            @Override
-            public void onReady(List<? extends Categoria> cats) {
-                List<CategoryBudgetInput> inputs = new ArrayList<>();
-                for (Categoria c : cats) {
-                    if (c != null && !c.esIngreso) {
-                        CategoryBudgetInput input = new CategoryBudgetInput();
-                        input.setCategoriaId(c.id);
-                        input.setCategoriaNombre(c.nombre);
-                        input.setMonto(0);
-                        inputs.add(input);
-                    }
-                }
-                categoryAdapter.setItems(inputs);
-                cargarPresupuestosGuardados();
-            }
-
-            @Override
-            public void onError() {
-                Toast.makeText(requireContext(), R.string.error_cargar_categorias, Toast.LENGTH_SHORT).show();
-                stopRefreshing();
-            }
-        });
-    }
-
-    private void cargarPresupuestosGuardados() {
-        CategoryBudgetService.list(requireContext(), anio, mes, new CategoryBudgetService.ListCb() {
-            @Override
-            public void onOk(List<? extends CategoryBudgetSummary> items) {
-                List<CategoryBudgetInput> current = categoryAdapter.getItems();
-                for (CategoryBudgetInput input : current) {
-                    for (CategoryBudgetSummary summary : items) {
-                        if (summary.getCategoriaId() == input.getCategoriaId()) {
-                            input.setMonto(summary.getLimite());
-                            break;
-                        }
-                    }
-                }
-                categoryAdapter.setItems(current);
-                stopRefreshing();
-            }
-
-            @Override
-            public void onFail() {
-                Toast.makeText(requireContext(), R.string.error_cargar_presupuesto, Toast.LENGTH_SHORT).show();
-                stopRefreshing();
-            }
-        });
+        viewModel.saveBudget(anio, mes, val);
     }
 
     private void guardarCategorias() {
         btnGuardarCategorias.setEnabled(false);
         List<CategoryBudgetInput> items = categoryAdapter.getItems();
-        CategoryBudgetService.save(requireContext(), anio, mes, items, new CategoryBudgetService.SaveCb() {
-            @Override
-            public void onOk() {
-                btnGuardarCategorias.setEnabled(true);
-                Toast.makeText(requireContext(), R.string.pres_categorias_guardadas, Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onFail() {
-                btnGuardarCategorias.setEnabled(true);
-                Toast.makeText(requireContext(), R.string.error_guardar_categorias, Toast.LENGTH_SHORT).show();
-            }
-        });
+        viewModel.saveCategoryBudgets(anio, mes, items);
     }
 
     private void crearCategoria() {
@@ -194,36 +106,34 @@ public class PresupuestoFragment extends Fragment {
         }
 
         btnAgregarCategoria.setEnabled(false);
-        CategoryStore.createCategoria(requireContext(), nombre, false, new CategoryStore.CreateCallback() {
-            @Override
-            public void onReady(Categoria nueva) {
-                btnAgregarCategoria.setEnabled(true);
-
-                CategoryBudgetInput input = new CategoryBudgetInput();
-                input.setCategoriaId(nueva.id);
-                input.setCategoriaNombre(nueva.nombre);
-                input.setMonto(0);
-
-                List<CategoryBudgetInput> current = categoryAdapter.getItems();
-                current.add(input);
-                Collections.sort(current, Comparator.comparing(CategoryBudgetInput::getCategoriaNombre,
-                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
-                categoryAdapter.setItems(current);
-                etNuevaCategoria.setText("");
-                Toast.makeText(requireContext(), R.string.pres_category_created, Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onError() {
-                btnAgregarCategoria.setEnabled(true);
-                Toast.makeText(requireContext(), R.string.pres_category_create_error, Toast.LENGTH_SHORT).show();
-            }
-        });
+        viewModel.createCategory(nombre, categoryAdapter.getItems());
     }
 
     private void stopRefreshing() {
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setRefreshing(false);
         }
+    }
+
+    private void observeViewModel() {
+        viewModel.loading.observe(getViewLifecycleOwner(), loading -> {
+            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(Boolean.TRUE.equals(loading));
+            if (!Boolean.TRUE.equals(loading)) {
+                btnGuardarCategorias.setEnabled(true);
+                btnAgregarCategoria.setEnabled(true);
+            }
+        });
+        viewModel.budget.observe(getViewLifecycleOwner(), monto -> {
+            if (monto != null) etPresupuesto.setText(String.valueOf(monto));
+        });
+        viewModel.categoryBudgets.observe(getViewLifecycleOwner(), items -> {
+            if (items != null) {
+                categoryAdapter.setItems(items);
+                etNuevaCategoria.setText("");
+            }
+        });
+        viewModel.message.observe(getViewLifecycleOwner(), msgRes -> {
+            if (msgRes != null) Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
+        });
     }
 }

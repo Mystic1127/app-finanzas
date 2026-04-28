@@ -18,6 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -25,7 +26,6 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.appcompat.app.AlertDialog;
 
 import com.example.finanzas.R;
-import com.example.finanzas.data.api.DashboardService;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.CategoryChartSlice;
 import com.example.finanzas.data.model.HomeSummary;
@@ -38,6 +38,7 @@ import com.example.finanzas.ui.adapter.CategoryBudgetSummaryAdapter;
 import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
 import com.example.finanzas.ui.adapter.GoalSummaryAdapter;
 import com.example.finanzas.ui.adapter.ReminderSummaryAdapter;
+import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
@@ -142,6 +143,7 @@ public class HomeFragment extends Fragment {
     private LinearLayout moduleContainer;
     private final Map<String, View> moduleViews = new LinkedHashMap<>();
     private HomeSummary lastSummary;
+    private HomeViewModel viewModel;
 
     @Nullable
     @Override
@@ -194,6 +196,7 @@ public class HomeFragment extends Fragment {
         chartTrend = v.findViewById(R.id.chartTrend);
         chartBalance = v.findViewById(R.id.chartBalance);
         chartGoals = v.findViewById(R.id.chartGoals);
+        viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
 
         resetSimulation();
         setupModules(v);
@@ -237,6 +240,7 @@ public class HomeFragment extends Fragment {
         fabNueva.setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_new));
 
         swipe.setOnRefreshListener(this::cargarResumen);
+        observeViewModel();
     }
 
     @Override
@@ -246,27 +250,21 @@ public class HomeFragment extends Fragment {
     }
 
     private void cargarResumen() {
-        showLoading(true);
         Calendar cal = Calendar.getInstance();
         final int anio = cal.get(Calendar.YEAR);
         final int mes = cal.get(Calendar.MONTH) + 1;
+        viewModel.loadSummary(anio, mes);
+    }
 
-        DashboardService.getSummary(requireContext(), anio, mes, new DashboardService.SummaryCb() {
-            @Override
-            public void onOk(HomeSummary summary) {
-                if (!isAdded()) return;
-                swipe.setRefreshing(false);
-                showLoading(false);
-                pintarResumen(summary);
-            }
-
-            @Override
-            public void onError() {
-                if (!isAdded()) return;
-                swipe.setRefreshing(false);
-                showLoading(false);
-                // dejar datos anteriores
-            }
+    private void observeViewModel() {
+        viewModel.loading.observe(getViewLifecycleOwner(), loading -> {
+            boolean show = Boolean.TRUE.equals(loading);
+            showLoading(show);
+            swipe.setRefreshing(show);
+        });
+        viewModel.summary.observe(getViewLifecycleOwner(), summary -> {
+            if (summary == null || !isAdded()) return;
+            pintarResumen(summary);
         });
     }
 

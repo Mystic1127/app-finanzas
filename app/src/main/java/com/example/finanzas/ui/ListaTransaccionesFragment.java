@@ -14,16 +14,17 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.CategoryStore;
-import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.data.model.TransaccionFiltro;
 import com.example.finanzas.ui.adapter.TransaccionAdapter;
+import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.DateInputMask;
@@ -58,6 +59,7 @@ public class ListaTransaccionesFragment extends Fragment {
     private TransaccionFiltro filtroActual;
     private List<Categoria> categorias;
     private final SimpleDateFormat filtroDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+    private TransactionsViewModel viewModel;
 
     @Nullable
     @Override
@@ -77,6 +79,7 @@ public class ListaTransaccionesFragment extends Fragment {
         swipeRefreshLayout = v.findViewById(R.id.swipeTransacciones);
         btnExportar = v.findViewById(R.id.btnExportar);
         btnFiltros = v.findViewById(R.id.btnFiltros);
+        viewModel = new ViewModelProvider(this).get(TransactionsViewModel.class);
         adapter = new TransaccionAdapter(requireContext(), new ArrayList<>());
         listView.setAdapter(adapter);
 
@@ -123,6 +126,7 @@ public class ListaTransaccionesFragment extends Fragment {
         if (btnFiltros != null) {
             btnFiltros.setOnClickListener(v12 -> mostrarDialogoFiltros());
         }
+        observeViewModel();
     }
 
     @Override
@@ -135,39 +139,8 @@ public class ListaTransaccionesFragment extends Fragment {
         int[] periodo = resolvePeriodo();
         final int anio = periodo[0];
         final int mes = periodo[1];
-        final boolean avisarPeriodo = announcePeriod;
-        final boolean limpiarPref = pendingPrefClear;
         actualizarPeriodoLabel(anio, mes);
-        showLoading(true);
-        if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(true);
-
-        TransService.list(requireContext(), anio, mes, filtroActual, new TransService.ListCb() {
-            @Override
-            public void onOk(List<? extends Transaccion> items) {
-                adapter.clear();
-                adapter.addAll(items);
-                adapter.notifyDataSetChanged();
-                if (limpiarPref) {
-                    Prefs.clearLastTransactionsPeriod(requireContext());
-                }
-                if (avisarPeriodo) {
-                    Toast.makeText(requireContext(),
-                            getString(R.string.transactions_loaded_period, Format.monthYear(anio, mes)),
-                            Toast.LENGTH_LONG).show();
-                }
-                announcePeriod = false;
-                pendingPrefClear = false;
-                showLoading(false);
-                stopRefreshing();
-            }
-
-            @Override
-            public void onError() {
-                showLoading(false);
-                stopRefreshing();
-                Toast.makeText(requireContext(), R.string.error_cargar_transacciones, Toast.LENGTH_SHORT).show();
-            }
-        });
+        viewModel.load(anio, mes, filtroActual);
     }
 
     private int[] resolvePeriodo() {
@@ -220,46 +193,11 @@ public class ListaTransaccionesFragment extends Fragment {
     }
 
     private void eliminarRemotoYRefrescar(int id) {
-        showLoading(true);
-        TransService.delete(requireContext(), id, new TransService.VoidCb() {
-            @Override
-            public void onOk() {
-                Toast.makeText(requireContext(), R.string.trans_deleted, Toast.LENGTH_SHORT).show();
-                cargarTransacciones();
-            }
-
-            @Override
-            public void onError(@Nullable String message) {
-                showLoading(false);
-                if (message != null && !message.isEmpty()) {
-                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
-                } else {
-                    Toast.makeText(requireContext(), R.string.error_eliminar_transaccion, Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
+        viewModel.delete(id);
     }
 
     private void exportarTransacciones() {
-        showLoading(true);
-        TransService.exportToTxt(requireContext(), new TransService.FileCb() {
-            @Override
-            public void onOk(String path) {
-                showLoading(false);
-                Toast.makeText(requireContext(),
-                        getString(R.string.transactions_export_success, path),
-                        Toast.LENGTH_LONG).show();
-            }
-
-            @Override
-            public void onError(@Nullable String message) {
-                showLoading(false);
-                String msg = message == null || message.isEmpty()
-                        ? getString(R.string.transactions_export_error)
-                        : message;
-                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
-            }
-        });
+        viewModel.export();
     }
 
     private void mostrarDialogoFiltros() {
@@ -377,5 +315,47 @@ public class ListaTransaccionesFragment extends Fragment {
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setRefreshing(false);
         }
+    }
+
+    private void observeViewModel() {
+        viewModel.loading.observe(getViewLifecycleOwner(), loading -> {
+            showLoading(Boolean.TRUE.equals(loading));
+            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(Boolean.TRUE.equals(loading));
+        });
+        viewModel.items.observe(getViewLifecycleOwner(), items -> {
+            List<Transaccion> safe = items == null ? new ArrayList<>() : items;
+            adapter.clear();
+            adapter.addAll(safe);
+            adapter.notifyDataSetChanged();
+            int[] periodo = resolvePeriodo();
+            if (pendingPrefClear) Prefs.clearLastTransactionsPeriod(requireContext());
+            if (announcePeriod) {
+                Toast.makeText(requireContext(),
+                        getString(R.string.transactions_loaded_period, Format.monthYear(periodo[0], periodo[1])),
+                        Toast.LENGTH_LONG).show();
+            }
+            announcePeriod = false;
+            pendingPrefClear = false;
+            stopRefreshing();
+        });
+        viewModel.deleted.observe(getViewLifecycleOwner(), ok -> {
+            if (Boolean.TRUE.equals(ok)) {
+                Toast.makeText(requireContext(), R.string.trans_deleted, Toast.LENGTH_SHORT).show();
+                cargarTransacciones();
+            } else if (ok != null) {
+                Toast.makeText(requireContext(), R.string.error_eliminar_transaccion, Toast.LENGTH_SHORT).show();
+            }
+        });
+        viewModel.exportPath.observe(getViewLifecycleOwner(), path ->
+                Toast.makeText(requireContext(), getString(R.string.transactions_export_success, path), Toast.LENGTH_LONG).show()
+        );
+        viewModel.error.observe(getViewLifecycleOwner(), message -> {
+            if (message != null && !message.isEmpty()) {
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(requireContext(), R.string.error_cargar_transacciones, Toast.LENGTH_SHORT).show();
+            }
+            stopRefreshing();
+        });
     }
 }
