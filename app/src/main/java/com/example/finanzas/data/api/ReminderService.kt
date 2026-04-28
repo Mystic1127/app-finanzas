@@ -27,24 +27,24 @@ object ReminderService {
 
     suspend fun save(ctx: Context, body: JSONObject): PaymentReminder? = withContext(Dispatchers.IO) {
         val reminder = PaymentReminder().apply {
-            id = body.optInt("id", 0)
-            titulo = body.optString("titulo", "")
-            monto = body.optDouble("monto", 0.0)
+            setId(body.optInt("id", 0))
+            setTitulo(body.optString("titulo", ""))
+            setMonto(body.optDouble("monto", 0.0))
             val fechaStr = body.optString("fecha_vencimiento", null)
             if (!fechaStr.isNullOrEmpty()) {
                 try {
-                    fechaVencimiento = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(fechaStr)
+                    setFechaVencimiento(SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(fechaStr))
                 } catch (_: Exception) {
                 }
             }
-            pagado = body.optBoolean("pagado", false) || body.optInt("pagado", 0) == 1
-            if (body.has("categoria_id") && !body.isNull("categoria_id")) categoriaId = body.optInt("categoria_id")
-            horaRecordatorio = body.optString("hora_recordatorio", null)
-            frecuencia = body.optString("frecuencia", null)
-            notificar = body.optBoolean("notificar", false) || body.optInt("notificar", 0) == 1
-            diasRecordatorio = body.optInt("dias_recordatorio", 0)
-            googleEventId = body.optString("google_event_id", null)
-            notificationId = body.optString("notification_id", null)
+            setPagado(body.optBoolean("pagado", false) || body.optInt("pagado", 0) == 1)
+            if (body.has("categoria_id") && !body.isNull("categoria_id")) setCategoriaId(body.optInt("categoria_id"))
+            setHoraRecordatorio(body.optString("hora_recordatorio", null))
+            setFrecuencia(body.optString("frecuencia", null))
+            setNotificar(body.optBoolean("notificar", false) || body.optInt("notificar", 0) == 1)
+            setDiasRecordatorio(body.optInt("dias_recordatorio", 0))
+            setGoogleEventId(body.optString("google_event_id", null))
+            setNotificationId(body.optString("notification_id", null))
         }
         if (LocalRepository.getInstance(ctx).saveReminder(reminder)) reminder else null
     }
