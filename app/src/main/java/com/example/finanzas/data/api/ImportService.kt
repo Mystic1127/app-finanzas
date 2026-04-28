@@ -4,99 +4,75 @@ import android.content.Context
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.ImportJob
 import com.example.finanzas.data.model.ImportRule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
 object ImportService {
 
-    interface ListCallback {
-        fun onSuccess(items: List<ImportJob>)
-        fun onError()
+    interface ListCallback { fun onSuccess(items: List<ImportJob>); fun onError() }
+    interface RulesCallback { fun onSuccess(rules: List<ImportRule>); fun onError() }
+    interface CreateCallback { fun onSuccess(importId: Int); fun onError() }
+    interface SimpleCallback { fun onSuccess(); fun onError() }
+    interface ProcessCallback { fun onSuccess(response: JSONObject); fun onError() }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    suspend fun list(ctx: Context): List<ImportJob> = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).listImports()
     }
 
-    interface RulesCallback {
-        fun onSuccess(rules: List<ImportRule>)
-        fun onError()
+    suspend fun listRules(ctx: Context): List<ImportRule> = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).listImportRules()
     }
 
-    interface CreateCallback {
-        fun onSuccess(importId: Int)
-        fun onError()
+    suspend fun create(ctx: Context, tipo: String, nombre: String, lineas: JSONArray?): Int = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).createImport(nombre, tipo, lineas?.toString() ?: "[]")
     }
 
-    interface SimpleCallback {
-        fun onSuccess()
-        fun onError()
+    suspend fun saveRule(ctx: Context, rule: ImportRule) = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).saveImportRule(rule)
     }
 
-    interface ProcessCallback {
-        fun onSuccess(response: JSONObject)
-        fun onError()
+    suspend fun deleteRule(ctx: Context, ruleId: Int) = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).deleteImportRule(ruleId)
+    }
+
+    suspend fun process(ctx: Context, importId: Int): JSONObject = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).processImport(importId)
     }
 
     @JvmStatic
     fun list(ctx: Context, cb: ListCallback) {
-        DbCoroutine.io(
-            block = { LocalRepository.getInstance(ctx).listImports() },
-            onSuccess = cb::onSuccess,
-            onError = cb::onError
-        )
+        scope.launch { runCatching { list(ctx) }.onSuccess(cb::onSuccess).onFailure { cb.onError() } }
     }
 
     @JvmStatic
     fun listRules(ctx: Context, cb: RulesCallback) {
-        DbCoroutine.io(
-            block = { LocalRepository.getInstance(ctx).listImportRules() },
-            onSuccess = cb::onSuccess,
-            onError = cb::onError
-        )
+        scope.launch { runCatching { listRules(ctx) }.onSuccess(cb::onSuccess).onFailure { cb.onError() } }
     }
 
     @JvmStatic
     fun create(ctx: Context, tipo: String, nombre: String, lineas: JSONArray?, cb: CreateCallback) {
-        DbCoroutine.io(
-            block = {
-                LocalRepository.getInstance(ctx).createImport(
-                    nombre,
-                    tipo,
-                    lineas?.toString() ?: "[]"
-                )
-            },
-            onSuccess = cb::onSuccess,
-            onError = cb::onError
-        )
+        scope.launch { runCatching { create(ctx, tipo, nombre, lineas) }.onSuccess(cb::onSuccess).onFailure { cb.onError() } }
     }
 
     @JvmStatic
     fun saveRule(ctx: Context, rule: ImportRule, cb: SimpleCallback) {
-        DbCoroutine.io(
-            block = {
-                LocalRepository.getInstance(ctx).saveImportRule(rule)
-                Unit
-            },
-            onSuccess = { cb.onSuccess() },
-            onError = cb::onError
-        )
+        scope.launch { runCatching { saveRule(ctx, rule) }.onSuccess { cb.onSuccess() }.onFailure { cb.onError() } }
     }
 
     @JvmStatic
     fun deleteRule(ctx: Context, ruleId: Int, cb: SimpleCallback) {
-        DbCoroutine.io(
-            block = {
-                LocalRepository.getInstance(ctx).deleteImportRule(ruleId)
-                Unit
-            },
-            onSuccess = { cb.onSuccess() },
-            onError = cb::onError
-        )
+        scope.launch { runCatching { deleteRule(ctx, ruleId) }.onSuccess { cb.onSuccess() }.onFailure { cb.onError() } }
     }
 
     @JvmStatic
     fun process(ctx: Context, importId: Int, cb: ProcessCallback) {
-        DbCoroutine.io(
-            block = { LocalRepository.getInstance(ctx).processImport(importId) },
-            onSuccess = cb::onSuccess,
-            onError = cb::onError
-        )
+        scope.launch { runCatching { process(ctx, importId) }.onSuccess(cb::onSuccess).onFailure { cb.onError() } }
     }
 }

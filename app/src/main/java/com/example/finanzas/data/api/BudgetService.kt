@@ -2,6 +2,11 @@ package com.example.finanzas.data.api
 
 import android.content.Context
 import com.example.finanzas.data.local.LocalRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object BudgetService {
 
@@ -15,24 +20,31 @@ object BudgetService {
         fun onFail()
     }
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    suspend fun get(ctx: Context, anio: Int, mes: Int): Double = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).getPresupuesto(anio, mes)
+    }
+
+    suspend fun set(ctx: Context, anio: Int, mes: Int, monto: Double) = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).setPresupuesto(anio, mes, monto)
+    }
+
     @JvmStatic
     fun get(ctx: Context, anio: Int, mes: Int, cb: GetCb) {
-        DbCoroutine.io(
-            block = { LocalRepository.getInstance(ctx).getPresupuesto(anio, mes) },
-            onSuccess = cb::onOk,
-            onError = cb::onFail
-        )
+        scope.launch {
+            runCatching { get(ctx, anio, mes) }
+                .onSuccess(cb::onOk)
+                .onFailure { cb.onFail() }
+        }
     }
 
     @JvmStatic
     fun set(ctx: Context, anio: Int, mes: Int, monto: Double, cb: SimpleCb) {
-        DbCoroutine.io(
-            block = {
-                LocalRepository.getInstance(ctx).setPresupuesto(anio, mes, monto)
-                Unit
-            },
-            onSuccess = { cb.onOk() },
-            onError = cb::onFail
-        )
+        scope.launch {
+            runCatching { set(ctx, anio, mes, monto) }
+                .onSuccess { cb.onOk() }
+                .onFailure { cb.onFail() }
+        }
     }
 }
