@@ -20,6 +20,7 @@ import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.data.model.TransaccionFiltro;
+import com.example.finanzas.util.PasswordSecurity;
 
 import org.json.JSONObject;
 
@@ -57,7 +58,7 @@ public class LocalRepository {
         ContentValues cv = new ContentValues();
         cv.put("nombre", nombre);
         cv.put("email", email);
-        cv.put("password", password);
+        cv.put("password", PasswordSecurity.hashPassword(password));
         long id = db.insertWithOnConflict("users", null, cv, SQLiteDatabase.CONFLICT_IGNORE);
         if (id <= 0) return false;
         if (outId != null && outId.length > 0) outId[0] = (int) id;
@@ -66,8 +67,12 @@ public class LocalRepository {
 
     public boolean login(String email, String password, UserHolder holder) {
         SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, nombre, email FROM users WHERE email=? AND password=?", new String[]{email, password})) {
+        try (Cursor c = db.rawQuery("SELECT id, nombre, email, password FROM users WHERE email=?", new String[]{email})) {
             if (c.moveToFirst()) {
+                String storedPassword = c.getString(3);
+                if (!PasswordSecurity.verifyPassword(password, storedPassword)) {
+                    return false;
+                }
                 if (holder != null) {
                     holder.id = c.getInt(0);
                     holder.nombre = c.getString(1);

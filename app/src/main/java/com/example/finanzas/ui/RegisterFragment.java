@@ -1,6 +1,5 @@
 package com.example.finanzas.ui;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -70,12 +69,7 @@ public class RegisterFragment extends Fragment {
                 @Override
                 public void onSuccess(String token, int userId, String nom, String em) {
                     if (token != null) Prefs.setToken(requireContext(), token);
-                    requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-                            .edit()
-                            .putLong("user_id", userId > 0 ? userId : 1)
-                            .putString("user_email", em)
-                            .putString("user_name", nom)
-                            .apply();
+                    Prefs.setUserSession(requireContext(), userId > 0 ? userId : 1, em, nom);
 
                     prg.setVisibility(View.GONE);
                     Toast.makeText(requireContext(), "Cuenta creada. ¡Bienvenido!", Toast.LENGTH_SHORT).show();

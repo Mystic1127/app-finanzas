@@ -1,13 +1,17 @@
 package com.example.finanzas.data.local;
 
 import android.content.Context;
+import android.content.ContentValues;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+
+import com.example.finanzas.util.PasswordSecurity;
 
 public class LocalDatabase extends SQLiteOpenHelper {
 
     public static final String DB_NAME = "finanzas_local.db";
-    public static final int DB_VERSION = 1;
+    public static final int DB_VERSION = 2;
 
     private static LocalDatabase instance;
     private final Context context;
@@ -50,18 +54,24 @@ public class LocalDatabase extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // For this migration we can simply recreate everything
-        db.execSQL("DROP TABLE IF EXISTS users");
-        db.execSQL("DROP TABLE IF EXISTS categorias");
-        db.execSQL("DROP TABLE IF EXISTS transacciones");
-        db.execSQL("DROP TABLE IF EXISTS presupuestos");
-        db.execSQL("DROP TABLE IF EXISTS presupuestos_categoria");
-        db.execSQL("DROP TABLE IF EXISTS metas");
-        db.execSQL("DROP TABLE IF EXISTS metas_hitos");
-        db.execSQL("DROP TABLE IF EXISTS recordatorios");
-        db.execSQL("DROP TABLE IF EXISTS import_jobs");
-        db.execSQL("DROP TABLE IF EXISTS import_rules");
-        onCreate(db);
+        if (oldVersion < 2) {
+            migrateUsersToHashedPasswords(db);
+        }
+    }
+
+    private void migrateUsersToHashedPasswords(SQLiteDatabase db) {
+        try (Cursor c = db.rawQuery("SELECT id, password FROM users", null)) {
+            while (c.moveToNext()) {
+                int id = c.getInt(0);
+                String stored = c.getString(1);
+                if (stored == null || stored.isEmpty()) continue;
+                if (PasswordSecurity.looksLikeHashed(stored)) continue;
+
+                ContentValues cv = new ContentValues();
+                cv.put("password", PasswordSecurity.hashPassword(stored));
+                db.update("users", cv, "id=?", new String[]{String.valueOf(id)});
+            }
+        }
     }
 
     public Context getContext() {
