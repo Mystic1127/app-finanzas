@@ -143,7 +143,7 @@ public class ListaTransaccionesFragment extends Fragment {
 
         TransService.list(requireContext(), anio, mes, filtroActual, new TransService.ListCb() {
             @Override
-            public void onOk(List<Transaccion> items) {
+            public void onOk(List<? extends Transaccion> items) {
                 adapter.clear();
                 adapter.addAll(items);
                 adapter.notifyDataSetChanged();
@@ -278,8 +278,8 @@ public class ListaTransaccionesFragment extends Fragment {
 
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
             @Override
-            public void onReady(List<Categoria> cats) {
-                categorias = cats;
+            public void onReady(List<? extends Categoria> cats) {
+                categorias = new ArrayList<>(cats);
                 List<String> nombres = new ArrayList<>();
                 for (Categoria c : cats) nombres.add(c.nombre);
                 catAdapter.clear();

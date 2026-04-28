@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
@@ -20,6 +21,7 @@ import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.data.model.TransaccionFiltro;
+import com.example.finanzas.util.PasswordSecurity;
 
 import org.json.JSONObject;
 
@@ -53,21 +55,25 @@ public class LocalRepository {
 
     // region Autenticación
     public boolean registerUser(String nombre, String email, String password, int[] outId) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("nombre", nombre);
         cv.put("email", email);
-        cv.put("password", password);
-        long id = db.insertWithOnConflict("users", null, cv, SQLiteDatabase.CONFLICT_IGNORE);
+        cv.put("password", PasswordSecurity.hashPassword(password));
+        long id = db.insert("users", SQLiteDatabase.CONFLICT_IGNORE, cv);
         if (id <= 0) return false;
         if (outId != null && outId.length > 0) outId[0] = (int) id;
         return true;
     }
 
     public boolean login(String email, String password, UserHolder holder) {
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, nombre, email FROM users WHERE email=? AND password=?", new String[]{email, password})) {
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.query("SELECT id, nombre, email, password FROM users WHERE email=?", new String[]{email})) {
             if (c.moveToFirst()) {
+                String storedPassword = c.getString(3);
+                if (!PasswordSecurity.verifyPassword(password, storedPassword)) {
+                    return false;
+                }
                 if (holder != null) {
                     holder.id = c.getInt(0);
                     holder.nombre = c.getString(1);
@@ -88,19 +94,19 @@ public class LocalRepository {
 
     // region Categorías
     public int createCategoria(@NonNull String nombre, boolean esIngreso) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("nombre", nombre);
         cv.put("es_ingreso", esIngreso ? 1 : 0);
-        long id = db.insert("categorias", null, cv);
+        long id = db.insert("categorias", SQLiteDatabase.CONFLICT_NONE, cv);
         if (id == -1) throw new IllegalStateException("No se pudo crear la categoría");
         return (int) id;
     }
 
     public List<Categoria> listCategorias() {
         List<Categoria> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, nombre, es_ingreso FROM categorias ORDER BY nombre", null)) {
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.query("SELECT id, nombre, es_ingreso FROM categorias ORDER BY nombre", null)) {
             while (c.moveToNext()) {
                 out.add(new Categoria(c.getInt(0), c.getString(1), c.getInt(2) == 1));
             }
@@ -128,7 +134,7 @@ public class LocalRepository {
         }
 
         List<Transaccion> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
         StringBuilder sql = new StringBuilder("SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
                 "FROM transacciones t JOIN categorias c ON c.id = t.categoria_id " +
                 "WHERE t.fecha >= ? AND t.fecha < ?");
@@ -158,7 +164,7 @@ public class LocalRepository {
         order = order + (filtro != null && filtro.isAscendente() ? " ASC" : " DESC");
         sql.append(" ORDER BY ").append(order);
 
-        try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
+        try (Cursor c = db.query(sql.toString(), args.toArray(new Object[0]))) {
             while (c.moveToNext()) {
                 Transaccion t = new Transaccion(
                         c.getInt(0),
@@ -180,33 +186,33 @@ public class LocalRepository {
     }
 
     public int createTransaccion(int categoriaId, boolean esIngreso, double monto, String nota, long fecha) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("categoria_id", categoriaId);
         cv.put("es_ingreso", esIngreso ? 1 : 0);
         cv.put("monto", monto);
         cv.put("fecha", fecha);
         cv.put("nota", nota);
-        return (int) db.insert("transacciones", null, cv);
+        return (int) db.insert("transacciones", SQLiteDatabase.CONFLICT_NONE, cv);
     }
 
     public boolean updateTransaccion(int id, int categoriaId, boolean esIngreso, double monto, String nota, long fecha) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("categoria_id", categoriaId);
         cv.put("es_ingreso", esIngreso ? 1 : 0);
         cv.put("monto", monto);
         cv.put("fecha", fecha);
         cv.put("nota", nota);
-        return db.update("transacciones", cv, "id=?", new String[]{String.valueOf(id)}) > 0;
+        return db.update("transacciones", SQLiteDatabase.CONFLICT_NONE, cv, "id=?", new Object[]{id}) > 0;
     }
 
     public List<Transaccion> listTodasTransacciones() {
         List<Transaccion> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
         String sql = "SELECT t.id, t.categoria_id, c.nombre, t.es_ingreso, t.monto, t.fecha, t.nota " +
                 "FROM transacciones t JOIN categorias c ON c.id = t.categoria_id ORDER BY t.fecha DESC";
-        try (Cursor c = db.rawQuery(sql, null)) {
+        try (Cursor c = db.query(sql, null)) {
             while (c.moveToNext()) {
                 Transaccion t = new Transaccion(
                         c.getInt(0),
@@ -265,34 +271,34 @@ public class LocalRepository {
     }
 
     public boolean deleteTransaccion(int id) {
-        SQLiteDatabase db = helper.getWritableDatabase();
-        return db.delete("transacciones", "id=?", new String[]{String.valueOf(id)}) > 0;
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
+        return db.delete("transacciones", "id=?", new Object[]{id}) > 0;
     }
     // endregion
 
     // region Presupuestos
     public double getPresupuesto(int anio, int mes) {
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT monto FROM presupuestos WHERE anio=? AND mes=?", new String[]{String.valueOf(anio), String.valueOf(mes)})) {
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.query("SELECT monto FROM presupuestos WHERE anio=? AND mes=?", new String[]{String.valueOf(anio), String.valueOf(mes)})) {
             if (c.moveToFirst()) return c.getDouble(0);
         }
         return 0.0;
     }
 
     public void setPresupuesto(int anio, int mes, double monto) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("anio", anio);
         cv.put("mes", mes);
         cv.put("monto", monto);
-        db.insertWithOnConflict("presupuestos", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
+        db.insert("presupuestos", SQLiteDatabase.CONFLICT_REPLACE, cv);
     }
 
     public List<CategoryBudgetSummary> listPresupuestosCategoria(int anio, int mes) {
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
         List<CategoryBudgetSummary> out = new ArrayList<>();
         String sql = "SELECT pc.categoria_id, c.nombre, pc.monto FROM presupuestos_categoria pc JOIN categorias c ON c.id = pc.categoria_id WHERE pc.anio=? AND pc.mes=?";
-        try (Cursor c = db.rawQuery(sql, new String[]{String.valueOf(anio), String.valueOf(mes)})) {
+        try (Cursor c = db.query(sql, new String[]{String.valueOf(anio), String.valueOf(mes)})) {
             while (c.moveToNext()) {
                 CategoryBudgetSummary b = new CategoryBudgetSummary();
                 b.setCategoriaId(c.getInt(0));
@@ -311,7 +317,7 @@ public class LocalRepository {
         long end = cal.getTimeInMillis();
 
         String gastoSql = "SELECT categoria_id, SUM(monto) FROM transacciones WHERE es_ingreso=0 AND fecha>=? AND fecha<? GROUP BY categoria_id";
-        try (Cursor c = db.rawQuery(gastoSql, new String[]{String.valueOf(start), String.valueOf(end)})) {
+        try (Cursor c = db.query(gastoSql, new String[]{String.valueOf(start), String.valueOf(end)})) {
             while (c.moveToNext()) {
                 int catId = c.getInt(0);
                 double gastado = c.getDouble(1);
@@ -337,7 +343,7 @@ public class LocalRepository {
     }
 
     public void savePresupuestosCategoria(int anio, int mes, List<?> items) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         db.beginTransaction();
         try {
             for (Object raw : items) {
@@ -358,7 +364,7 @@ public class LocalRepository {
                 cv.put("mes", mes);
                 cv.put("categoria_id", categoriaId);
                 cv.put("monto", monto);
-                db.insertWithOnConflict("presupuestos_categoria", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
+                db.insert("presupuestos_categoria", SQLiteDatabase.CONFLICT_REPLACE, cv);
             }
             db.setTransactionSuccessful();
         } finally {
@@ -370,8 +376,8 @@ public class LocalRepository {
     // region Metas
     public List<SavingsGoal> listGoals() {
         List<SavingsGoal> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, titulo, monto_objetivo, monto_actual, fecha_objetivo FROM metas ORDER BY id DESC", null)) {
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.query("SELECT id, titulo, monto_objetivo, monto_actual, fecha_objetivo FROM metas ORDER BY id DESC", null)) {
             while (c.moveToNext()) {
                 SavingsGoal g = new SavingsGoal();
                 g.setId(c.getInt(0));
@@ -388,8 +394,8 @@ public class LocalRepository {
         return out;
     }
 
-    private void loadMilestonesForGoal(SQLiteDatabase db, SavingsGoal g) {
-        try (Cursor c = db.rawQuery("SELECT id, titulo, monto_planificado, fecha_objetivo, notificar, dias_recordatorio, completado FROM metas_hitos WHERE meta_id=?", new String[]{String.valueOf(g.getId())})) {
+    private void loadMilestonesForGoal(SupportSQLiteDatabase db, SavingsGoal g) {
+        try (Cursor c = db.query("SELECT id, titulo, monto_planificado, fecha_objetivo, notificar, dias_recordatorio, completado FROM metas_hitos WHERE meta_id=?", new Object[]{g.getId()})) {
             while (c.moveToNext()) {
                 GoalMilestone m = new GoalMilestone();
                 m.setId(c.getInt(0));
@@ -407,7 +413,7 @@ public class LocalRepository {
     }
 
     public boolean saveGoal(int id, String titulo, double objetivo, double actual, String fechaStr) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("titulo", titulo);
         cv.put("monto_objetivo", objetivo);
@@ -419,19 +425,19 @@ public class LocalRepository {
             } catch (ParseException ignore) { }
         }
         if (id > 0) {
-            return db.update("metas", cv, "id=?", new String[]{String.valueOf(id)}) > 0;
+            return db.update("metas", SQLiteDatabase.CONFLICT_NONE, cv, "id=?", new Object[]{id}) > 0;
         }
-        return db.insert("metas", null, cv) > 0;
+        return db.insert("metas", SQLiteDatabase.CONFLICT_NONE, cv) > 0;
     }
 
     public boolean deleteGoal(int id) {
-        SQLiteDatabase db = helper.getWritableDatabase();
-        db.delete("metas_hitos", "meta_id=?", new String[]{String.valueOf(id)});
-        return db.delete("metas", "id=?", new String[]{String.valueOf(id)}) > 0;
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
+        db.delete("metas_hitos", "meta_id=?", new Object[]{id});
+        return db.delete("metas", "id=?", new Object[]{id}) > 0;
     }
 
     public int saveMilestone(int id, int metaId, String titulo, double monto, String fechaStr, boolean notificar, int dias, boolean completado) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("meta_id", metaId);
         cv.put("titulo", titulo);
@@ -446,24 +452,24 @@ public class LocalRepository {
             } catch (ParseException ignore) { }
         }
         if (id > 0) {
-            db.update("metas_hitos", cv, "id=?", new String[]{String.valueOf(id)});
+            db.update("metas_hitos", SQLiteDatabase.CONFLICT_NONE, cv, "id=?", new Object[]{id});
             return id;
         }
-        return (int) db.insert("metas_hitos", null, cv);
+        return (int) db.insert("metas_hitos", SQLiteDatabase.CONFLICT_NONE, cv);
     }
 
     public boolean deleteMilestone(int id) {
-        SQLiteDatabase db = helper.getWritableDatabase();
-        return db.delete("metas_hitos", "id=?", new String[]{String.valueOf(id)}) > 0;
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
+        return db.delete("metas_hitos", "id=?", new Object[]{id}) > 0;
     }
     // endregion
 
     // region Recordatorios
     public List<PaymentReminder> listReminders(boolean includePaid) {
         List<PaymentReminder> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
         String where = includePaid ? "" : "WHERE pagado=0";
-        try (Cursor c = db.rawQuery("SELECT id, titulo, monto, fecha_vencimiento, pagado, categoria_id, hora_recordatorio, frecuencia, notificar, dias_recordatorio, google_event_id, notification_id FROM recordatorios " + where + " ORDER BY fecha_vencimiento ASC", null)) {
+        try (Cursor c = db.query("SELECT id, titulo, monto, fecha_vencimiento, pagado, categoria_id, hora_recordatorio, frecuencia, notificar, dias_recordatorio, google_event_id, notification_id FROM recordatorios " + where + " ORDER BY fecha_vencimiento ASC", null)) {
             while (c.moveToNext()) {
                 PaymentReminder r = new PaymentReminder();
                 r.setId(c.getInt(0));
@@ -486,7 +492,7 @@ public class LocalRepository {
     }
 
     public boolean saveReminder(PaymentReminder reminder) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("titulo", reminder.getTitulo());
         cv.put("monto", reminder.getMonto());
@@ -500,30 +506,30 @@ public class LocalRepository {
         cv.put("google_event_id", reminder.getGoogleEventId());
         cv.put("notification_id", reminder.getNotificationId());
         if (reminder.getId() > 0) {
-            return db.update("recordatorios", cv, "id=?", new String[]{String.valueOf(reminder.getId())}) > 0;
+            return db.update("recordatorios", SQLiteDatabase.CONFLICT_NONE, cv, "id=?", new Object[]{reminder.getId()}) > 0;
         }
-        reminder.setId((int) db.insert("recordatorios", null, cv));
+        reminder.setId((int) db.insert("recordatorios", SQLiteDatabase.CONFLICT_NONE, cv));
         return reminder.getId() > 0;
     }
 
     public boolean markReminderPaid(int id, boolean paid) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("pagado", paid ? 1 : 0);
-        return db.update("recordatorios", cv, "id=?", new String[]{String.valueOf(id)}) > 0;
+        return db.update("recordatorios", SQLiteDatabase.CONFLICT_NONE, cv, "id=?", new Object[]{id}) > 0;
     }
 
     public boolean deleteReminder(int id) {
-        SQLiteDatabase db = helper.getWritableDatabase();
-        return db.delete("recordatorios", "id=?", new String[]{String.valueOf(id)}) > 0;
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
+        return db.delete("recordatorios", "id=?", new Object[]{id}) > 0;
     }
     // endregion
 
     // region Importaciones
     public List<ImportJob> listImports() {
         List<ImportJob> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, nombre, tipo, estado FROM import_jobs ORDER BY id DESC", null)) {
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.query("SELECT id, nombre, tipo, estado FROM import_jobs ORDER BY id DESC", null)) {
             while (c.moveToNext()) {
                 ImportJob j = new ImportJob();
                 j.setId(c.getInt(0));
@@ -537,19 +543,19 @@ public class LocalRepository {
     }
 
     public int createImport(String nombre, String tipo, String lineasJson) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("nombre", nombre);
         cv.put("tipo", tipo);
         cv.put("estado", "pendiente");
         cv.put("lineas", lineasJson);
-        return (int) db.insert("import_jobs", null, cv);
+        return (int) db.insert("import_jobs", SQLiteDatabase.CONFLICT_NONE, cv);
     }
 
     public List<ImportRule> listImportRules() {
         List<ImportRule> out = new ArrayList<>();
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT id, patron, es_ingreso, categoria_id, nota FROM import_rules", null)) {
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.query("SELECT id, patron, es_ingreso, categoria_id, nota FROM import_rules", null)) {
             while (c.moveToNext()) {
                 ImportRule r = new ImportRule();
                 r.setId(c.getInt(0));
@@ -564,29 +570,29 @@ public class LocalRepository {
     }
 
     public int saveImportRule(ImportRule rule) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("patron", rule.getPatron());
         cv.put("es_ingreso", rule.isEsIngreso() ? 1 : 0);
         cv.put("categoria_id", rule.getCategoriaId());
         cv.put("nota", rule.getNota());
         if (rule.getId() > 0) {
-            db.update("import_rules", cv, "id=?", new String[]{String.valueOf(rule.getId())});
+            db.update("import_rules", SQLiteDatabase.CONFLICT_NONE, cv, "id=?", new Object[]{rule.getId()});
             return rule.getId();
         }
-        return (int) db.insert("import_rules", null, cv);
+        return (int) db.insert("import_rules", SQLiteDatabase.CONFLICT_NONE, cv);
     }
 
     public void deleteImportRule(int id) {
-        SQLiteDatabase db = helper.getWritableDatabase();
-        db.delete("import_rules", "id=?", new String[]{String.valueOf(id)});
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
+        db.delete("import_rules", "id=?", new Object[]{id});
     }
 
     public JSONObject processImport(int id) {
-        SQLiteDatabase db = helper.getWritableDatabase();
+        SupportSQLiteDatabase db = helper.getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put("estado", "procesado");
-        db.update("import_jobs", cv, "id=?", new String[]{String.valueOf(id)});
+        db.update("import_jobs", SQLiteDatabase.CONFLICT_NONE, cv, "id=?", new Object[]{id});
 
         JSONObject resp = new JSONObject();
         try {
@@ -631,8 +637,8 @@ public class LocalRepository {
     // endregion
 
     private String findCategoriaNombre(int catId) {
-        SQLiteDatabase db = helper.getReadableDatabase();
-        try (Cursor c = db.rawQuery("SELECT nombre FROM categorias WHERE id=?", new String[]{String.valueOf(catId)})) {
+        SupportSQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.query("SELECT nombre FROM categorias WHERE id=?", new Object[]{catId})) {
             if (c.moveToFirst()) return c.getString(0);
         }
         return "";

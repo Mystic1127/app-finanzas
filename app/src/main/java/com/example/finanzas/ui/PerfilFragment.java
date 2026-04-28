@@ -1,7 +1,5 @@
 package com.example.finanzas.ui;
 
-import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -41,9 +39,10 @@ public class PerfilFragment extends Fragment {
         MaterialButton btnConfigPin = v.findViewById(R.id.btnConfigPin);
         btnRemovePin = v.findViewById(R.id.btnRemovePin);
 
-        SharedPreferences sp = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        String cachedNombre = sp.getString("user_name", "—");
-        String cachedEmail  = sp.getString("user_email", "—");
+        String cachedNombre = Prefs.getCurrentUserName(requireContext());
+        String cachedEmail  = Prefs.getCurrentUserEmail(requireContext());
+        if (cachedNombre == null || cachedNombre.isEmpty()) cachedNombre = "—";
+        if (cachedEmail == null || cachedEmail.isEmpty()) cachedEmail = "—";
         tvNombre.setText(cachedNombre);
         tvEmail.setText(cachedEmail);
 
@@ -51,11 +50,7 @@ public class PerfilFragment extends Fragment {
             @Override public void onOk(int id, String nom, String em) {
                 tvNombre.setText(nom);
                 tvEmail.setText(em);
-                sp.edit()
-                        .putLong("user_id", id)
-                        .putString("user_name", nom)
-                        .putString("user_email", em)
-                        .apply();
+                Prefs.setUserSession(requireContext(), id, em, nom);
             }
 
             @Override public void onFail() {
