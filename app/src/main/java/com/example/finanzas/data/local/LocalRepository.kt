@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.finanzas.data.local.room.*
 import com.example.finanzas.data.model.*
 import com.example.finanzas.util.PasswordSecurity
+import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -19,6 +20,7 @@ class LocalRepository private constructor(
     private val db: AppRoomDatabase,
     private val appContext: Context
 ) {
+    private fun currentUserId(): Int = Prefs.getCurrentUserId(appContext).toInt().coerceAtLeast(1)
     companion object {
         private val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         @Volatile
@@ -102,7 +104,7 @@ class LocalRepository private constructor(
         }
 
         val categorias = db.categoriaDao().listAll().associateBy { it.id }
-        var list = db.transaccionDao().listAll()
+        var list = db.transaccionDao().listAll(currentUserId())
             .asSequence()
             .filter { it.fecha >= start && it.fecha < end }
             .filter { filtro?.categoriaId == null || it.categoriaId == filtro.categoriaId }
@@ -129,22 +131,22 @@ class LocalRepository private constructor(
 
     suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis()): Int = withContext(Dispatchers.IO) {
         db.transaccionDao().insert(
-            TransaccionEntity(categoriaId = categoriaId, esIngreso = if (esIngreso) 1 else 0, monto = monto, fecha = fecha, nota = nota)
+            TransaccionEntity(userId = currentUserId(), categoriaId = categoriaId, esIngreso = if (esIngreso) 1 else 0, monto = monto, fecha = fecha, nota = nota)
         ).toInt()
     }
 
     suspend fun updateTransaccion(id: Int, categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long): Boolean = withContext(Dispatchers.IO) {
         val updated = db.transaccionDao().update(
-            TransaccionEntity(id = id, categoriaId = categoriaId, esIngreso = if (esIngreso) 1 else 0, monto = monto, fecha = fecha, nota = nota)
+            TransaccionEntity(id = id, userId = currentUserId(), categoriaId = categoriaId, esIngreso = if (esIngreso) 1 else 0, monto = monto, fecha = fecha, nota = nota)
         )
         updated > 0
     }
 
-    suspend fun deleteTransaccion(id: Int): Boolean = withContext(Dispatchers.IO) { db.transaccionDao().deleteById(id) > 0 }
+    suspend fun deleteTransaccion(id: Int): Boolean = withContext(Dispatchers.IO) { db.transaccionDao().deleteById(id, currentUserId()) > 0 }
 
     suspend fun listTodasTransacciones(): List<Transaccion> = withContext(Dispatchers.IO) {
         val cats = db.categoriaDao().listAll().associateBy { it.id }
-        db.transaccionDao().listAll().sortedByDescending { it.fecha }.map {
+        db.transaccionDao().listAll(currentUserId()).sortedByDescending { it.fecha }.map {
             Transaccion(it.id, it.categoriaId, cats[it.categoriaId]?.nombre ?: "", it.esIngreso == 1, it.monto, Date(it.fecha), it.nota)
         }
     }
@@ -175,16 +177,16 @@ class LocalRepository private constructor(
     }
 
     suspend fun getPresupuesto(anio: Int, mes: Int): Double = withContext(Dispatchers.IO) {
-        db.presupuestoDao().find(anio, mes)?.monto ?: 0.0
+        db.presupuestoDao().find(currentUserId(), anio, mes)?.monto ?: 0.0
     }
 
     suspend fun setPresupuesto(anio: Int, mes: Int, monto: Double) = withContext(Dispatchers.IO) {
-        db.presupuestoDao().upsert(PresupuestoEntity(anio, mes, monto))
+        db.presupuestoDao().upsert(PresupuestoEntity(currentUserId(), anio, mes, monto))
     }
 
     suspend fun listPresupuestosCategoria(anio: Int, mes: Int): List<CategoryBudgetSummary> = withContext(Dispatchers.IO) {
         val catNames = db.categoriaDao().listAll().associateBy { it.id }
-        val budgets = db.presupuestoCategoriaDao().listByMonth(anio, mes)
+        val budgets = db.presupuestoCategoriaDao().listByMonth(currentUserId(), anio, mes)
         val out = budgets.map {
             CategoryBudgetSummary().apply {
                 categoriaId = it.categoriaId
@@ -201,7 +203,7 @@ class LocalRepository private constructor(
         cal.add(Calendar.MONTH, 1)
         val end = cal.timeInMillis
 
-        val gastos = db.transaccionDao().listAll()
+        val gastos = db.transaccionDao().listAll(currentUserId())
             .filter { it.esIngreso == 0 && it.fecha >= start && it.fecha < end }
             .groupBy { it.categoriaId }
             .mapValues { e -> e.value.sumOf { it.monto } }
@@ -239,12 +241,12 @@ class LocalRepository private constructor(
                 }
                 else -> return@forEach
             }
-            if (catId > 0) db.presupuestoCategoriaDao().upsert(PresupuestoCategoriaEntity(anio, mes, catId, monto))
+            if (catId > 0) db.presupuestoCategoriaDao().upsert(PresupuestoCategoriaEntity(currentUserId(), anio, mes, catId, monto))
         }
     }
 
     suspend fun listGoals(): List<SavingsGoal> = withContext(Dispatchers.IO) {
-        db.metaDao().listAll().map { meta ->
+        db.metaDao().listAll(currentUserId()).map { meta ->
             SavingsGoal().apply {
                 id = meta.id
                 titulo = meta.titulo
@@ -252,7 +254,7 @@ class LocalRepository private constructor(
                 montoActual = meta.montoActual
                 if (meta.fechaObjetivo != null && meta.fechaObjetivo > 0) fechaObjetivo = Date(meta.fechaObjetivo)
                 progreso = if (montoObjetivo > 0) (montoActual / montoObjetivo) * 100.0 else 0.0
-                hitos.addAll(db.metaHitoDao().listByMeta(meta.id).map { h ->
+                hitos.addAll(db.metaHitoDao().listByMeta(currentUserId(), meta.id).map { h ->
                     GoalMilestone().apply {
                         id = h.id
                         metaId = h.metaId
@@ -270,13 +272,13 @@ class LocalRepository private constructor(
 
     suspend fun saveGoal(id: Int, titulo: String, objetivo: Double, actual: Double, fechaStr: String?): Boolean = withContext(Dispatchers.IO) {
         val fecha = if (!fechaStr.isNullOrBlank()) runCatching { df.parse(fechaStr)?.time }.getOrNull() else null
-        val newId = db.metaDao().upsert(MetaEntity(if (id > 0) id else 0, titulo, objetivo, actual, fecha))
+        val newId = db.metaDao().upsert(MetaEntity(if (id > 0) id else 0, currentUserId(), titulo, objetivo, actual, fecha))
         newId > 0
     }
 
     suspend fun deleteGoal(id: Int): Boolean = withContext(Dispatchers.IO) {
-        db.metaHitoDao().deleteByMeta(id)
-        db.metaDao().deleteById(id) > 0
+        db.metaHitoDao().deleteByMeta(currentUserId(), id)
+        db.metaDao().deleteById(id, currentUserId()) > 0
     }
 
     suspend fun saveMilestone(id: Int, metaId: Int, titulo: String, monto: Double, fechaStr: String?, notificar: Boolean, dias: Int, completado: Boolean): Int = withContext(Dispatchers.IO) {
@@ -284,6 +286,7 @@ class LocalRepository private constructor(
         db.metaHitoDao().upsert(
             MetaHitoEntity(
                 if (id > 0) id else 0,
+                currentUserId(),
                 metaId,
                 titulo,
                 monto,
@@ -295,10 +298,10 @@ class LocalRepository private constructor(
         ).toInt()
     }
 
-    suspend fun deleteMilestone(id: Int): Boolean = withContext(Dispatchers.IO) { db.metaHitoDao().deleteById(id) > 0 }
+    suspend fun deleteMilestone(id: Int): Boolean = withContext(Dispatchers.IO) { db.metaHitoDao().deleteById(id, currentUserId()) > 0 }
 
     suspend fun listReminders(includePaid: Boolean): List<PaymentReminder> = withContext(Dispatchers.IO) {
-        db.recordatorioDao().listAll()
+        db.recordatorioDao().listAll(currentUserId())
             .filter { includePaid || it.pagado == 0 }
             .map {
                 PaymentReminder().apply {
@@ -322,6 +325,7 @@ class LocalRepository private constructor(
         val id = db.recordatorioDao().upsert(
             RecordatorioEntity(
                 if (reminder.id > 0) reminder.id else 0,
+                currentUserId(),
                 reminder.titulo ?: "",
                 reminder.monto,
                 reminder.fechaVencimiento?.time ?: 0,
@@ -340,13 +344,13 @@ class LocalRepository private constructor(
     }
 
     suspend fun markReminderPaid(id: Int, paid: Boolean): Boolean = withContext(Dispatchers.IO) {
-        db.recordatorioDao().markPaid(id, if (paid) 1 else 0) > 0
+        db.recordatorioDao().markPaid(id, currentUserId(), if (paid) 1 else 0) > 0
     }
 
-    suspend fun deleteReminder(id: Int): Boolean = withContext(Dispatchers.IO) { db.recordatorioDao().deleteById(id) > 0 }
+    suspend fun deleteReminder(id: Int): Boolean = withContext(Dispatchers.IO) { db.recordatorioDao().deleteById(id, currentUserId()) > 0 }
 
     suspend fun listImports(): List<ImportJob> = withContext(Dispatchers.IO) {
-        db.importJobDao().listAll().map {
+        db.importJobDao().listAll(currentUserId()).map {
             ImportJob().apply {
                 id = it.id
                 nombreArchivo = it.nombre
@@ -357,11 +361,11 @@ class LocalRepository private constructor(
     }
 
     suspend fun createImport(nombre: String, tipo: String, lineasJson: String): Int = withContext(Dispatchers.IO) {
-        db.importJobDao().insert(ImportJobEntity(nombre = nombre, tipo = tipo, estado = "pendiente", lineas = lineasJson)).toInt()
+        db.importJobDao().insert(ImportJobEntity(userId = currentUserId(), nombre = nombre, tipo = tipo, estado = "pendiente", lineas = lineasJson)).toInt()
     }
 
     suspend fun listImportRules(): List<ImportRule> = withContext(Dispatchers.IO) {
-        db.importRuleDao().listAll().map {
+        db.importRuleDao().listAll(currentUserId()).map {
             ImportRule().apply {
                 id = it.id
                 patron = it.patron
@@ -376,6 +380,7 @@ class LocalRepository private constructor(
         db.importRuleDao().upsert(
             ImportRuleEntity(
                 if (rule.id > 0) rule.id else 0,
+                currentUserId(),
                 rule.patron ?: "",
                 if (rule.isEsIngreso) 1 else 0,
                 rule.categoriaId,
@@ -384,10 +389,10 @@ class LocalRepository private constructor(
         ).toInt()
     }
 
-    suspend fun deleteImportRule(id: Int) = withContext(Dispatchers.IO) { db.importRuleDao().deleteById(id) }
+    suspend fun deleteImportRule(id: Int) = withContext(Dispatchers.IO) { db.importRuleDao().deleteById(id, currentUserId()) }
 
     suspend fun processImport(id: Int): JSONObject = withContext(Dispatchers.IO) {
-        db.importJobDao().updateEstado(id, "procesado")
+        db.importJobDao().updateEstado(id, currentUserId(), "procesado")
         JSONObject().apply {
             put("procesados", 0)
             put("errores", 0)
