@@ -1,6 +1,5 @@
 package com.example.finanzas.ui;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -15,6 +14,7 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.UserService;
+import com.example.finanzas.util.Prefs;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -50,8 +50,7 @@ public class ChangePasswordFragment extends Fragment {
                 return;
             }
 
-            long userId = requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-                    .getLong("user_id", -1);
+            long userId = Prefs.getCurrentUserId(requireContext());
             if (userId <= 0) {
                 Toast.makeText(requireContext(), "Inicia sesión nuevamente", Toast.LENGTH_SHORT).show();
                 return;
@@ -62,9 +61,7 @@ public class ChangePasswordFragment extends Fragment {
                 public void onOk() {
                     Toast.makeText(requireContext(), "Contraseña actualizada correctamente.", Toast.LENGTH_SHORT).show();
 
-                    requireContext().getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-                            .edit().clear().apply();
-                    com.example.finanzas.util.Prefs.setToken(requireContext(), null);
+                    Prefs.clearAuth(requireContext());
 
                     NavHostFragment.findNavController(ChangePasswordFragment.this).navigate(R.id.nav_login);
                 }

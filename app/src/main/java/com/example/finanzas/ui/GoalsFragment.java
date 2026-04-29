@@ -17,18 +17,20 @@ import android.widget.PopupMenu;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.finanzas.R;
-import com.example.finanzas.data.api.GoalService;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.GoalMilestone;
 import com.example.finanzas.ui.adapter.GoalSummaryAdapter;
+import com.example.finanzas.ui.viewmodel.GoalsViewModel;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
@@ -37,6 +39,7 @@ public class GoalsFragment extends Fragment {
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
     private GoalSummaryAdapter adapter;
     private TextView tvEmpty;
+    private GoalsViewModel viewModel;
 
     @Nullable
     @Override
@@ -55,6 +58,7 @@ public class GoalsFragment extends Fragment {
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new GoalSummaryAdapter();
         rv.setAdapter(adapter);
+        viewModel = new ViewModelProvider(this).get(GoalsViewModel.class);
 
         adapter.setListener(new GoalSummaryAdapter.Listener() {
             @Override public void onGoalClick(SavingsGoal goal) { mostrarDialogo(goal); }
@@ -69,6 +73,7 @@ public class GoalsFragment extends Fragment {
         fab.setOnClickListener(view -> mostrarDialogo(null));
 
         swipe.setOnRefreshListener(this::cargarMetas);
+        observeViewModel();
     }
 
     @Override
@@ -78,21 +83,7 @@ public class GoalsFragment extends Fragment {
     }
 
     private void cargarMetas() {
-        swipe.setRefreshing(true);
-        GoalService.list(requireContext(), new GoalService.ListCb() {
-            @Override
-            public void onOk(List<SavingsGoal> items) {
-                adapter.setItems(items);
-                tvEmpty.setVisibility(items == null || items.isEmpty() ? View.VISIBLE : View.GONE);
-                swipe.setRefreshing(false);
-            }
-
-            @Override
-            public void onFail() {
-                swipe.setRefreshing(false);
-                Toast.makeText(requireContext(), R.string.error_cargar_metas, Toast.LENGTH_SHORT).show();
-            }
-        });
+        viewModel.loadGoals();
     }
 
     private void mostrarDialogo(@Nullable SavingsGoal goal) {
@@ -145,12 +136,7 @@ public class GoalsFragment extends Fragment {
                         if (!fecha.isEmpty()) body.put("fecha_objetivo", fecha);
                     } catch (Exception ignore) { }
 
-                    GoalService.save(requireContext(), body, new GoalService.SaveCb() {
-                        @Override public void onOk() { cargarMetas(); }
-                        @Override public void onFail() {
-                            Toast.makeText(requireContext(), R.string.error_guardar_meta, Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                    viewModel.saveGoal(body);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
@@ -184,12 +170,7 @@ public class GoalsFragment extends Fragment {
     private void confirmarEliminar(SavingsGoal goal) {
         new AlertDialog.Builder(requireContext())
                 .setMessage(R.string.goal_confirm_delete)
-                .setPositiveButton(R.string.btn_eliminar, (d, w) -> GoalService.delete(requireContext(), goal.getId(), new GoalService.DeleteCb() {
-                    @Override public void onOk() { cargarMetas(); }
-                    @Override public void onFail() {
-                        Toast.makeText(requireContext(), R.string.error_guardar_meta, Toast.LENGTH_SHORT).show();
-                    }
-                }))
+                .setPositiveButton(R.string.btn_eliminar, (d, w) -> viewModel.deleteGoal(goal.getId()))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
@@ -267,12 +248,7 @@ public class GoalsFragment extends Fragment {
                         body.put("completado", cbCompletado.isChecked());
                     } catch (Exception ignore) { }
 
-                    GoalService.saveMilestone(requireContext(), body, new GoalService.MilestoneSaveCb() {
-                        @Override public void onOk(int id) { cargarMetas(); }
-                        @Override public void onFail() {
-                            Toast.makeText(requireContext(), R.string.error_guardar_meta, Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                    viewModel.saveMilestone(body);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
@@ -294,12 +270,7 @@ public class GoalsFragment extends Fragment {
             } else if (itemId == R.id.action_delete) {
                 new AlertDialog.Builder(requireContext())
                         .setMessage(R.string.goal_milestone_delete_confirm)
-                        .setPositiveButton(R.string.btn_eliminar, (d, w) -> GoalService.deleteMilestone(requireContext(), milestone.getId(), new GoalService.DeleteCb() {
-                            @Override public void onOk() { cargarMetas(); }
-                            @Override public void onFail() {
-                                Toast.makeText(requireContext(), R.string.error_guardar_meta, Toast.LENGTH_SHORT).show();
-                            }
-                        }))
+                        .setPositiveButton(R.string.btn_eliminar, (d, w) -> viewModel.deleteMilestone(milestone.getId()))
                         .setNegativeButton(android.R.string.cancel, null)
                         .show();
                 return true;
@@ -325,10 +296,22 @@ public class GoalsFragment extends Fragment {
             body.put("completado", completado);
         } catch (Exception ignore) { }
 
-        GoalService.saveMilestone(requireContext(), body, new GoalService.MilestoneSaveCb() {
-            @Override public void onOk(int id) { cargarMetas(); }
-            @Override public void onFail() {
-                Toast.makeText(requireContext(), R.string.error_guardar_meta, Toast.LENGTH_SHORT).show();
+        viewModel.saveMilestone(body);
+    }
+
+    private void observeViewModel() {
+        viewModel.getLoading().observe(getViewLifecycleOwner(),
+                loading -> swipe.setRefreshing(Boolean.TRUE.equals(loading)));
+
+        viewModel.getGoals().observe(getViewLifecycleOwner(), items -> {
+            List<SavingsGoal> safe = items == null ? new ArrayList<>() : items;
+            adapter.setItems(new ArrayList<>(safe));
+            tvEmpty.setVisibility(safe.isEmpty() ? View.VISIBLE : View.GONE);
+        });
+
+        viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
+            if (msgRes != null) {
+                Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
             }
         });
     }

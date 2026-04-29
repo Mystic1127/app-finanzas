@@ -56,6 +56,7 @@ public class HomeSummary {
     public void setPresupuestoPorcentaje(double presupuestoPorcentaje) { this.presupuestoPorcentaje = presupuestoPorcentaje; }
 
     public boolean isPresupuestoExcedido() { return presupuestoExcedido; }
+    public boolean getPresupuestoExcedido() { return presupuestoExcedido; }
     public void setPresupuestoExcedido(boolean presupuestoExcedido) { this.presupuestoExcedido = presupuestoExcedido; }
 
     public double getGastoProyectado() { return gastoProyectado; }

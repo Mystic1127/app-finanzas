@@ -16,19 +16,20 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.finanzas.R;
-import com.example.finanzas.data.api.ReminderService;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.ui.adapter.ReminderSummaryAdapter;
-import com.example.finanzas.util.Format;
+import com.example.finanzas.ui.viewmodel.RemindersViewModel;
 import com.example.finanzas.util.ReminderScheduler;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +40,7 @@ public class RemindersFragment extends Fragment {
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
     private ReminderSummaryAdapter adapter;
     private TextView tvEmpty;
+    private RemindersViewModel viewModel;
 
     @Nullable
     @Override
@@ -57,6 +59,7 @@ public class RemindersFragment extends Fragment {
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new ReminderSummaryAdapter();
         rv.setAdapter(adapter);
+        viewModel = new ViewModelProvider(this).get(RemindersViewModel.class);
 
         adapter.setListener(new ReminderSummaryAdapter.Listener() {
             @Override public void onReminderClick(PaymentReminder reminder) { mostrarDialogo(reminder); }
@@ -68,6 +71,7 @@ public class RemindersFragment extends Fragment {
         fab.setOnClickListener(view -> mostrarDialogo(null));
 
         swipe.setOnRefreshListener(this::cargarRecordatorios);
+        observeViewModel();
     }
 
     @Override
@@ -77,31 +81,7 @@ public class RemindersFragment extends Fragment {
     }
 
     private void cargarRecordatorios() {
-        swipe.setRefreshing(true);
-        ReminderService.list(requireContext(), false, new ReminderService.ListCb() {
-            @Override
-            public void onOk(List<PaymentReminder> items) {
-                adapter.setItems(items);
-                tvEmpty.setVisibility(items == null || items.isEmpty() ? View.VISIBLE : View.GONE);
-                if (items != null) {
-                    for (PaymentReminder item : items) {
-                        if (item == null) continue;
-                        if (item.isNotificar() && !item.isPagado()) {
-                            ReminderScheduler.schedule(requireContext(), item);
-                        } else {
-                            ReminderScheduler.cancel(requireContext(), item);
-                        }
-                    }
-                }
-                swipe.setRefreshing(false);
-            }
-
-            @Override
-            public void onFail() {
-                swipe.setRefreshing(false);
-                Toast.makeText(requireContext(), R.string.error_cargar_recordatorios, Toast.LENGTH_SHORT).show();
-            }
-        });
+        viewModel.loadReminders(false);
     }
 
     private void mostrarDialogo(@Nullable PaymentReminder reminder) {
@@ -219,42 +199,7 @@ public class RemindersFragment extends Fragment {
                     } catch (Exception ignore) { }
 
                     String finalNotificationId = notificationId;
-                    ReminderService.save(requireContext(), body, new ReminderService.SaveCb() {
-                        @Override public void onOk(int id, @Nullable String responseNotificationId) {
-                            String effectiveNotificationId = responseNotificationId != null && !responseNotificationId.isEmpty()
-                                    ? responseNotificationId
-                                    : finalNotificationId;
-                            PaymentReminder nuevo = new PaymentReminder();
-                            nuevo.setId(id);
-                            nuevo.setTitulo(titulo);
-                            nuevo.setMonto(montoVal);
-                            try {
-                                java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
-                                nuevo.setFechaVencimiento(df.parse(fecha));
-                            } catch (Exception ignore) {
-                                nuevo.setFechaVencimiento(null);
-                            }
-                            nuevo.setHoraRecordatorio(TextUtils.isEmpty(hora) ? null : hora);
-                            nuevo.setDiasRecordatorio(finalDiasVal);
-                            nuevo.setFrecuencia(frecuencia);
-                            nuevo.setNotificar(notificar);
-                            nuevo.setNotificationId(effectiveNotificationId);
-                            nuevo.setPagado(false);
-                            if (notificar) {
-                                ReminderScheduler.schedule(requireContext(), nuevo);
-                            } else {
-                                ReminderScheduler.cancel(requireContext(), nuevo);
-                            }
-                            String fechaLabel = nuevo.getFechaVencimiento() != null
-                                    ? Format.date(nuevo.getFechaVencimiento())
-                                    : fecha;
-                            cargarRecordatorios();
-                        }
-
-                        @Override public void onFail() {
-                            Toast.makeText(requireContext(), R.string.error_guardar_recordatorio, Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                    viewModel.saveReminder(body);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
@@ -287,28 +232,38 @@ public class RemindersFragment extends Fragment {
 
     private void marcarPagado(PaymentReminder reminder) {
         ReminderScheduler.cancel(requireContext(), reminder);
-        ReminderService.marcarPagado(requireContext(), reminder.getId(), true, new ReminderService.SimpleCb() {
-            @Override public void onOk() { cargarRecordatorios(); }
-            @Override public void onFail() {
-                Toast.makeText(requireContext(), R.string.error_guardar_recordatorio, Toast.LENGTH_SHORT).show();
-            }
-        });
+        viewModel.markPaid(reminder.getId(), true);
     }
 
     private void confirmarEliminar(PaymentReminder reminder) {
         new AlertDialog.Builder(requireContext())
                 .setMessage(R.string.reminder_confirm_delete)
-                .setPositiveButton(R.string.btn_eliminar, (d, w) -> ReminderService.delete(requireContext(), reminder.getId(), new ReminderService.SimpleCb() {
-                    @Override public void onOk() {
-                        ReminderScheduler.cancel(requireContext(), reminder);
-                        cargarRecordatorios();
-                    }
-                    @Override public void onFail() {
-                        Toast.makeText(requireContext(), R.string.error_guardar_recordatorio, Toast.LENGTH_SHORT).show();
-                    }
-                }))
+                .setPositiveButton(R.string.btn_eliminar, (d, w) -> {
+                    ReminderScheduler.cancel(requireContext(), reminder);
+                    viewModel.delete(reminder.getId());
+                })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private void observeViewModel() {
+        viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> swipe.setRefreshing(Boolean.TRUE.equals(loading)));
+        viewModel.getReminders().observe(getViewLifecycleOwner(), items -> {
+            List<PaymentReminder> safeItems = items == null ? new ArrayList<>() : items;
+            adapter.setItems(new ArrayList<>(safeItems));
+            tvEmpty.setVisibility(safeItems.isEmpty() ? View.VISIBLE : View.GONE);
+            for (PaymentReminder item : safeItems) {
+                if (item == null) continue;
+                if (item.isNotificar() && !item.isPagado()) {
+                    ReminderScheduler.schedule(requireContext(), item);
+                } else {
+                    ReminderScheduler.cancel(requireContext(), item);
+                }
+            }
+        });
+        viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
+            if (msgRes != null) Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
+        });
     }
 
     private double parseMontoSeguro(String raw) {

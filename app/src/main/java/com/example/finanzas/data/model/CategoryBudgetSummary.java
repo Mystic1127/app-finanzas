@@ -28,5 +28,6 @@ public class CategoryBudgetSummary {
     public void setPorcentaje(double porcentaje) { this.porcentaje = porcentaje; }
 
     public boolean isAlerta() { return alerta; }
+    public boolean getAlerta() { return alerta; }
     public void setAlerta(boolean alerta) { this.alerta = alerta; }
 }
