@@ -247,8 +247,8 @@ public class RemindersFragment extends Fragment {
     }
 
     private void observeViewModel() {
-        viewModel.loading.observe(getViewLifecycleOwner(), loading -> swipe.setRefreshing(Boolean.TRUE.equals(loading)));
-        viewModel.reminders.observe(getViewLifecycleOwner(), items -> {
+        viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> swipe.setRefreshing(Boolean.TRUE.equals(loading)));
+        viewModel.getReminders().observe(getViewLifecycleOwner(), items -> {
             List<PaymentReminder> safeItems = items == null ? new ArrayList<>() : items;
             adapter.setItems(new ArrayList<>(safeItems));
             tvEmpty.setVisibility(safeItems.isEmpty() ? View.VISIBLE : View.GONE);
@@ -261,7 +261,7 @@ public class RemindersFragment extends Fragment {
                 }
             }
         });
-        viewModel.message.observe(getViewLifecycleOwner(), msgRes -> {
+        viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
             if (msgRes != null) Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
         });
     }

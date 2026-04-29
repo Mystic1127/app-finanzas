@@ -257,12 +257,12 @@ public class HomeFragment extends Fragment {
     }
 
     private void observeViewModel() {
-        viewModel.loading.observe(getViewLifecycleOwner(), loading -> {
+        viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             boolean show = Boolean.TRUE.equals(loading);
             showLoading(show);
             swipe.setRefreshing(show);
         });
-        viewModel.summary.observe(getViewLifecycleOwner(), summary -> {
+        viewModel.getSummary().observe(getViewLifecycleOwner(), summary -> {
             if (summary == null || !isAdded()) return;
             pintarResumen(summary);
         });

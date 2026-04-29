@@ -318,11 +318,11 @@ public class ListaTransaccionesFragment extends Fragment {
     }
 
     private void observeViewModel() {
-        viewModel.loading.observe(getViewLifecycleOwner(), loading -> {
+        viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             showLoading(Boolean.TRUE.equals(loading));
             if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(Boolean.TRUE.equals(loading));
         });
-        viewModel.items.observe(getViewLifecycleOwner(), items -> {
+        viewModel.getItems().observe(getViewLifecycleOwner(), items -> {
             List<Transaccion> safe = items == null ? new ArrayList<>() : items;
             adapter.clear();
             adapter.addAll(safe);
@@ -338,7 +338,7 @@ public class ListaTransaccionesFragment extends Fragment {
             pendingPrefClear = false;
             stopRefreshing();
         });
-        viewModel.deleted.observe(getViewLifecycleOwner(), ok -> {
+        viewModel.getDeleted().observe(getViewLifecycleOwner(), ok -> {
             if (Boolean.TRUE.equals(ok)) {
                 Toast.makeText(requireContext(), R.string.trans_deleted, Toast.LENGTH_SHORT).show();
                 cargarTransacciones();
@@ -346,10 +346,10 @@ public class ListaTransaccionesFragment extends Fragment {
                 Toast.makeText(requireContext(), R.string.error_eliminar_transaccion, Toast.LENGTH_SHORT).show();
             }
         });
-        viewModel.exportPath.observe(getViewLifecycleOwner(), path ->
+        viewModel.getExportPath().observe(getViewLifecycleOwner(), path ->
                 Toast.makeText(requireContext(), getString(R.string.transactions_export_success, path), Toast.LENGTH_LONG).show()
         );
-        viewModel.error.observe(getViewLifecycleOwner(), message -> {
+        viewModel.getError().observe(getViewLifecycleOwner(), message -> {
             if (message != null && !message.isEmpty()) {
                 Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
             } else {

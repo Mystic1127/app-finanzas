@@ -116,23 +116,23 @@ public class PresupuestoFragment extends Fragment {
     }
 
     private void observeViewModel() {
-        viewModel.loading.observe(getViewLifecycleOwner(), loading -> {
+        viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(Boolean.TRUE.equals(loading));
             if (!Boolean.TRUE.equals(loading)) {
                 btnGuardarCategorias.setEnabled(true);
                 btnAgregarCategoria.setEnabled(true);
             }
         });
-        viewModel.budget.observe(getViewLifecycleOwner(), monto -> {
+        viewModel.getBudget().observe(getViewLifecycleOwner(), monto -> {
             if (monto != null) etPresupuesto.setText(String.valueOf(monto));
         });
-        viewModel.categoryBudgets.observe(getViewLifecycleOwner(), items -> {
+        viewModel.getCategoryBudgets().observe(getViewLifecycleOwner(), items -> {
             if (items != null) {
                 categoryAdapter.setItems(items);
                 etNuevaCategoria.setText("");
             }
         });
-        viewModel.message.observe(getViewLifecycleOwner(), msgRes -> {
+        viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
             if (msgRes != null) Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
         });
     }

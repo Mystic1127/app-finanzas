@@ -300,14 +300,19 @@ public class GoalsFragment extends Fragment {
     }
 
     private void observeViewModel() {
-        viewModel.loading.observe(getViewLifecycleOwner(), loading -> swipe.setRefreshing(Boolean.TRUE.equals(loading)));
-        viewModel.goals.observe(getViewLifecycleOwner(), items -> {
+        viewModel.getLoading().observe(getViewLifecycleOwner(),
+                loading -> swipe.setRefreshing(Boolean.TRUE.equals(loading)));
+
+        viewModel.getGoals().observe(getViewLifecycleOwner(), items -> {
             List<SavingsGoal> safe = items == null ? new ArrayList<>() : items;
             adapter.setItems(new ArrayList<>(safe));
             tvEmpty.setVisibility(safe.isEmpty() ? View.VISIBLE : View.GONE);
         });
-        viewModel.message.observe(getViewLifecycleOwner(), msgRes -> {
-            if (msgRes != null) Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
+
+        viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
+            if (msgRes != null) {
+                Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
+            }
         });
     }
 }
