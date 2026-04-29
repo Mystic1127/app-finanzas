@@ -53,7 +53,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val currency = travel.optString("currency", "")
             val rate = travel.optDouble("rate", 0.0)
             if (enabled || base.isNotBlank() || currency.isNotBlank() || rate > 0) {
-                summary.travelPreference = TravelPreference(enabled, base, currency, rate)
+                summary.travelPreference = TravelPreference().apply {
+                    isEnabled = enabled
+                    this.base = base
+                    this.currency = currency
+                    this.rate = rate
+                }
             }
         }
         return summary
