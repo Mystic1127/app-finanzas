@@ -180,10 +180,6 @@ public class RemindersFragment extends Fragment {
                     // 👇 copia final para poder usarla dentro de la clase interna
                     final int finalDiasVal = diasVal;
 
-                    if (!TextUtils.isEmpty(hora) && !hora.matches("^\\d{2}:\\d{2}$")) {
-                        Toast.makeText(requireContext(), R.string.reminder_field_time, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
 
                     String notificationId = reminder != null ? reminder.getNotificationId() : null;
                     if (notificar && (notificationId == null || notificationId.isEmpty())) {
