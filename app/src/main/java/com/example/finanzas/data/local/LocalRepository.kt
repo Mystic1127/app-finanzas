@@ -2,10 +2,12 @@ package com.example.finanzas.data.local
 
 import android.content.Context
 import com.example.finanzas.data.local.room.*
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.model.*
 import com.example.finanzas.util.PasswordSecurity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedWriter
 import java.io.File
@@ -419,6 +421,26 @@ class LocalRepository private constructor(
         summary.metas.addAll(listGoals())
         summary.recordatorios.addAll(listReminders(false))
         summary.importacionesPendientes = listImports().size
+
+        runCatching {
+            val dash = JSONObject(SettingsService.getDashboardRaw(appContext))
+            val modules = dash.optJSONArray("modules") ?: JSONArray()
+            for (i in 0 until modules.length()) {
+                val item = modules.optJSONObject(i) ?: continue
+                summary.dashboardPreferencias.add(DashboardModulePref(item.optString("id"), item.optBoolean("visible", true)))
+            }
+        }
+
+        runCatching {
+            val travel = JSONObject(SettingsService.getTravelRaw(appContext))
+            val enabled = travel.optBoolean("enabled", false)
+            val base = travel.optString("base", "")
+            val currency = travel.optString("currency", "")
+            val rate = travel.optDouble("rate", 0.0)
+            if (enabled || base.isNotBlank() || currency.isNotBlank() || rate > 0) {
+                summary.travelPreference = TravelPreference(enabled, base, currency, rate)
+            }
+        }
         summary
     }
 }

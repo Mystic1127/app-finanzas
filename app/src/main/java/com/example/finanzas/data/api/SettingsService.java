@@ -17,6 +17,16 @@ public class SettingsService {
         cb.onSuccess();
     }
 
+    public static String getDashboardRaw(Context ctx) {
+        SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return sp.getString(KEY_DASHBOARD, "{}");
+    }
+
+    public static String getTravelRaw(Context ctx) {
+        SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return sp.getString(KEY_TRAVEL, "{}");
+    }
+
     public static void saveDashboard(Context ctx, JSONObject body, SaveCb cb) {
         try {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
