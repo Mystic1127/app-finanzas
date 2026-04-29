@@ -2,6 +2,7 @@ package com.example.finanzas.ui;
 
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -138,6 +139,7 @@ public class RemindersFragment extends Fragment {
         }
 
         setupDatePicker(etFecha);
+        setupTimePicker(etHora);
 
         new AlertDialog.Builder(requireContext())
                 .setTitle(editando ? R.string.reminder_dialog_title_edit : R.string.reminder_dialog_title_new)
@@ -177,6 +179,7 @@ public class RemindersFragment extends Fragment {
 
                     // 👇 copia final para poder usarla dentro de la clase interna
                     final int finalDiasVal = diasVal;
+
 
                     String notificationId = reminder != null ? reminder.getNotificationId() : null;
                     if (notificar && (notificationId == null || notificationId.isEmpty())) {
@@ -227,6 +230,33 @@ public class RemindersFragment extends Fragment {
             input.setText(df.format(calendar.getTime()));
         }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
 
+        dialog.show();
+    }
+
+
+    private void setupTimePicker(@NonNull EditText input) {
+        input.setFocusable(false);
+        input.setClickable(true);
+        input.setOnClickListener(v -> showTimePicker(input));
+        input.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) showTimePicker(input); });
+    }
+
+    private void showTimePicker(@NonNull EditText input) {
+        Calendar calendar = Calendar.getInstance();
+        String current = input.getText() == null ? "" : input.getText().toString().trim();
+        if (current.matches("^\\d{2}:\\d{2}$")) {
+            try {
+                String[] parts = current.split(":");
+                calendar.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));
+                calendar.set(Calendar.MINUTE, Integer.parseInt(parts[1]));
+            } catch (Exception ignored) { }
+        }
+
+        TimePickerDialog dialog = new TimePickerDialog(requireContext(),
+                (view, hourOfDay, minute) -> input.setText(String.format(Locale.US, "%02d:%02d", hourOfDay, minute)),
+                calendar.get(Calendar.HOUR_OF_DAY),
+                calendar.get(Calendar.MINUTE),
+                true);
         dialog.show();
     }
 
