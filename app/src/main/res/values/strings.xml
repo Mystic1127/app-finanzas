@@ -319,4 +319,7 @@
         <item>@string/import_type_excel</item>
     </string-array>
 
+    <string name="error_ingresa_monto">Ingresa un monto</string>
+    <string name="error_selecciona_categoria">Selecciona una categoría</string>
+    <string name="error_monto_invalido">Monto inválido</string>
 </resources>

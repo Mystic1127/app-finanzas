@@ -144,6 +144,7 @@ public class HomeFragment extends Fragment {
     private final Map<String, View> moduleViews = new LinkedHashMap<>();
     private HomeSummary lastSummary;
     private HomeViewModel viewModel;
+    private String smartAlertMessage;
 
     @Nullable
     @Override
@@ -266,6 +267,10 @@ public class HomeFragment extends Fragment {
             if (summary == null || !isAdded()) return;
             pintarResumen(summary);
         });
+        viewModel.getSmartAlert().observe(getViewLifecycleOwner(), alert -> {
+            smartAlertMessage = alert;
+            if (lastSummary != null && isAdded()) pintarResumen(lastSummary);
+        });
     }
 
     private void pintarResumen(HomeSummary summary) {
@@ -303,8 +308,11 @@ public class HomeFragment extends Fragment {
             tvPredictAlerts.setVisibility(View.GONE);
         }
 
-        List<String> alertas = summary.getAlertas();
-        if (alertas != null && !alertas.isEmpty()) {
+        List<String> alertas = new ArrayList<>(summary.getAlertas());
+        if (smartAlertMessage != null && !smartAlertMessage.trim().isEmpty()) {
+            alertas.add(0, smartAlertMessage);
+        }
+        if (!alertas.isEmpty()) {
             tvAlertasTitulo.setVisibility(View.VISIBLE);
             tvAlertas.setVisibility(View.VISIBLE);
             tvAlertas.setText(joinAlertas(alertas));
