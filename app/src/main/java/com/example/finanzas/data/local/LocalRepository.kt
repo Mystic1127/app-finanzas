@@ -59,6 +59,22 @@ class LocalRepository private constructor(
         true
     }
 
+
+    suspend fun getUserByEmail(email: String): User? = withContext(Dispatchers.IO) {
+        db.userDao().findByEmail(email)?.let { User(it.id.toLong(), it.nombre, it.email) }
+    }
+
+    suspend fun changePassword(email: String, oldPassword: String, newPassword: String): Boolean = withContext(Dispatchers.IO) {
+        val user = db.userDao().findByEmail(email) ?: return@withContext false
+        if (!PasswordSecurity.verifyPassword(oldPassword, user.password)) return@withContext false
+        db.userDao().update(user.copy(password = PasswordSecurity.hashPassword(newPassword)))
+        true
+    }
+
+    fun getUserByEmailBlocking(email: String): User? = kotlinx.coroutines.runBlocking { getUserByEmail(email) }
+
+    fun changePasswordBlocking(email: String, oldPassword: String, newPassword: String): Boolean =
+        kotlinx.coroutines.runBlocking { changePassword(email, oldPassword, newPassword) }
     suspend fun createCategoria(nombre: String, esIngreso: Boolean): Int = withContext(Dispatchers.IO) {
         val current = db.categoriaDao().listAll()
         val nextId = ((current.maxOfOrNull { it.id } ?: 0) + 1)
