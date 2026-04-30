@@ -442,7 +442,8 @@ public class HomeFragment extends Fragment {
 
         for (int i = 0; i < safeSlices.size(); i++) {
             CategoryChartSlice slice = safeSlices.get(i);
-            labels.add(slice.getCategoriaNombre());
+            String catLabel = slice.getCategoriaNombre();
+            labels.add((catLabel == null || catLabel.trim().isEmpty()) ? "Sin datos" : catLabel);
             gastos.add(new BarEntry(i, (float) slice.getGastado()));
             presupuestos.add(new BarEntry(i, (float) slice.getPresupuesto()));
         }
@@ -632,7 +633,8 @@ public class HomeFragment extends Fragment {
 
         for (int i = 0; i < safePoints.size(); i++) {
             MonthlyTrendPoint point = safePoints.get(i);
-            labels.add(point.getEtiqueta());
+            String trendLabel = point.getEtiqueta();
+            labels.add((trendLabel == null || trendLabel.trim().isEmpty()) ? "-" : trendLabel);
             ingresosEntries.add(new Entry(i, (float) point.getIngresos()));
             gastosEntries.add(new Entry(i, (float) point.getGastos()));
             float saldo = (float) point.getSaldo();
