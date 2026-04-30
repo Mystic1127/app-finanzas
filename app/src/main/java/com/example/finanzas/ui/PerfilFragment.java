@@ -18,6 +18,7 @@ import com.example.finanzas.util.Prefs;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+
 public class PerfilFragment extends Fragment {
 
     private MaterialButton btnRemovePin;
@@ -46,17 +47,17 @@ public class PerfilFragment extends Fragment {
         tvNombre.setText(cachedNombre);
         tvEmail.setText(cachedEmail);
 
-        UserService.getMe(requireContext(), new UserService.MeCb() {
-            @Override public void onOk(int id, String nom, String em) {
-                tvNombre.setText(nom);
-                tvEmail.setText(em);
-                Prefs.setUserSession(requireContext(), id, em, nom);
-            }
-
-            @Override public void onFail() {
-                Toast.makeText(requireContext(), R.string.error_cargar_perfil, Toast.LENGTH_SHORT).show();
-            }
-        });
+        if (getContext() != null && cachedEmail != null && !"—".equals(cachedEmail)) {
+            UserService.getMe(requireContext(), cachedEmail, new UserService.MeCb() {
+                @Override public void onOk(int id, String nom, String em) {
+                    if (!isAdded()) return;
+                    tvNombre.setText(nom);
+                    tvEmail.setText(em);
+                    Prefs.setUserSession(requireContext(), id, em, nom);
+                }
+                @Override public void onFail() { }
+            });
+        }
 
         btnCambiarPass.setOnClickListener(view ->
                 Navigation.findNavController(view).navigate(R.id.nav_change_password));
@@ -66,17 +67,20 @@ public class PerfilFragment extends Fragment {
 
         updatePinButtons();
 
-        btnRemovePin.setOnClickListener(view ->
-                new MaterialAlertDialogBuilder(requireContext())
-                        .setTitle(R.string.perfil_remove_pin)
-                        .setMessage(R.string.pin_setup_remove_confirm)
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                            Prefs.clearPin(requireContext());
-                            Toast.makeText(requireContext(), R.string.pin_removed_success, Toast.LENGTH_SHORT).show();
-                            updatePinButtons();
-                        })
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show());
+        btnRemovePin.setOnClickListener(view -> {
+            if (getContext() == null) return;
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.perfil_remove_pin)
+                    .setMessage(R.string.pin_setup_remove_confirm)
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        if (getContext() == null) return;
+                        Prefs.clearPin(requireContext());
+                        Toast.makeText(requireContext(), R.string.pin_removed_success, Toast.LENGTH_SHORT).show();
+                        updatePinButtons();
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        });
     }
 
     @Override
@@ -86,7 +90,7 @@ public class PerfilFragment extends Fragment {
     }
 
     private void updatePinButtons() {
-        if (btnRemovePin == null) return;
+        if (btnRemovePin == null || getContext() == null) return;
         btnRemovePin.setVisibility(Prefs.hasPin(requireContext()) ? View.VISIBLE : View.GONE);
     }
 }

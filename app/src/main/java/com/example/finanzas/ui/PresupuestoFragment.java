@@ -6,7 +6,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -19,6 +18,8 @@ import com.example.finanzas.R;
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.Calendar;
 import java.util.List;
@@ -27,6 +28,8 @@ public class PresupuestoFragment extends Fragment {
 
     private EditText etPresupuesto;
     private EditText etNuevaCategoria;
+    private TextInputLayout tilPresupuesto;
+    private TextInputLayout tilNuevaCategoria;
     private CategoryBudgetEditAdapter categoryAdapter;
     private Button btnGuardarCategorias;
     private Button btnAgregarCategoria;
@@ -48,6 +51,8 @@ public class PresupuestoFragment extends Fragment {
 
         etPresupuesto = v.findViewById(R.id.etPresupuesto);
         etNuevaCategoria = v.findViewById(R.id.etNuevaCategoria);
+        tilPresupuesto = v.findViewById(R.id.tilPresupuesto);
+        tilNuevaCategoria = v.findViewById(R.id.tilNuevaCategoria);
         Button btnGuardarPresupuesto = v.findViewById(R.id.btnGuardarPresupuesto);
         btnGuardarCategorias = v.findViewById(R.id.btnGuardarCategorias);
         btnAgregarCategoria = v.findViewById(R.id.btnAgregarCategoria);
@@ -85,10 +90,11 @@ public class PresupuestoFragment extends Fragment {
         try {
             val = s.isEmpty() ? 0.0 : Math.max(0, Double.parseDouble(s));
         } catch (NumberFormatException ex) {
-            Toast.makeText(requireContext(), "Monto inválido", Toast.LENGTH_SHORT).show();
+            tilPresupuesto.setError(getString(R.string.error_monto_invalido));
             return;
         }
 
+        tilPresupuesto.setError(null);
         viewModel.saveBudget(anio, mes, val);
     }
 
@@ -101,10 +107,11 @@ public class PresupuestoFragment extends Fragment {
     private void crearCategoria() {
         String nombre = etNuevaCategoria.getText() == null ? "" : etNuevaCategoria.getText().toString().trim();
         if (nombre.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.pres_category_new_hint, Toast.LENGTH_SHORT).show();
+            tilNuevaCategoria.setError(getString(R.string.pres_category_new_hint));
             return;
         }
 
+        tilNuevaCategoria.setError(null);
         btnAgregarCategoria.setEnabled(false);
         viewModel.createCategory(nombre, categoryAdapter.getItems());
     }
@@ -133,7 +140,7 @@ public class PresupuestoFragment extends Fragment {
             }
         });
         viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
-            if (msgRes != null) Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
+            if (msgRes != null) Snackbar.make(requireView(), msgRes, Snackbar.LENGTH_SHORT).show();
         });
     }
 }

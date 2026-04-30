@@ -21,7 +21,7 @@ import com.example.finanzas.util.PasswordSecurity
         ImportJobEntity::class,
         ImportRuleEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppRoomDatabase : RoomDatabase() {
@@ -291,7 +291,7 @@ abstract class AppRoomDatabase : RoomDatabase() {
         @JvmStatic
         fun build(context: Context): AppRoomDatabase {
             return Room.databaseBuilder(context, AppRoomDatabase::class.java, "finanzas_local.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
@@ -304,6 +304,26 @@ abstract class AppRoomDatabase : RoomDatabase() {
                     }
                 })
                 .build()
+        }
+
+        @JvmStatic
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transacciones ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE presupuestos ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE presupuestos_categoria ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE metas ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE metas_hitos ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE recordatorios ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE import_jobs ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE import_rules ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transacciones_user_id ON transacciones(user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_metas_user_id ON metas(user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_metas_hitos_user_id ON metas_hitos(user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_recordatorios_user_id ON recordatorios(user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_import_jobs_user_id ON import_jobs(user_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_import_rules_user_id ON import_rules(user_id)")
+            }
         }
     }
 }

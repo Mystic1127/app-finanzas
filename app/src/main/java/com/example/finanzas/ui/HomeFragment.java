@@ -44,6 +44,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.chip.ChipDrawable;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.LineChart;
@@ -110,6 +111,8 @@ public class HomeFragment extends Fragment {
     private TextView tvAlertas;
     private TextView tvAlertasTitulo;
     private TextView tvPresupuestoResumen;
+    private TextView tvInsightsTitulo;
+    private ChipGroup chipInsights;
     private TextView tvConversionResumen;
     private TextView tvBudgetsEmpty;
     private TextView tvGoalsEmpty;
@@ -144,6 +147,7 @@ public class HomeFragment extends Fragment {
     private final Map<String, View> moduleViews = new LinkedHashMap<>();
     private HomeSummary lastSummary;
     private HomeViewModel viewModel;
+    private String smartAlertMessage;
 
     @Nullable
     @Override
@@ -172,6 +176,8 @@ public class HomeFragment extends Fragment {
         tvGoalsEmpty = v.findViewById(R.id.tvGoalsEmpty);
         tvRemindersEmpty = v.findViewById(R.id.tvRemindersEmpty);
         tvPresupuestoResumen = v.findViewById(R.id.tvPresupuestoResumen);
+        tvInsightsTitulo = v.findViewById(R.id.tvInsightsTitulo);
+        chipInsights = v.findViewById(R.id.chipInsights);
         tvConversionResumen = v.findViewById(R.id.tvConversionResumen);
         tvChartCategoriasEmpty = v.findViewById(R.id.tvChartCategoriasEmpty);
         tvChartTrendEmpty = v.findViewById(R.id.tvChartTrendEmpty);
@@ -240,6 +246,16 @@ public class HomeFragment extends Fragment {
         fabNueva.setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_new));
 
         swipe.setOnRefreshListener(this::cargarResumen);
+
+        View btnDashboardSettings = v.findViewById(R.id.action_customize_dashboard);
+        if (btnDashboardSettings != null) {
+            btnDashboardSettings.setOnClickListener(view -> showDashboardSettingsDialog());
+        }
+        View btnTravelSettings = v.findViewById(R.id.action_travel_settings);
+        if (btnTravelSettings != null) {
+            btnTravelSettings.setOnClickListener(view -> showTravelSettingsDialog());
+        }
+
         observeViewModel();
     }
 
@@ -265,6 +281,30 @@ public class HomeFragment extends Fragment {
         viewModel.getSummary().observe(getViewLifecycleOwner(), summary -> {
             if (summary == null || !isAdded()) return;
             pintarResumen(summary);
+        });
+        viewModel.getSmartAlert().observe(getViewLifecycleOwner(), alert -> {
+            smartAlertMessage = alert;
+            if (lastSummary != null && isAdded()) pintarResumen(lastSummary);
+        });
+        viewModel.getInsights().observe(getViewLifecycleOwner(), items -> {
+            if (items == null || items.isEmpty()) {
+                tvInsightsTitulo.setVisibility(View.GONE);
+                chipInsights.setVisibility(View.GONE);
+                chipInsights.removeAllViews();
+            } else {
+                tvInsightsTitulo.setVisibility(View.VISIBLE);
+                chipInsights.setVisibility(View.VISIBLE);
+                chipInsights.removeAllViews();
+                for (String insight : items) {
+                    Chip chip = new Chip(requireContext());
+                    chip.setText(insight);
+                    chip.setChipIcon(ContextCompat.getDrawable(requireContext(), R.drawable.ic_arrow_trending_24));
+                    chip.setChipIconVisible(true);
+                    chip.setClickable(false);
+                    chip.setCheckable(false);
+                    chipInsights.addView(chip);
+                }
+            }
         });
     }
 
@@ -303,8 +343,11 @@ public class HomeFragment extends Fragment {
             tvPredictAlerts.setVisibility(View.GONE);
         }
 
-        List<String> alertas = summary.getAlertas();
-        if (alertas != null && !alertas.isEmpty()) {
+        List<String> alertas = new ArrayList<>(summary.getAlertas());
+        if (smartAlertMessage != null && !smartAlertMessage.trim().isEmpty()) {
+            alertas.add(0, smartAlertMessage);
+        }
+        if (!alertas.isEmpty()) {
             tvAlertasTitulo.setVisibility(View.VISIBLE);
             tvAlertas.setVisibility(View.VISIBLE);
             tvAlertas.setText(joinAlertas(alertas));
@@ -389,18 +432,17 @@ public class HomeFragment extends Fragment {
 
     private void renderBudgetChart(@Nullable List<CategoryChartSlice> slices) {
         if (chartCategorias == null) return;
-        if (slices == null || slices.isEmpty()) {
-            chartCategorias.clear();
-            chartCategorias.invalidate();
-            chartCategorias.setVisibility(View.GONE);
-            if (tvChartCategoriasEmpty != null) {
-                tvChartCategoriasEmpty.setVisibility(View.VISIBLE);
-            }
-            return;
-        }
+        List<CategoryChartSlice> safeSlices = (slices == null || slices.isEmpty())
+                ? Collections.singletonList(new CategoryChartSlice() {{
+                    setCategoriaNombre("Sin datos");
+                    setGastado(0.0);
+                    setPresupuesto(0.0);
+                }})
+                : slices;
 
         if (tvChartCategoriasEmpty != null) {
-            tvChartCategoriasEmpty.setVisibility(View.GONE);
+            tvChartCategoriasEmpty.setVisibility((slices == null || slices.isEmpty()) ? View.VISIBLE : View.GONE);
+            tvChartCategoriasEmpty.setText(R.string.chart_no_data);
         }
         chartCategorias.setVisibility(View.VISIBLE);
 
@@ -408,9 +450,10 @@ public class HomeFragment extends Fragment {
         ArrayList<BarEntry> presupuestos = new ArrayList<>();
         ArrayList<String> labels = new ArrayList<>();
 
-        for (int i = 0; i < slices.size(); i++) {
-            CategoryChartSlice slice = slices.get(i);
-            labels.add(slice.getCategoriaNombre());
+        for (int i = 0; i < safeSlices.size(); i++) {
+            CategoryChartSlice slice = safeSlices.get(i);
+            String catLabel = slice.getCategoriaNombre();
+            labels.add((catLabel == null || catLabel.trim().isEmpty()) ? "Sin datos" : catLabel);
             gastos.add(new BarEntry(i, (float) slice.getGastado()));
             presupuestos.add(new BarEntry(i, (float) slice.getPresupuesto()));
         }
@@ -468,15 +511,10 @@ public class HomeFragment extends Fragment {
     private void renderBalanceChart(double ingresos, double gastos, double saldo) {
         if (chartBalance == null) return;
         boolean hasData = ingresos != 0 || gastos != 0 || saldo != 0;
-        if (!hasData) {
-            chartBalance.clear();
-            chartBalance.invalidate();
-            chartBalance.setVisibility(View.GONE);
-            if (tvChartBalanceEmpty != null) tvChartBalanceEmpty.setVisibility(View.VISIBLE);
-            return;
+        if (tvChartBalanceEmpty != null) {
+            tvChartBalanceEmpty.setVisibility(hasData ? View.GONE : View.VISIBLE);
+            tvChartBalanceEmpty.setText(R.string.chart_no_data);
         }
-
-        if (tvChartBalanceEmpty != null) tvChartBalanceEmpty.setVisibility(View.GONE);
         chartBalance.setVisibility(View.VISIBLE);
 
         List<BarEntry> entries = new ArrayList<>();
@@ -526,21 +564,20 @@ public class HomeFragment extends Fragment {
 
     private void renderGoalsChart(@Nullable List<com.example.finanzas.data.model.SavingsGoal> metas) {
         if (chartGoals == null) return;
-        if (metas == null || metas.isEmpty()) {
-            chartGoals.clear();
-            chartGoals.invalidate();
-            chartGoals.setVisibility(View.GONE);
-            if (tvChartGoalsEmpty != null) tvChartGoalsEmpty.setVisibility(View.VISIBLE);
-            return;
-        }
+        List<com.example.finanzas.data.model.SavingsGoal> safeMetas = (metas == null || metas.isEmpty())
+                ? Collections.singletonList(new com.example.finanzas.data.model.SavingsGoal())
+                : metas;
 
-        if (tvChartGoalsEmpty != null) tvChartGoalsEmpty.setVisibility(View.GONE);
+        if (tvChartGoalsEmpty != null) {
+            tvChartGoalsEmpty.setVisibility((metas == null || metas.isEmpty()) ? View.VISIBLE : View.GONE);
+            tvChartGoalsEmpty.setText(R.string.chart_no_data);
+        }
         chartGoals.setVisibility(View.VISIBLE);
 
         List<BarEntry> progressEntries = new ArrayList<>();
         List<String> labels = new ArrayList<>();
-        for (int i = 0; i < metas.size(); i++) {
-            com.example.finanzas.data.model.SavingsGoal goal = metas.get(i);
+        for (int i = 0; i < safeMetas.size(); i++) {
+            com.example.finanzas.data.model.SavingsGoal goal = safeMetas.get(i);
             double progreso = goal.getProgreso();
             if (progreso <= 1) progreso = progreso * 100.0;
             float clamped = (float) Math.min(100, Math.max(0, progreso));
@@ -583,18 +620,18 @@ public class HomeFragment extends Fragment {
 
     private void renderTrendChart(@Nullable List<MonthlyTrendPoint> points) {
         if (chartTrend == null) return;
-        if (points == null || points.isEmpty()) {
-            chartTrend.clear();
-            chartTrend.invalidate();
-            chartTrend.setVisibility(View.GONE);
-            if (tvChartTrendEmpty != null) {
-                tvChartTrendEmpty.setVisibility(View.VISIBLE);
-            }
-            return;
-        }
+        List<MonthlyTrendPoint> safePoints = (points == null || points.isEmpty())
+                ? Collections.singletonList(new MonthlyTrendPoint() {{
+                    setEtiqueta("Actual");
+                    setIngresos(0.0);
+                    setGastos(0.0);
+                    setSaldo(0.0);
+                }})
+                : points;
 
         if (tvChartTrendEmpty != null) {
-            tvChartTrendEmpty.setVisibility(View.GONE);
+            tvChartTrendEmpty.setVisibility((points == null || points.isEmpty()) ? View.VISIBLE : View.GONE);
+            tvChartTrendEmpty.setText(R.string.chart_no_data);
         }
         chartTrend.setVisibility(View.VISIBLE);
 
@@ -604,9 +641,10 @@ public class HomeFragment extends Fragment {
         ArrayList<String> labels = new ArrayList<>();
         float minValue = 0f;
 
-        for (int i = 0; i < points.size(); i++) {
-            MonthlyTrendPoint point = points.get(i);
-            labels.add(point.getEtiqueta());
+        for (int i = 0; i < safePoints.size(); i++) {
+            MonthlyTrendPoint point = safePoints.get(i);
+            String trendLabel = point.getEtiqueta();
+            labels.add((trendLabel == null || trendLabel.trim().isEmpty()) ? "-" : trendLabel);
             ingresosEntries.add(new Entry(i, (float) point.getIngresos()));
             gastosEntries.add(new Entry(i, (float) point.getGastos()));
             float saldo = (float) point.getSaldo();
@@ -617,7 +655,7 @@ public class HomeFragment extends Fragment {
         LineDataSet ingresosSet = new LineDataSet(ingresosEntries, getString(R.string.chart_label_income));
         ingresosSet.setColor(ContextCompat.getColor(requireContext(), R.color.income));
         ingresosSet.setCircleColor(ContextCompat.getColor(requireContext(), R.color.income));
-        ingresosSet.setLineWidth(2f);
+        ingresosSet.setLineWidth(2.8f);
         ingresosSet.setCircleRadius(4f);
         ingresosSet.setValueTextSize(10f);
         ingresosSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
@@ -625,7 +663,7 @@ public class HomeFragment extends Fragment {
         LineDataSet gastosSet = new LineDataSet(gastosEntries, getString(R.string.chart_label_expense));
         gastosSet.setColor(ContextCompat.getColor(requireContext(), R.color.expense));
         gastosSet.setCircleColor(ContextCompat.getColor(requireContext(), R.color.expense));
-        gastosSet.setLineWidth(2f);
+        gastosSet.setLineWidth(2.8f);
         gastosSet.setCircleRadius(4f);
         gastosSet.setValueTextSize(10f);
         gastosSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
@@ -633,7 +671,7 @@ public class HomeFragment extends Fragment {
         LineDataSet saldoSet = new LineDataSet(saldoEntries, getString(R.string.chart_label_balance));
         saldoSet.setColor(ContextCompat.getColor(requireContext(), R.color.chartBalance));
         saldoSet.setCircleColor(ContextCompat.getColor(requireContext(), R.color.chartBalance));
-        saldoSet.setLineWidth(2f);
+        saldoSet.setLineWidth(2.8f);
         saldoSet.setCircleRadius(4f);
         saldoSet.setValueTextSize(10f);
         saldoSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
@@ -884,13 +922,21 @@ public class HomeFragment extends Fragment {
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.action_customize_dashboard) {
-            showCustomizeDialog();
+            showDashboardSettingsDialog();
             return true;
         } else if (id == R.id.action_travel_settings) {
-            showTravelDialog();
+            showTravelSettingsDialog();
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showDashboardSettingsDialog() {
+        showCustomizeDialog();
+    }
+
+    private void showTravelSettingsDialog() {
+        showTravelDialog();
     }
 
     private void showCustomizeDialog() {
