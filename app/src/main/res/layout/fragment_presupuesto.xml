@@ -38,6 +38,7 @@
                     android:textColor="@color/md_theme_onSurface"/>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPresupuesto"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
@@ -80,6 +81,7 @@
                     android:textColor="@color/md_theme_onSurface"/>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilNuevaCategoria"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"

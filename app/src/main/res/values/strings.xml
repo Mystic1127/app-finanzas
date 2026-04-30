@@ -11,7 +11,6 @@
 
     <string name="hint_categoria">Categoría</string>
     <string name="categoria_cd">Selector de categoría</string>
-
     <string name="hint_nota_opcional">Nota (opcional)</string>
     <string name="hint_fecha">Fecha (AAAA-MM-DD)</string>
     <string name="btn_guardar">Guardar</string>
@@ -254,6 +253,8 @@
     <string name="reminder_field_title">Título</string>
     <string name="reminder_field_amount">Monto</string>
     <string name="reminder_field_due">Fecha vencimiento (AAAA-MM-DD)</string>
+    <string name="reminder_field_due_date">Fecha de vencimiento</string>
+    <string name="reminder_field_notify">Activar notificaciones</string>
     <string name="reminder_field_time">Hora recordatorio (HH:MM)</string>
     <string name="reminder_field_days">Avisarme (días antes)</string>
     <string name="reminder_field_frequency">Frecuencia</string>
@@ -319,4 +320,7 @@
         <item>@string/import_type_excel</item>
     </string-array>
 
+    <string name="error_ingresa_monto">Ingresa un monto</string>
+    <string name="error_selecciona_categoria">Selecciona una categoría</string>
+    <string name="error_monto_invalido">Monto inválido</string>
 </resources>
