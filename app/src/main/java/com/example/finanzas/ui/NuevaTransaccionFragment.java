@@ -28,6 +28,8 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -48,6 +50,7 @@ public class NuevaTransaccionFragment extends Fragment {
     public static final String EXTRA_FECHA      = "EXTRA_FECHA";
 
     private TextInputEditText etMonto, etNota, etFecha;
+    private TextInputLayout tilMonto, tilFecha, tilCategoria;
     private MaterialSwitch swTipo;
     private MaterialAutoCompleteTextView actCategoria;
     private MaterialButton btnGuardar;
@@ -76,6 +79,9 @@ public class NuevaTransaccionFragment extends Fragment {
         super.onViewCreated(v, savedInstanceState);
 
         etMonto       = v.findViewById(R.id.etMonto);
+        tilMonto      = v.findViewById(R.id.tilMonto);
+        tilFecha      = v.findViewById(R.id.tilFecha);
+        tilCategoria  = v.findViewById(R.id.tilCategoria);
         etNota        = v.findViewById(R.id.etNota);
         etFecha       = v.findViewById(R.id.etFecha);
         swTipo        = v.findViewById(R.id.swTipo);
@@ -298,17 +304,19 @@ public class NuevaTransaccionFragment extends Fragment {
     private void onGuardar(View view) {
         String sMonto = etMonto.getText() == null ? "" : etMonto.getText().toString().trim();
         if (sMonto.isEmpty()) {
-            Toast.makeText(requireContext(),"Ingresa un monto",Toast.LENGTH_SHORT).show();
+            tilMonto.setError(getString(R.string.error_ingresa_monto));
             return;
         }
 
+        tilMonto.setError(null);
         String sFecha = etFecha != null && etFecha.getText() != null
                 ? etFecha.getText().toString().trim() : "";
         Date fechaSeleccionada = parseFechaSegura(sFecha);
         if (fechaSeleccionada == null) {
-            Toast.makeText(requireContext(), R.string.error_formato_fecha, Toast.LENGTH_SHORT).show();
+            tilFecha.setError(getString(R.string.error_formato_fecha));
             return;
         }
+        tilFecha.setError(null);
         final long fechaMs = fechaSeleccionada.getTime();
 
         String nombreSel = actCategoria.getText() == null ? "" : actCategoria.getText().toString().trim();
@@ -319,17 +327,19 @@ public class NuevaTransaccionFragment extends Fragment {
             }
         }
         if (seleccionada == null) {
-            Toast.makeText(requireContext(),"Selecciona una categoría",Toast.LENGTH_SHORT).show();
+            tilCategoria.setError(getString(R.string.error_selecciona_categoria));
             actCategoria.requestFocus(); actCategoria.showDropDown();
             return;
         }
 
+        tilCategoria.setError(null);
         final double montoLocal = Math.abs(parseMontoSeguro(sMonto));
         if (montoLocal <= 0) {
-            Toast.makeText(requireContext(),"Monto inválido",Toast.LENGTH_SHORT).show();
+            tilMonto.setError(getString(R.string.error_monto_invalido));
             return;
         }
 
+        tilMonto.setError(null);
         final boolean esIngresoLocal = swTipo.isChecked();
         final String notaLocal = etNota.getText() == null ? "" : etNota.getText().toString().trim();
         final Categoria catSel = seleccionada;
@@ -342,7 +352,7 @@ public class NuevaTransaccionFragment extends Fragment {
                     new TransService.SimpleCb() {
                         @Override public void onOk(int newId) {
                             btnGuardar.setEnabled(true);
-                            Toast.makeText(requireContext(), R.string.trans_saved, Toast.LENGTH_SHORT).show();
+                            Snackbar.make(requireView(), R.string.trans_saved, Snackbar.LENGTH_SHORT).show();
                             NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
                         }
                         @Override public void onError(@Nullable String message) {
@@ -360,7 +370,7 @@ public class NuevaTransaccionFragment extends Fragment {
                     new TransService.VoidCb() {
                         @Override public void onOk() {
                             btnGuardar.setEnabled(true);
-                            Toast.makeText(requireContext(), R.string.trans_updated, Toast.LENGTH_SHORT).show();
+                            Snackbar.make(requireView(), R.string.trans_updated, Snackbar.LENGTH_SHORT).show();
                             NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
                         }
                         @Override public void onError(@Nullable String message) {

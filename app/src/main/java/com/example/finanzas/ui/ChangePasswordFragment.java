@@ -56,7 +56,8 @@ public class ChangePasswordFragment extends Fragment {
                 return;
             }
 
-            UserService.changePassword(requireContext(), oldP, newP, new UserService.SimpleCb() {
+            String email = Prefs.getCurrentUserEmail(requireContext());
+            UserService.changePassword(requireContext(), email, oldP, newP, new UserService.SimpleCb() {
                 @Override
                 public void onOk() {
                     Toast.makeText(requireContext(), "Contraseña actualizada correctamente.", Toast.LENGTH_SHORT).show();

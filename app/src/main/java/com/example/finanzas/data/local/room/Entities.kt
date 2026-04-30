@@ -20,12 +20,10 @@ data class CategoriaEntity(
     @ColumnInfo(name = "es_ingreso") val esIngreso: Int
 )
 
-@Entity(
-    tableName = "transacciones",
-    indices = [Index("fecha"), Index("categoria_id")]
-)
+@Entity(tableName = "transacciones", indices = [Index("user_id"), Index("fecha"), Index("categoria_id")])
 data class TransaccionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "user_id") val userId: Int,
     @ColumnInfo(name = "categoria_id") val categoriaId: Int,
     @ColumnInfo(name = "es_ingreso") val esIngreso: Int,
     val monto: Double,
@@ -33,33 +31,37 @@ data class TransaccionEntity(
     val nota: String?
 )
 
-@Entity(tableName = "presupuestos", primaryKeys = ["anio", "mes"])
+@Entity(tableName = "presupuestos", primaryKeys = ["user_id", "anio", "mes"])
 data class PresupuestoEntity(
+    @ColumnInfo(name = "user_id") val userId: Int,
     val anio: Int,
     val mes: Int,
     val monto: Double
 )
 
-@Entity(tableName = "presupuestos_categoria", primaryKeys = ["anio", "mes", "categoria_id"])
+@Entity(tableName = "presupuestos_categoria", primaryKeys = ["user_id", "anio", "mes", "categoria_id"])
 data class PresupuestoCategoriaEntity(
+    @ColumnInfo(name = "user_id") val userId: Int,
     val anio: Int,
     val mes: Int,
     @ColumnInfo(name = "categoria_id") val categoriaId: Int,
     val monto: Double
 )
 
-@Entity(tableName = "metas")
+@Entity(tableName = "metas", indices = [Index("user_id")])
 data class MetaEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "user_id") val userId: Int,
     val titulo: String,
     @ColumnInfo(name = "monto_objetivo") val montoObjetivo: Double,
     @ColumnInfo(name = "monto_actual") val montoActual: Double,
     @ColumnInfo(name = "fecha_objetivo") val fechaObjetivo: Long?
 )
 
-@Entity(tableName = "metas_hitos")
+@Entity(tableName = "metas_hitos", indices = [Index("user_id"), Index("meta_id")])
 data class MetaHitoEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "user_id") val userId: Int,
     @ColumnInfo(name = "meta_id") val metaId: Int,
     val titulo: String,
     @ColumnInfo(name = "monto_planificado") val montoPlanificado: Double,
@@ -69,9 +71,10 @@ data class MetaHitoEntity(
     val completado: Int
 )
 
-@Entity(tableName = "recordatorios", indices = [Index("fecha_vencimiento")])
+@Entity(tableName = "recordatorios", indices = [Index("user_id"), Index("fecha_vencimiento")])
 data class RecordatorioEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "user_id") val userId: Int,
     val titulo: String,
     val monto: Double,
     @ColumnInfo(name = "fecha_vencimiento") val fechaVencimiento: Long,
@@ -85,18 +88,20 @@ data class RecordatorioEntity(
     @ColumnInfo(name = "notification_id") val notificationId: String?
 )
 
-@Entity(tableName = "import_jobs")
+@Entity(tableName = "import_jobs", indices = [Index("user_id")])
 data class ImportJobEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "user_id") val userId: Int,
     val nombre: String,
     val tipo: String,
     val estado: String,
     val lineas: String?
 )
 
-@Entity(tableName = "import_rules")
+@Entity(tableName = "import_rules", indices = [Index("user_id")])
 data class ImportRuleEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "user_id") val userId: Int,
     val patron: String,
     @ColumnInfo(name = "es_ingreso") val esIngreso: Int,
     @ColumnInfo(name = "categoria_id") val categoriaId: Int?,
