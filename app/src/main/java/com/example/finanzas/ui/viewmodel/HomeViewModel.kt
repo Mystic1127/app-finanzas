@@ -70,8 +70,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun buildInsights(summary: HomeSummary): List<String> {
         val insights = mutableListOf<String>()
         if (summary.gastos > summary.ingresos) insights.add("Tus gastos superan tus ingresos este mes")
-        val top = summary.chartCategorias.maxByOrNull { it.monto }
-        if (top != null && top.monto > 0) insights.add("Tu categoría principal es ${top.categoria}")
+        val top = summary.chartCategorias.maxByOrNull { item -> item.gastado }
+        if (top != null && top.gastado > 0) insights.add("Tu categoría principal es ${top.categoriaNombre}")
         if (summary.presupuestoMonto > 0 && summary.presupuestoPorcentaje >= 80) insights.add("Ya consumiste ${summary.presupuestoPorcentaje.toInt()}% del presupuesto mensual")
         return insights
     }
