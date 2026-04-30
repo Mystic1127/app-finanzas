@@ -11,7 +11,8 @@
 
     <string name="hint_categoria">Categoría</string>
     <string name="categoria_cd">Selector de categoría</string>
-
+    <string name="reminder_field_due_date">Fecha de vencimiento</string>
+    <string name="reminder_field_notify">Notificar</string>
     <string name="hint_nota_opcional">Nota (opcional)</string>
     <string name="hint_fecha">Fecha (AAAA-MM-DD)</string>
     <string name="btn_guardar">Guardar</string>
