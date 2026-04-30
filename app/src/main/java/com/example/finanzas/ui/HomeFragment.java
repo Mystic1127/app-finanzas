@@ -423,7 +423,11 @@ public class HomeFragment extends Fragment {
     private void renderBudgetChart(@Nullable List<CategoryChartSlice> slices) {
         if (chartCategorias == null) return;
         List<CategoryChartSlice> safeSlices = (slices == null || slices.isEmpty())
-                ? Collections.singletonList(new CategoryChartSlice("Sin datos", 0.0, 0.0))
+                ? Collections.singletonList(new CategoryChartSlice() {{
+                    setCategoriaNombre("Sin datos");
+                    setGastado(0.0);
+                    setPresupuesto(0.0);
+                }})
                 : slices;
 
         if (tvChartCategoriasEmpty != null) {
@@ -606,7 +610,12 @@ public class HomeFragment extends Fragment {
     private void renderTrendChart(@Nullable List<MonthlyTrendPoint> points) {
         if (chartTrend == null) return;
         List<MonthlyTrendPoint> safePoints = (points == null || points.isEmpty())
-                ? Collections.singletonList(new MonthlyTrendPoint("Actual", 0.0, 0.0, 0.0))
+                ? Collections.singletonList(new MonthlyTrendPoint() {{
+                    setEtiqueta("Actual");
+                    setIngresos(0.0);
+                    setGastos(0.0);
+                    setSaldo(0.0);
+                }})
                 : points;
 
         if (tvChartTrendEmpty != null) {
