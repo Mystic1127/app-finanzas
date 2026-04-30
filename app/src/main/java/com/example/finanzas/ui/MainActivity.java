@@ -1,11 +1,16 @@
 package com.example.finanzas.ui;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDestination;
@@ -24,6 +29,8 @@ import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int REQUEST_POST_NOTIFICATIONS = 1001;
+
     private AppBarConfiguration appBarConfiguration;
     private NavController navController;
     private DrawerLayout drawerLayout;
@@ -35,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        requestNotificationPermissionIfNeeded();
         PinSession.lock();
 
 
@@ -173,5 +181,20 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         navController.navigate(R.id.nav_pin_lock);
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        ActivityCompat.requestPermissions(
+                this,
+                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                REQUEST_POST_NOTIFICATIONS
+        );
     }
 }

@@ -5,7 +5,6 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -13,6 +12,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.model.CategoryBudgetInput;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +51,7 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
     public void onBindViewHolder(@NonNull VH holder, int position) {
         CategoryBudgetInput item = items.get(position);
         holder.tvNombre.setText(item.getCategoriaNombre());
-        holder.etMonto.setHint(holder.itemView.getContext().getString(R.string.pres_category_hint, item.getCategoriaNombre()));
+        holder.tilMonto.setHint(holder.itemView.getContext().getString(R.string.pres_category_hint, item.getCategoriaNombre()));
 
         if (holder.watcher != null) {
             holder.etMonto.removeTextChangedListener(holder.watcher);
@@ -75,11 +76,13 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
 
     static class VH extends RecyclerView.ViewHolder {
         final TextView tvNombre;
-        final EditText etMonto;
+        final TextInputLayout tilMonto;
+        final TextInputEditText etMonto;
         TextWatcher watcher;
         VH(@NonNull View itemView) {
             super(itemView);
             tvNombre = itemView.findViewById(R.id.tvCategoriaNombre);
+            tilMonto = itemView.findViewById(R.id.tilCategoriaMonto);
             etMonto = itemView.findViewById(R.id.etCategoriaMonto);
         }
     }

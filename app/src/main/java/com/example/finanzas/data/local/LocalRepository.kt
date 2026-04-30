@@ -7,6 +7,7 @@ import com.example.finanzas.util.PasswordSecurity
 import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedWriter
 import java.io.File
@@ -20,7 +21,11 @@ class LocalRepository private constructor(
     private val db: AppRoomDatabase,
     private val appContext: Context
 ) {
-    private fun currentUserId(): Int = Prefs.getCurrentUserId(appContext).toInt().coerceAtLeast(1)
+    private fun currentUserId(): Int {
+        val userId = Prefs.getCurrentUserId(appContext)
+        check(userId > 0L && userId <= Int.MAX_VALUE) { "No hay usuario autenticado" }
+        return userId.toInt()
+    }
     companion object {
         private val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         @Volatile
@@ -42,6 +47,13 @@ class LocalRepository private constructor(
         var nombre: String? = null
         var email: String? = null
     }
+
+    private data class ImportRow(
+        val fecha: Long,
+        val descripcion: String,
+        val monto: Double,
+        val esIngreso: Boolean
+    )
 
     suspend fun registerUser(nombre: String, email: String, password: String, outId: IntArray?): Boolean = withContext(Dispatchers.IO) {
         val id = db.userDao().insert(UserEntity(nombre = nombre, email = email, password = PasswordSecurity.hashPassword(password)))
@@ -130,14 +142,23 @@ class LocalRepository private constructor(
     }
 
     suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis()): Int = withContext(Dispatchers.IO) {
+        require(categoriaId > 0) { "Categoria invalida" }
+        require(monto > 0.0) { "Monto invalido" }
+        require(fecha > 0L) { "Fecha invalida" }
         db.transaccionDao().insert(
             TransaccionEntity(userId = currentUserId(), categoriaId = categoriaId, esIngreso = if (esIngreso) 1 else 0, monto = monto, fecha = fecha, nota = nota)
         ).toInt()
     }
 
     suspend fun updateTransaccion(id: Int, categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long): Boolean = withContext(Dispatchers.IO) {
-        val updated = db.transaccionDao().update(
-            TransaccionEntity(id = id, userId = currentUserId(), categoriaId = categoriaId, esIngreso = if (esIngreso) 1 else 0, monto = monto, fecha = fecha, nota = nota)
+        val updated = db.transaccionDao().updateById(
+            id = id,
+            userId = currentUserId(),
+            categoriaId = categoriaId,
+            esIngreso = if (esIngreso) 1 else 0,
+            monto = monto,
+            fecha = fecha,
+            nota = nota
         )
         updated > 0
     }
@@ -271,9 +292,13 @@ class LocalRepository private constructor(
     }
 
     suspend fun saveGoal(id: Int, titulo: String, objetivo: Double, actual: Double, fechaStr: String?): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
         val fecha = if (!fechaStr.isNullOrBlank()) runCatching { df.parse(fechaStr)?.time }.getOrNull() else null
-        val newId = db.metaDao().upsert(MetaEntity(if (id > 0) id else 0, currentUserId(), titulo, objetivo, actual, fecha))
-        newId > 0
+        if (id > 0) {
+            db.metaDao().updateById(id, userId, titulo, objetivo, actual, fecha) > 0
+        } else {
+            db.metaDao().insert(MetaEntity(userId = userId, titulo = titulo, montoObjetivo = objetivo, montoActual = actual, fechaObjetivo = fecha)) > 0
+        }
     }
 
     suspend fun deleteGoal(id: Int): Boolean = withContext(Dispatchers.IO) {
@@ -282,20 +307,28 @@ class LocalRepository private constructor(
     }
 
     suspend fun saveMilestone(id: Int, metaId: Int, titulo: String, monto: Double, fechaStr: String?, notificar: Boolean, dias: Int, completado: Boolean): Int = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        if (metaId <= 0 || db.metaDao().countById(metaId, userId) <= 0) return@withContext 0
         val fecha = if (!fechaStr.isNullOrBlank()) runCatching { df.parse(fechaStr)?.time }.getOrNull() else null
-        db.metaHitoDao().upsert(
-            MetaHitoEntity(
-                if (id > 0) id else 0,
-                currentUserId(),
-                metaId,
-                titulo,
-                monto,
-                fecha,
-                if (notificar) 1 else 0,
-                dias,
-                if (completado) 1 else 0
-            )
-        ).toInt()
+        val notificarInt = if (notificar) 1 else 0
+        val completadoInt = if (completado) 1 else 0
+        if (id > 0) {
+            val updated = db.metaHitoDao().updateById(id, userId, metaId, titulo, monto, fecha, notificarInt, dias, completadoInt)
+            if (updated > 0) id else 0
+        } else {
+            db.metaHitoDao().insert(
+                MetaHitoEntity(
+                    userId = userId,
+                    metaId = metaId,
+                    titulo = titulo,
+                    montoPlanificado = monto,
+                    fechaObjetivo = fecha,
+                    notificar = notificarInt,
+                    diasRecordatorio = dias,
+                    completado = completadoInt
+                )
+            ).toInt()
+        }
     }
 
     suspend fun deleteMilestone(id: Int): Boolean = withContext(Dispatchers.IO) { db.metaHitoDao().deleteById(id, currentUserId()) > 0 }
@@ -322,25 +355,48 @@ class LocalRepository private constructor(
     }
 
     suspend fun saveReminder(reminder: PaymentReminder): Boolean = withContext(Dispatchers.IO) {
-        val id = db.recordatorioDao().upsert(
-            RecordatorioEntity(
-                if (reminder.id > 0) reminder.id else 0,
-                currentUserId(),
-                reminder.titulo ?: "",
-                reminder.monto,
-                reminder.fechaVencimiento?.time ?: 0,
-                if (reminder.isPagado) 1 else 0,
-                reminder.categoriaId,
-                reminder.horaRecordatorio,
-                reminder.frecuencia,
-                if (reminder.isNotificar) 1 else 0,
-                reminder.diasRecordatorio,
-                reminder.googleEventId,
-                reminder.notificationId
+        val userId = currentUserId()
+        val titulo = reminder.titulo ?: ""
+        val fechaVencimiento = reminder.fechaVencimiento?.time ?: 0
+        val pagado = if (reminder.isPagado) 1 else 0
+        val notificar = if (reminder.isNotificar) 1 else 0
+
+        if (reminder.id > 0) {
+            db.recordatorioDao().updateById(
+                id = reminder.id,
+                userId = userId,
+                titulo = titulo,
+                monto = reminder.monto,
+                fechaVencimiento = fechaVencimiento,
+                pagado = pagado,
+                categoriaId = reminder.categoriaId,
+                horaRecordatorio = reminder.horaRecordatorio,
+                frecuencia = reminder.frecuencia,
+                notificar = notificar,
+                diasRecordatorio = reminder.diasRecordatorio,
+                googleEventId = reminder.googleEventId,
+                notificationId = reminder.notificationId
+            ) > 0
+        } else {
+            val id = db.recordatorioDao().insert(
+                RecordatorioEntity(
+                    userId = userId,
+                    titulo = titulo,
+                    monto = reminder.monto,
+                    fechaVencimiento = fechaVencimiento,
+                    pagado = pagado,
+                    categoriaId = reminder.categoriaId,
+                    horaRecordatorio = reminder.horaRecordatorio,
+                    frecuencia = reminder.frecuencia,
+                    notificar = notificar,
+                    diasRecordatorio = reminder.diasRecordatorio,
+                    googleEventId = reminder.googleEventId,
+                    notificationId = reminder.notificationId
+                )
             )
-        )
-        if (reminder.id <= 0) reminder.id = id.toInt()
-        id > 0
+            reminder.id = id.toInt()
+            id > 0
+        }
     }
 
     suspend fun markReminderPaid(id: Int, paid: Boolean): Boolean = withContext(Dispatchers.IO) {
@@ -377,27 +433,159 @@ class LocalRepository private constructor(
     }
 
     suspend fun saveImportRule(rule: ImportRule): Int = withContext(Dispatchers.IO) {
-        db.importRuleDao().upsert(
-            ImportRuleEntity(
-                if (rule.id > 0) rule.id else 0,
-                currentUserId(),
-                rule.patron ?: "",
-                if (rule.isEsIngreso) 1 else 0,
-                rule.categoriaId,
-                rule.nota
-            )
-        ).toInt()
+        val userId = currentUserId()
+        val patron = rule.patron ?: ""
+        val esIngreso = if (rule.isEsIngreso) 1 else 0
+        if (rule.id > 0) {
+            val updated = db.importRuleDao().updateById(rule.id, userId, patron, esIngreso, rule.categoriaId, rule.nota)
+            if (updated > 0) rule.id else 0
+        } else {
+            val id = db.importRuleDao().insert(
+                ImportRuleEntity(
+                    userId = userId,
+                    patron = patron,
+                    esIngreso = esIngreso,
+                    categoriaId = rule.categoriaId,
+                    nota = rule.nota
+                )
+            ).toInt()
+            rule.id = id
+            id
+        }
     }
 
     suspend fun deleteImportRule(id: Int) = withContext(Dispatchers.IO) { db.importRuleDao().deleteById(id, currentUserId()) }
 
     suspend fun processImport(id: Int): JSONObject = withContext(Dispatchers.IO) {
-        db.importJobDao().updateEstado(id, currentUserId(), "procesado")
-        JSONObject().apply {
-            put("procesados", 0)
-            put("errores", 0)
-            put("omitidos_saldo", 0)
+        val userId = currentUserId()
+        val job = db.importJobDao().findById(id, userId) ?: throw IllegalArgumentException("Importacion no encontrada")
+        val categorias = db.categoriaDao().listAll()
+        val rules = db.importRuleDao().listAll(userId)
+        val rows = parseImportRows(job.lineas)
+        var procesados = 0
+        var errores = 0
+        var suggestedYear = 0
+        var suggestedMonth = 0
+
+        rows.forEach { row ->
+            runCatching {
+                val rule = rules.firstOrNull { rule ->
+                    rule.patron.isNotBlank() &&
+                        row.descripcion.contains(rule.patron, ignoreCase = true)
+                }
+                val esIngreso = rule?.let { it.esIngreso == 1 } ?: row.esIngreso
+                val categoriaId = rule?.categoriaId
+                    ?: categorias.firstOrNull { it.esIngreso == if (esIngreso) 1 else 0 }?.id
+                    ?: 0
+
+                if (categoriaId <= 0 || row.monto <= 0.0 || row.fecha <= 0L) {
+                    errores++
+                    return@forEach
+                }
+
+                val nota = rule?.nota?.takeIf { it.isNotBlank() } ?: row.descripcion
+                db.transaccionDao().insert(
+                    TransaccionEntity(
+                        userId = userId,
+                        categoriaId = categoriaId,
+                        esIngreso = if (esIngreso) 1 else 0,
+                        monto = row.monto,
+                        fecha = row.fecha,
+                        nota = nota
+                    )
+                )
+                if (suggestedYear == 0 || suggestedMonth == 0) {
+                    Calendar.getInstance().apply {
+                        timeInMillis = row.fecha
+                        suggestedYear = get(Calendar.YEAR)
+                        suggestedMonth = get(Calendar.MONTH) + 1
+                    }
+                }
+                procesados++
+            }.onFailure {
+                errores++
+            }
         }
+
+        db.importJobDao().updateEstado(id, userId, if (procesados > 0) "procesado" else "error")
+        JSONObject().apply {
+            put("procesados", procesados)
+            put("errores", errores)
+            put("omitidos_saldo", 0)
+            if (suggestedYear > 0 && suggestedMonth > 0) {
+                put("anio_sugerido", suggestedYear)
+                put("mes_sugerido", suggestedMonth)
+            }
+        }
+    }
+
+    private fun parseImportRows(raw: String?): List<ImportRow> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching { parseImportRowsFromJson(raw) }
+            .getOrElse { parseImportRowsFromText(raw) }
+    }
+
+    private fun parseImportRowsFromJson(raw: String): List<ImportRow> {
+        val array = JSONArray(raw)
+        val rows = mutableListOf<ImportRow>()
+        for (i in 0 until array.length()) {
+            val item = array.optJSONObject(i) ?: continue
+            val fecha = parseImportDate(item.optString("fecha", ""))
+            val descripcion = item.optString("descripcion", item.optString("nota", "")).trim()
+            val monto = kotlin.math.abs(item.optDouble("monto", 0.0))
+            val esIngreso = item.optInt("es_ingreso", if (item.optBoolean("es_ingreso", false)) 1 else 0) == 1
+            if (fecha > 0L && monto > 0.0) {
+                rows.add(ImportRow(fecha, descripcion, monto, esIngreso))
+            }
+        }
+        return rows
+    }
+
+    private fun parseImportRowsFromText(raw: String): List<ImportRow> {
+        return raw.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .mapNotNull { line ->
+                val separator = if (line.contains(';')) ';' else ','
+                val parts = line.split(separator).map { it.trim() }
+                if (parts.size < 3) return@mapNotNull null
+                val fecha = parseImportDate(parts[0])
+                val descripcion = parts[1]
+                val signedAmount = parseImportAmount(parts[2])
+                val explicitType = parts.getOrNull(3)?.uppercase(Locale.ROOT)
+                val esIngreso = when {
+                    explicitType != null -> explicitType.startsWith("I") || explicitType == "1" || explicitType == "+"
+                    else -> signedAmount >= 0.0
+                }
+                val monto = kotlin.math.abs(signedAmount)
+                if (fecha <= 0L || monto <= 0.0) null else ImportRow(fecha, descripcion, monto, esIngreso)
+            }
+            .toList()
+    }
+
+    private fun parseImportDate(raw: String): Long {
+        val formats = listOf("yyyy-MM-dd", "dd/MM/yyyy", "dd-MM-yyyy")
+        formats.forEach { pattern ->
+            val parsed = runCatching {
+                SimpleDateFormat(pattern, Locale.US).apply { isLenient = false }.parse(raw.trim())?.time
+            }.getOrNull()
+            if (parsed != null) return parsed
+        }
+        return 0L
+    }
+
+    private fun parseImportAmount(raw: String): Double {
+        var clean = raw.trim().replace(Regex("[^0-9,.-]"), "")
+        if (clean.isEmpty()) return 0.0
+        val lastComma = clean.lastIndexOf(',')
+        val lastDot = clean.lastIndexOf('.')
+        clean = when {
+            lastComma >= 0 && lastDot >= 0 && lastComma > lastDot -> clean.replace(".", "").replace(',', '.')
+            lastComma >= 0 && lastDot >= 0 -> clean.replace(",", "")
+            lastComma >= 0 -> clean.replace(',', '.')
+            else -> clean
+        }
+        return clean.toDoubleOrNull() ?: 0.0
     }
 
     suspend fun buildHomeSummary(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {

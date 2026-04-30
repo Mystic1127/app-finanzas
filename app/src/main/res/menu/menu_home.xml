@@ -6,8 +6,4 @@
         android:title="@string/dashboard_customize_title"
         android:icon="@drawable/ic_drag_handle_24"
         app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_travel_settings"
-        android:title="@string/travel_settings_title"
-        app:showAsAction="never" />
 </menu>

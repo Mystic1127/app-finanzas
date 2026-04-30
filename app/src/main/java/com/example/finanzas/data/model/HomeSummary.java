@@ -17,6 +17,11 @@ public class HomeSummary {
     private double gastoPromedioDiario;
     private int diasRestantes;
     private String riesgoPresupuesto;
+    private double gastosMesAnterior;
+    private double variacionGastosPorcentaje;
+    private String categoriaMayorGasto;
+    private double categoriaMayorGastoMonto;
+    private String estadoFinanciero;
     private final List<CategoryBudgetSummary> presupuestosCategoria = new ArrayList<>();
     private final List<SavingsGoal> metas = new ArrayList<>();
     private final List<PaymentReminder> recordatorios = new ArrayList<>();
@@ -70,6 +75,21 @@ public class HomeSummary {
 
     public String getRiesgoPresupuesto() { return riesgoPresupuesto; }
     public void setRiesgoPresupuesto(String riesgoPresupuesto) { this.riesgoPresupuesto = riesgoPresupuesto; }
+
+    public double getGastosMesAnterior() { return gastosMesAnterior; }
+    public void setGastosMesAnterior(double gastosMesAnterior) { this.gastosMesAnterior = gastosMesAnterior; }
+
+    public double getVariacionGastosPorcentaje() { return variacionGastosPorcentaje; }
+    public void setVariacionGastosPorcentaje(double variacionGastosPorcentaje) { this.variacionGastosPorcentaje = variacionGastosPorcentaje; }
+
+    public String getCategoriaMayorGasto() { return categoriaMayorGasto; }
+    public void setCategoriaMayorGasto(String categoriaMayorGasto) { this.categoriaMayorGasto = categoriaMayorGasto; }
+
+    public double getCategoriaMayorGastoMonto() { return categoriaMayorGastoMonto; }
+    public void setCategoriaMayorGastoMonto(double categoriaMayorGastoMonto) { this.categoriaMayorGastoMonto = categoriaMayorGastoMonto; }
+
+    public String getEstadoFinanciero() { return estadoFinanciero; }
+    public void setEstadoFinanciero(String estadoFinanciero) { this.estadoFinanciero = estadoFinanciero; }
 
     public List<CategoryBudgetSummary> getPresupuestosCategoria() { return presupuestosCategoria; }
 

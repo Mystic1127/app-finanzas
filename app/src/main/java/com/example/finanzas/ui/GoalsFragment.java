@@ -1,7 +1,6 @@
 package com.example.finanzas.ui;
 
 import android.app.AlertDialog;
-import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -11,7 +10,6 @@ import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.widget.PopupMenu;
 
 import androidx.annotation.NonNull;
@@ -25,13 +23,13 @@ import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.GoalMilestone;
 import com.example.finanzas.ui.adapter.GoalSummaryAdapter;
 import com.example.finanzas.ui.viewmodel.GoalsViewModel;
+import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 public class GoalsFragment extends Fragment {
@@ -94,6 +92,7 @@ public class GoalsFragment extends Fragment {
         EditText etFecha = form.findViewById(R.id.etGoalFecha);
 
         setupDatePicker(etFecha);
+        UiFormUtils.clearErrorOnTextChange(etTitulo, etObjetivo, etActual, etFecha);
 
         boolean editando = goal != null;
         if (editando) {
@@ -101,31 +100,63 @@ public class GoalsFragment extends Fragment {
             etObjetivo.setText(String.valueOf(goal.getMontoObjetivo()));
             etActual.setText(String.valueOf(goal.getMontoActual()));
             if (goal.getFechaObjetivo() != null) {
-                java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-                etFecha.setText(df.format(goal.getFechaObjetivo()));
+                etFecha.setText(UiFormUtils.formatUiDate(goal.getFechaObjetivo()));
             }
         }
 
-        new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle(editando ? R.string.goal_dialog_title_edit : R.string.goal_dialog_title_new)
                 .setView(form)
-                .setPositiveButton(R.string.goal_btn_save, (dialog, which) -> {
+                .setPositiveButton(R.string.goal_btn_save, null)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+                    clearErrors(etTitulo, etObjetivo, etActual, etFecha);
                     String titulo = etTitulo.getText() == null ? "" : etTitulo.getText().toString().trim();
                     String objetivo = etObjetivo.getText() == null ? "" : etObjetivo.getText().toString().trim();
                     String actual = etActual.getText() == null ? "" : etActual.getText().toString().trim();
                     String fecha = etFecha.getText() == null ? "" : etFecha.getText().toString().trim();
 
+                    boolean valido = true;
                     if (TextUtils.isEmpty(titulo)) {
-                        Toast.makeText(requireContext(), R.string.error_campos_obligatorios, Toast.LENGTH_SHORT).show();
+                        setFieldError(etTitulo, getString(R.string.error_campos_obligatorios));
+                        valido = false;
+                    }
+                    if (TextUtils.isEmpty(objetivo)) {
+                        setFieldError(etObjetivo, getString(R.string.error_campos_obligatorios));
+                        valido = false;
+                    }
+                    if (!TextUtils.isEmpty(fecha) && !UiFormUtils.isValidUiDate(fecha)) {
+                        setFieldError(etFecha, "Usa el formato dd/MM/yyyy");
+                        valido = false;
+                    }
+                    if (!valido) {
                         return;
                     }
 
-                    double objetivoVal = 0;
-                    double actualVal = 0;
-                    try { objetivoVal = objetivo.isEmpty() ? 0 : Double.parseDouble(objetivo); }
-                    catch (NumberFormatException e) { Toast.makeText(requireContext(), R.string.goal_field_target, Toast.LENGTH_SHORT).show(); return; }
-                    try { actualVal = actual.isEmpty() ? 0 : Double.parseDouble(actual); }
-                    catch (NumberFormatException e) { Toast.makeText(requireContext(), R.string.goal_field_current, Toast.LENGTH_SHORT).show(); return; }
+                    double objetivoVal;
+                    double actualVal;
+                    try {
+                        objetivoVal = parseDecimal(objetivo);
+                    } catch (NumberFormatException e) {
+                        setFieldError(etObjetivo, "Ingresa un monto valido");
+                        return;
+                    }
+                    try {
+                        actualVal = actual.isEmpty() ? 0 : parseDecimal(actual);
+                    } catch (NumberFormatException e) {
+                        setFieldError(etActual, "Ingresa un monto valido");
+                        return;
+                    }
+                    if (objetivoVal <= 0) {
+                        setFieldError(etObjetivo, "Ingresa un monto mayor a 0");
+                        return;
+                    }
+                    if (actualVal < 0) {
+                        setFieldError(etActual, "Ingresa un monto valido");
+                        return;
+                    }
 
                     JSONObject body = new JSONObject();
                     try {
@@ -133,38 +164,18 @@ public class GoalsFragment extends Fragment {
                         body.put("titulo", titulo);
                         body.put("monto_objetivo", objetivoVal);
                         body.put("monto_actual", actualVal);
-                        if (!fecha.isEmpty()) body.put("fecha_objetivo", fecha);
+                        String fechaIso = UiFormUtils.uiDateToIso(fecha);
+                        if (fechaIso != null) body.put("fecha_objetivo", fechaIso);
                     } catch (Exception ignore) { }
 
                     viewModel.saveGoal(body);
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                    dialog.dismiss();
+                }));
+        dialog.show();
     }
 
     private void setupDatePicker(@NonNull EditText input) {
-        input.setFocusable(false);
-        input.setOnClickListener(v -> showDatePicker(input));
-        input.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) showDatePicker(input); });
-    }
-
-    private void showDatePicker(@NonNull EditText input) {
-        java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-        Calendar calendar = Calendar.getInstance();
-        String current = input.getText() == null ? "" : input.getText().toString();
-        try {
-            java.util.Date parsed = df.parse(current);
-            if (parsed != null) calendar.setTime(parsed);
-        } catch (Exception ignored) { }
-
-        DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
-            calendar.set(Calendar.YEAR, year);
-            calendar.set(Calendar.MONTH, month);
-            calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-            input.setText(df.format(calendar.getTime()));
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
-
-        dialog.show();
+        UiFormUtils.bindDatePicker(requireContext(), input);
     }
 
     private void confirmarEliminar(SavingsGoal goal) {
@@ -191,8 +202,7 @@ public class GoalsFragment extends Fragment {
                 etMonto.setText(String.valueOf(milestone.getMontoPlanificado()));
             }
             if (milestone.getFechaObjetivo() != null) {
-                java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-                etFecha.setText(df.format(milestone.getFechaObjetivo()));
+                etFecha.setText(UiFormUtils.formatUiDate(milestone.getFechaObjetivo()));
             }
             if (milestone.getDiasRecordatorio() > 0) {
                 etDias.setText(String.valueOf(milestone.getDiasRecordatorio()));
@@ -201,26 +211,46 @@ public class GoalsFragment extends Fragment {
             cbCompletado.setChecked(milestone.isCompletado());
         }
 
-        new AlertDialog.Builder(requireContext())
+        setupDatePicker(etFecha);
+        UiFormUtils.clearErrorOnTextChange(etTitulo, etMonto, etFecha, etDias);
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle(editando ? R.string.goal_milestone_edit : R.string.goal_milestone_new)
                 .setView(form)
-                .setPositiveButton(R.string.goal_btn_save, (dialog, which) -> {
+                .setPositiveButton(R.string.goal_btn_save, null)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+                    clearErrors(etTitulo, etMonto, etFecha, etDias);
                     String titulo = etTitulo.getText() == null ? "" : etTitulo.getText().toString().trim();
                     String montoStr = etMonto.getText() == null ? "" : etMonto.getText().toString().trim();
                     String fecha = etFecha.getText() == null ? "" : etFecha.getText().toString().trim();
                     String diasStr = etDias.getText() == null ? "" : etDias.getText().toString().trim();
 
+                    boolean valido = true;
                     if (titulo.isEmpty()) {
-                        Toast.makeText(requireContext(), R.string.error_campos_obligatorios, Toast.LENGTH_SHORT).show();
+                        setFieldError(etTitulo, getString(R.string.error_campos_obligatorios));
+                        valido = false;
+                    }
+                    if (!fecha.isEmpty() && !UiFormUtils.isValidUiDate(fecha)) {
+                        setFieldError(etFecha, "Usa el formato dd/MM/yyyy");
+                        valido = false;
+                    }
+                    if (!valido) {
                         return;
                     }
 
                     double montoVal = 0;
                     if (!montoStr.isEmpty()) {
                         try {
-                            montoVal = Double.parseDouble(montoStr);
+                            montoVal = parseDecimal(montoStr);
                         } catch (NumberFormatException e) {
-                            Toast.makeText(requireContext(), R.string.goal_milestone_amount, Toast.LENGTH_SHORT).show();
+                            setFieldError(etMonto, "Ingresa un monto valido");
+                            return;
+                        }
+                        if (montoVal < 0) {
+                            setFieldError(etMonto, "Ingresa un monto valido");
                             return;
                         }
                     }
@@ -229,7 +259,11 @@ public class GoalsFragment extends Fragment {
                         try {
                             diasVal = Integer.parseInt(diasStr);
                         } catch (NumberFormatException e) {
-                            Toast.makeText(requireContext(), R.string.goal_milestone_days, Toast.LENGTH_SHORT).show();
+                            setFieldError(etDias, "Ingresa un numero valido");
+                            return;
+                        }
+                        if (diasVal < 0) {
+                            setFieldError(etDias, "Ingresa un numero valido");
                             return;
                         }
                     }
@@ -242,16 +276,17 @@ public class GoalsFragment extends Fragment {
                         body.put("meta_id", goal.getId());
                         body.put("titulo", titulo);
                         body.put("monto_planificado", montoVal);
-                        if (!fecha.isEmpty()) body.put("fecha_objetivo", fecha);
+                        String fechaIso = UiFormUtils.uiDateToIso(fecha);
+                        if (fechaIso != null) body.put("fecha_objetivo", fechaIso);
                         body.put("notificar", swNotificar.isChecked());
                         body.put("dias_recordatorio", diasVal);
                         body.put("completado", cbCompletado.isChecked());
                     } catch (Exception ignore) { }
 
                     viewModel.saveMilestone(body);
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                    dialog.dismiss();
+                }));
+        dialog.show();
     }
 
     private void mostrarMenuHito(View anchor, SavingsGoal goal, GoalMilestone milestone) {
@@ -288,8 +323,7 @@ public class GoalsFragment extends Fragment {
             body.put("titulo", milestone.getTitulo());
             body.put("monto_planificado", milestone.getMontoPlanificado());
             if (milestone.getFechaObjetivo() != null) {
-                java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-                body.put("fecha_objetivo", df.format(milestone.getFechaObjetivo()));
+                body.put("fecha_objetivo", UiFormUtils.formatIsoDate(milestone.getFechaObjetivo()));
             }
             body.put("notificar", milestone.isNotificar());
             body.put("dias_recordatorio", milestone.getDiasRecordatorio());
@@ -311,8 +345,20 @@ public class GoalsFragment extends Fragment {
 
         viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
             if (msgRes != null) {
-                Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
+                UiFormUtils.showMessage(requireView(), msgRes);
             }
         });
+    }
+
+    private void clearErrors(@NonNull EditText... fields) {
+        UiFormUtils.clearErrors(fields);
+    }
+
+    private void setFieldError(@NonNull EditText field, @NonNull String message) {
+        UiFormUtils.setError(field, message);
+    }
+
+    private double parseDecimal(@NonNull String value) {
+        return Double.parseDouble(value.trim().replace(',', '.'));
     }
 }

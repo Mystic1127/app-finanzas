@@ -112,10 +112,20 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <Spinner
-                    android:id="@+id/spReminderFrecuencia"
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilReminderFrecuencia"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"
+                    android:hint="@string/reminder_field_frequency"
+                    app:endIconMode="dropdown_menu">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/actReminderFrecuencia"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/swReminderNotificar"

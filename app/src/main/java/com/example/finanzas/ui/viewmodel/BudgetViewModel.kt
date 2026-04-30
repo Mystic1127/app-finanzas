@@ -57,22 +57,27 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun saveBudget(anio: Int, mes: Int, monto: Double) {
+        _loading.value = true
         viewModelScope.launch {
             runCatching { BudgetService.set(getApplication(), anio, mes, monto) }
                 .onSuccess { _message.value = com.example.finanzas.R.string.pres_guardado }
                 .onFailure { _message.value = com.example.finanzas.R.string.error_guardar_presupuesto }
+            _loading.value = false
         }
     }
 
     fun saveCategoryBudgets(anio: Int, mes: Int, items: List<CategoryBudgetInput>) {
+        _loading.value = true
         viewModelScope.launch {
             runCatching { CategoryBudgetService.save(getApplication(), anio, mes, items) }
                 .onSuccess { _message.value = com.example.finanzas.R.string.pres_categorias_guardadas }
                 .onFailure { _message.value = com.example.finanzas.R.string.error_guardar_categorias }
+            _loading.value = false
         }
     }
 
     fun createCategory(nombre: String, current: List<CategoryBudgetInput>) {
+        _loading.value = true
         viewModelScope.launch {
             runCatching { CategoryStore.create(getApplication(), nombre, false) }
                 .onSuccess { nueva ->
@@ -87,6 +92,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                     _message.value = com.example.finanzas.R.string.pres_category_created
                 }
                 .onFailure { _message.value = com.example.finanzas.R.string.pres_category_create_error }
+            _loading.value = false
         }
     }
 }

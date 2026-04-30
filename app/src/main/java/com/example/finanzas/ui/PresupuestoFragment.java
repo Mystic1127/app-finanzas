@@ -18,6 +18,7 @@ import com.example.finanzas.R;
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
+import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -31,6 +32,7 @@ public class PresupuestoFragment extends Fragment {
     private TextInputLayout tilPresupuesto;
     private TextInputLayout tilNuevaCategoria;
     private CategoryBudgetEditAdapter categoryAdapter;
+    private Button btnGuardarPresupuesto;
     private Button btnGuardarCategorias;
     private Button btnAgregarCategoria;
     private SwipeRefreshLayout swipeRefreshLayout;
@@ -53,7 +55,7 @@ public class PresupuestoFragment extends Fragment {
         etNuevaCategoria = v.findViewById(R.id.etNuevaCategoria);
         tilPresupuesto = v.findViewById(R.id.tilPresupuesto);
         tilNuevaCategoria = v.findViewById(R.id.tilNuevaCategoria);
-        Button btnGuardarPresupuesto = v.findViewById(R.id.btnGuardarPresupuesto);
+        btnGuardarPresupuesto = v.findViewById(R.id.btnGuardarPresupuesto);
         btnGuardarCategorias = v.findViewById(R.id.btnGuardarCategorias);
         btnAgregarCategoria = v.findViewById(R.id.btnAgregarCategoria);
         androidx.recyclerview.widget.RecyclerView rvCategory = v.findViewById(R.id.rvCategoryBudgets);
@@ -71,6 +73,7 @@ public class PresupuestoFragment extends Fragment {
         btnGuardarPresupuesto.setOnClickListener(view -> guardarPresupuesto());
         btnGuardarCategorias.setOnClickListener(view -> guardarCategorias());
         btnAgregarCategoria.setOnClickListener(view -> crearCategoria());
+        UiFormUtils.clearErrorOnTextChange(etPresupuesto, etNuevaCategoria);
 
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setOnRefreshListener(this::recargarDatos);
@@ -88,7 +91,7 @@ public class PresupuestoFragment extends Fragment {
         String s = etPresupuesto.getText() == null ? "" : etPresupuesto.getText().toString().trim();
         double val;
         try {
-            val = s.isEmpty() ? 0.0 : Math.max(0, Double.parseDouble(s));
+            val = s.isEmpty() ? 0.0 : Math.max(0, parseMontoSeguro(s));
         } catch (NumberFormatException ex) {
             tilPresupuesto.setError(getString(R.string.error_monto_invalido));
             return;
@@ -99,7 +102,6 @@ public class PresupuestoFragment extends Fragment {
     }
 
     private void guardarCategorias() {
-        btnGuardarCategorias.setEnabled(false);
         List<CategoryBudgetInput> items = categoryAdapter.getItems();
         viewModel.saveCategoryBudgets(anio, mes, items);
     }
@@ -112,7 +114,6 @@ public class PresupuestoFragment extends Fragment {
         }
 
         tilNuevaCategoria.setError(null);
-        btnAgregarCategoria.setEnabled(false);
         viewModel.createCategory(nombre, categoryAdapter.getItems());
     }
 
@@ -124,11 +125,11 @@ public class PresupuestoFragment extends Fragment {
 
     private void observeViewModel() {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
-            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(Boolean.TRUE.equals(loading));
-            if (!Boolean.TRUE.equals(loading)) {
-                btnGuardarCategorias.setEnabled(true);
-                btnAgregarCategoria.setEnabled(true);
-            }
+            boolean isLoading = Boolean.TRUE.equals(loading);
+            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(isLoading);
+            UiFormUtils.setActionLoading(btnGuardarPresupuesto, isLoading);
+            UiFormUtils.setActionLoading(btnGuardarCategorias, isLoading);
+            UiFormUtils.setActionLoading(btnAgregarCategoria, isLoading);
         });
         viewModel.getBudget().observe(getViewLifecycleOwner(), monto -> {
             if (monto != null) etPresupuesto.setText(String.valueOf(monto));
@@ -142,5 +143,29 @@ public class PresupuestoFragment extends Fragment {
         viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
             if (msgRes != null) Snackbar.make(requireView(), msgRes, Snackbar.LENGTH_SHORT).show();
         });
+    }
+
+    private double parseMontoSeguro(String raw) {
+        if (raw == null) return 0;
+        String limpio = raw.trim();
+        if (limpio.isEmpty()) return 0;
+        limpio = limpio.replaceAll("[^0-9,.-]", "");
+        if (limpio.isEmpty()) return 0;
+        int lastComma = limpio.lastIndexOf(',');
+        int lastDot = limpio.lastIndexOf('.');
+        if (lastComma >= 0 && lastDot >= 0) {
+            if (lastComma > lastDot) {
+                limpio = limpio.replace(".", "");
+                limpio = limpio.replace(',', '.');
+            } else {
+                limpio = limpio.replace(",", "");
+            }
+        } else if (lastComma >= 0) {
+            limpio = limpio.replace(',', '.');
+        }
+        if ("-".equals(limpio) || ".".equals(limpio) || "-.".equals(limpio) || ",".equals(limpio)) {
+            return 0;
+        }
+        return Double.parseDouble(limpio);
     }
 }

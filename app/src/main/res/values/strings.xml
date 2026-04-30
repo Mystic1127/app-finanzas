@@ -13,13 +13,13 @@
     <string name="categoria_cd">Selector de categoría</string>
 
     <string name="hint_nota_opcional">Nota (opcional)</string>
-    <string name="hint_fecha">Fecha (AAAA-MM-DD)</string>
+    <string name="hint_fecha">Fecha (dd/MM/yyyy)</string>
     <string name="btn_guardar">Guardar</string>
     <string name="btn_eliminar">Eliminar</string>
     <string name="trans_saved">Transacción guardada</string>
     <string name="trans_updated">Transacción actualizada</string>
     <string name="error_guardar_transaccion">No se pudo guardar la transacción</string>
-    <string name="error_formato_fecha">Ingresa una fecha válida en formato AAAA-MM-DD.</string>
+    <string name="error_formato_fecha">Ingresa una fecha válida en formato dd/MM/yyyy.</string>
     <string name="error_cargar_categorias">No se pudieron cargar las categorías</string>
 
     <string name="auth_titulo_login">Iniciar sesión</string>
@@ -35,8 +35,24 @@
     <string name="auth_link_register">Crear cuenta</string>
 
     <string name="home_saldo_mes">Saldo del mes</string>
+    <string name="home_dashboard_title">Dashboard financiero</string>
+    <string name="home_dashboard_subtitle">Resumen claro del mes, tendencias y señales importantes.</string>
     <string name="home_ingresos">Ingresos</string>
     <string name="home_gastos">Gastos</string>
+    <string name="home_balance">Balance</string>
+    <string name="home_budget_used">Presupuesto usado</string>
+    <string name="home_budget_used_value">%1$d%%</string>
+    <string name="home_budget_no_budget">Sin presupuesto</string>
+    <string name="home_budget_missing_hint">Configura un presupuesto mensual para medir tu avance.</string>
+    <string name="home_empty_title">Aún no tienes datos</string>
+    <string name="home_empty_message">Registra ingresos y gastos para activar el dashboard.</string>
+    <string name="home_expense_category_title">Gastos por categoría</string>
+    <string name="home_empty_category_chart">Aún no hay gastos por categoría este mes.</string>
+    <string name="home_category_chart_center">Gastos</string>
+    <string name="home_alerts_empty">Sin alertas por ahora.</string>
+    <string name="home_insights_title">Insights</string>
+    <string name="home_insights_empty">Aún no hay insights suficientes.</string>
+    <string name="home_uncategorized">Sin categoría</string>
     <string name="home_ver_lista">Ver lista</string>
     <string name="home_presupuesto">Presupuesto</string>
     <string name="home_goals">Metas de ahorro</string>
@@ -324,4 +340,25 @@
     <string name="error_ingresa_monto">Ingresa un monto</string>
     <string name="error_selecciona_categoria">Selecciona una categoría</string>
     <string name="error_monto_invalido">Monto inválido</string>
+    <string name="home_financial_state">Estado</string>
+    <string name="home_previous_month">Vs mes anterior</string>
+    <string name="home_financial_state_controlled">Controlado</string>
+    <string name="home_financial_state_risk">Riesgo</string>
+    <string name="home_financial_state_exceeded">Excedido</string>
+    <string name="home_comparison_no_previous">Sin historial suficiente</string>
+    <string name="home_comparison_more">m&#225;s</string>
+    <string name="home_comparison_less">menos</string>
+    <string name="home_comparison_value">Gastaste %1$d%% %2$s que el mes anterior</string>
+    <string name="home_top_category_empty">Mayor gasto: sin datos suficientes</string>
+    <string name="home_top_category_value">Mayor gasto: %1$s (%2$s)</string>
+    <string name="perfil_preferences">Preferencias</string>
+    <string name="perfil_currency_title">Moneda principal</string>
+    <string name="perfil_currency_hint">Moneda</string>
+    <string name="perfil_currency_rate_hint">Tasa manual opcional</string>
+    <string name="perfil_currency_save">Guardar moneda</string>
+    <string name="perfil_currency_saved">Moneda actualizada.</string>
+    <string name="perfil_currency_error">No se pudo guardar la moneda.</string>
+    <string name="import_sheet_cancel">Cancelar</string>
+    <string name="import_sheet_create">Crear importaci&#243;n</string>
+    <string name="import_sheet_save_rule">Guardar regla</string>
 </resources>

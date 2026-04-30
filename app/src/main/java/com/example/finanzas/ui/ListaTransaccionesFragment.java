@@ -8,11 +8,11 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
@@ -27,7 +27,7 @@ import com.example.finanzas.ui.adapter.TransaccionAdapter;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.Prefs;
-import com.example.finanzas.util.DateInputMask;
+import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -36,13 +36,10 @@ import com.google.android.material.textfield.TextInputEditText;
 
 import org.json.JSONObject;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class ListaTransaccionesFragment extends Fragment {
 
@@ -58,7 +55,6 @@ public class ListaTransaccionesFragment extends Fragment {
     private MaterialButton btnFiltros;
     private TransaccionFiltro filtroActual;
     private List<Categoria> categorias;
-    private final SimpleDateFormat filtroDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
     private TransactionsViewModel viewModel;
 
     @Nullable
@@ -186,7 +182,7 @@ public class ListaTransaccionesFragment extends Fragment {
                 Prefs.clearLastTransactionsPeriod(requireContext());
                 announcePeriod = false;
                 pendingPrefClear = false;
-                Toast.makeText(requireContext(), R.string.transactions_period_reset, Toast.LENGTH_SHORT).show();
+                UiFormUtils.showMessage(requireView(), R.string.transactions_period_reset);
                 cargarTransacciones();
             });
         }
@@ -208,8 +204,9 @@ public class ListaTransaccionesFragment extends Fragment {
         android.widget.RadioGroup rgOrden = content.findViewById(R.id.rgOrden);
         MaterialSwitch swAsc = content.findViewById(R.id.swAscendente);
 
-        etInicio.addTextChangedListener(new DateInputMask(etInicio));
-        etFin.addTextChangedListener(new DateInputMask(etFin));
+        UiFormUtils.bindDatePicker(requireContext(), etInicio);
+        UiFormUtils.bindDatePicker(requireContext(), etFin);
+        UiFormUtils.clearErrorOnTextChange(etInicio, etFin);
 
         ArrayAdapter<String> catAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>());
         actCategoria.setAdapter(catAdapter);
@@ -238,10 +235,10 @@ public class ListaTransaccionesFragment extends Fragment {
 
         if (filtroActual != null) {
             if (filtroActual.getFechaInicio() != null) {
-                etInicio.setText(filtroDateFormat.format(new Date(filtroActual.getFechaInicio())));
+                etInicio.setText(UiFormUtils.formatUiDate(new Date(filtroActual.getFechaInicio())));
             }
             if (filtroActual.getFechaFin() != null) {
-                etFin.setText(filtroDateFormat.format(new Date(filtroActual.getFechaFin() - 86_400_000L)));
+                etFin.setText(UiFormUtils.formatUiDate(new Date(filtroActual.getFechaFin() - 86_400_000L)));
             }
             if (filtroActual.getOrden() != null) {
                 switch (filtroActual.getOrden()) {
@@ -259,13 +256,30 @@ public class ListaTransaccionesFragment extends Fragment {
             swAsc.setChecked(filtroActual.isAscendente());
         }
 
-        new MaterialAlertDialogBuilder(requireContext())
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.transactions_filter_title)
                 .setView(content)
-                .setPositiveButton(R.string.transactions_filter_apply, (dialog, which) -> {
+                .setPositiveButton(R.string.transactions_filter_apply, null)
+                .setNegativeButton(R.string.transactions_filter_clear, (d, which) -> {
+                    filtroActual = null;
+                    cargarTransacciones();
+                })
+                .setNeutralButton(android.R.string.cancel, null)
+                .create();
+
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                    UiFormUtils.clearErrors(etInicio, etFin);
                     TransaccionFiltro filtro = new TransaccionFiltro();
                     Long inicio = parseFiltroFecha(etInicio);
                     Long fin = parseFiltroFecha(etFin);
+                    if (!isFechaFiltroValida(etInicio)) {
+                        UiFormUtils.setError(etInicio, getString(R.string.error_formato_fecha));
+                        return;
+                    }
+                    if (!isFechaFiltroValida(etFin)) {
+                        UiFormUtils.setError(etFin, getString(R.string.error_formato_fecha));
+                        return;
+                    }
                     if (inicio != null) filtro.setFechaInicio(inicio);
                     if (fin != null) filtro.setFechaFin(fin + 86_400_000L);
 
@@ -287,24 +301,22 @@ public class ListaTransaccionesFragment extends Fragment {
 
                     filtroActual = filtro;
                     cargarTransacciones();
-                })
-                .setNegativeButton(R.string.transactions_filter_clear, (dialog, which) -> {
-                    filtroActual = null;
-                    cargarTransacciones();
-                })
-                .setNeutralButton(android.R.string.cancel, null)
-                .show();
+                    dialog.dismiss();
+                }));
+        dialog.show();
     }
 
     @Nullable
     private Long parseFiltroFecha(TextInputEditText et) {
         if (et.getText() == null || TextUtils.isEmpty(et.getText().toString())) return null;
-        try {
-            Date date = filtroDateFormat.parse(et.getText().toString().trim());
-            return date == null ? null : date.getTime();
-        } catch (ParseException e) {
-            return null;
-        }
+        Date date = UiFormUtils.parseUiDate(et.getText().toString().trim());
+        return date == null ? null : date.getTime();
+    }
+
+    private boolean isFechaFiltroValida(TextInputEditText et) {
+        return et.getText() == null
+                || TextUtils.isEmpty(et.getText().toString().trim())
+                || UiFormUtils.isValidUiDate(et.getText().toString().trim());
     }
 
     private void showLoading(boolean show) {
@@ -330,9 +342,8 @@ public class ListaTransaccionesFragment extends Fragment {
             int[] periodo = resolvePeriodo();
             if (pendingPrefClear) Prefs.clearLastTransactionsPeriod(requireContext());
             if (announcePeriod) {
-                Toast.makeText(requireContext(),
-                        getString(R.string.transactions_loaded_period, Format.monthYear(periodo[0], periodo[1])),
-                        Toast.LENGTH_LONG).show();
+                UiFormUtils.showMessage(requireView(),
+                        getString(R.string.transactions_loaded_period, Format.monthYear(periodo[0], periodo[1])));
             }
             announcePeriod = false;
             pendingPrefClear = false;
@@ -340,20 +351,20 @@ public class ListaTransaccionesFragment extends Fragment {
         });
         viewModel.getDeleted().observe(getViewLifecycleOwner(), ok -> {
             if (Boolean.TRUE.equals(ok)) {
-                Toast.makeText(requireContext(), R.string.trans_deleted, Toast.LENGTH_SHORT).show();
+                UiFormUtils.showMessage(requireView(), R.string.trans_deleted);
                 cargarTransacciones();
             } else if (ok != null) {
-                Toast.makeText(requireContext(), R.string.error_eliminar_transaccion, Toast.LENGTH_SHORT).show();
+                UiFormUtils.showMessage(requireView(), R.string.error_eliminar_transaccion);
             }
         });
         viewModel.getExportPath().observe(getViewLifecycleOwner(), path ->
-                Toast.makeText(requireContext(), getString(R.string.transactions_export_success, path), Toast.LENGTH_LONG).show()
+                UiFormUtils.showMessage(requireView(), getString(R.string.transactions_export_success, path))
         );
         viewModel.getError().observe(getViewLifecycleOwner(), message -> {
             if (message != null && !message.isEmpty()) {
-                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                UiFormUtils.showMessage(requireView(), message);
             } else {
-                Toast.makeText(requireContext(), R.string.error_cargar_transacciones, Toast.LENGTH_SHORT).show();
+                UiFormUtils.showMessage(requireView(), R.string.error_cargar_transacciones);
             }
             stopRefreshing();
         });

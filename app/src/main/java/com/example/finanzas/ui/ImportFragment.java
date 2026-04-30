@@ -6,14 +6,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONException;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
@@ -26,6 +24,8 @@ import com.example.finanzas.data.model.ImportRule;
 import com.example.finanzas.ui.adapter.ImportJobAdapter;
 import com.example.finanzas.ui.adapter.ImportRuleAdapter;
 import com.example.finanzas.util.Prefs;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -148,28 +148,24 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
     }
 
     private void showCreateDialog() {
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_import, null, false);
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_import, null, false);
         TextInputLayout tilNombre = content.findViewById(R.id.tilImportName);
         TextInputLayout tilLineas = content.findViewById(R.id.tilImportLines);
         TextInputEditText etNombre = content.findViewById(R.id.etImportName);
         TextInputEditText etLineas = content.findViewById(R.id.etImportLines);
         MaterialAutoCompleteTextView actTipo = content.findViewById(R.id.actImportType);
+        MaterialButton btnCancel = content.findViewById(R.id.btnImportCancel);
+        MaterialButton btnCreate = content.findViewById(R.id.btnImportCreate);
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1,
                 getResources().getStringArray(R.array.import_type_entries));
         actTipo.setAdapter(adapter);
         actTipo.setText(getString(R.string.import_type_csv), false);
 
-        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.import_dialog_title)
-                .setView(content)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.imports_new, null)
-                .create();
-
-        dialog.setOnShowListener(dlg -> {
-            Button positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            positive.setOnClickListener(v -> {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        dialog.setContentView(content);
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnCreate.setOnClickListener(v -> {
                 tilNombre.setError(null);
                 tilLineas.setError(null);
 
@@ -189,12 +185,12 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                     return;
                 }
 
-                positive.setEnabled(false);
+                btnCreate.setEnabled(false);
                 ImportService.create(requireContext(), mapTipo(tipo), nombre, lineas, new ImportService.CreateCallback() {
                     @Override
                     public void onSuccess(int importId) {
                         if (!isAdded()) return;
-                        positive.setEnabled(true);
+                        btnCreate.setEnabled(true);
                         dialog.dismiss();
                         Toast.makeText(requireContext(), getString(R.string.import_created_ok, importId), Toast.LENGTH_SHORT).show();
                         refreshAll();
@@ -203,11 +199,10 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                     @Override
                     public void onError() {
                         if (!isAdded()) return;
-                        positive.setEnabled(true);
+                        btnCreate.setEnabled(true);
                         Toast.makeText(requireContext(), R.string.import_create_error, Toast.LENGTH_SHORT).show();
                     }
                 });
-            });
         });
 
         dialog.show();
@@ -268,7 +263,8 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
     }
 
     private void showRuleDialog(@Nullable ImportRule existing) {
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_rule, null, false);
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_rule, null, false);
+        TextView tvTitle = content.findViewById(R.id.tvRuleSheetTitle);
         TextInputLayout tilPattern = content.findViewById(R.id.tilRulePattern);
         TextInputLayout tilDescripcion = content.findViewById(R.id.tilRuleDesc);
         TextInputLayout tilCategoria = content.findViewById(R.id.tilRuleCategory);
@@ -276,6 +272,9 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         TextInputEditText etDesc = content.findViewById(R.id.etRuleDesc);
         MaterialAutoCompleteTextView actCategoria = content.findViewById(R.id.actRuleCategory);
         SwitchMaterial swTipo = content.findViewById(R.id.swRuleIngreso);
+        MaterialButton btnCancel = content.findViewById(R.id.btnRuleCancel);
+        MaterialButton btnSave = content.findViewById(R.id.btnRuleSave);
+        tvTitle.setText(existing == null ? R.string.import_rule_new_title : R.string.import_rule_edit_title);
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1,
                 buildCategoriaLabels(false));
@@ -306,16 +305,10 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
             }
         }
 
-        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(existing == null ? R.string.import_rule_new_title : R.string.import_rule_edit_title)
-                .setView(content)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.import_rule_save, null)
-                .create();
-
-        dialog.setOnShowListener(dlg -> {
-            Button positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            positive.setOnClickListener(v -> {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        dialog.setContentView(content);
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnSave.setOnClickListener(v -> {
                 tilPattern.setError(null);
                 tilCategoria.setError(null);
 
@@ -334,12 +327,12 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 Integer categoriaId = resolveCategoriaId(categoriaSel, swTipo.isChecked());
                 rule.setCategoriaId(categoriaId);
 
-                positive.setEnabled(false);
+                btnSave.setEnabled(false);
                 ImportService.saveRule(requireContext(), rule, new ImportService.SimpleCallback() {
                     @Override
                     public void onSuccess() {
                         if (!isAdded()) return;
-                        positive.setEnabled(true);
+                        btnSave.setEnabled(true);
                         dialog.dismiss();
                         Toast.makeText(requireContext(), R.string.import_rule_saved, Toast.LENGTH_SHORT).show();
                         refreshAll();
@@ -348,11 +341,10 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                     @Override
                     public void onError() {
                         if (!isAdded()) return;
-                        positive.setEnabled(true);
+                        btnSave.setEnabled(true);
                         Toast.makeText(requireContext(), R.string.import_rule_save_error, Toast.LENGTH_SHORT).show();
                     }
                 });
-            });
         });
 
         dialog.show();

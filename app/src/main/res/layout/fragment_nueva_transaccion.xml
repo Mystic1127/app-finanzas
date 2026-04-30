@@ -17,6 +17,7 @@
             android:id="@+id/tilMonto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             app:prefixText="@string/prefix_moneda"
             app:hintEnabled="true">
 
@@ -35,12 +36,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             app:hintEnabled="true">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etFecha"
                 android:hint="@string/hint_fecha"
-                android:inputType="datetime"
+                android:focusable="false"
+                android:clickable="true"
+                android:inputType="none"
                 android:textColor="?attr/colorOnSurface"
                 android:textColorHint="?attr/colorOnSurfaceVariant"
                 android:layout_width="match_parent"
@@ -58,6 +62,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilCategoria"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:hint="@string/hint_categoria"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -80,6 +85,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             app:hintEnabled="true">
 
             <com.google.android.material.textfield.TextInputEditText
