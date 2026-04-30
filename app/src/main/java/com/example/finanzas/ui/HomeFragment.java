@@ -453,7 +453,7 @@ public class HomeFragment extends Fragment {
         for (int i = 0; i < safeSlices.size(); i++) {
             CategoryChartSlice slice = safeSlices.get(i);
             String catLabel = slice.getCategoriaNombre();
-            labels.add((catLabel == null || catLabel.trim().isEmpty()) ? "Sin datos" : catLabel);
+            labels.add(safeLabel(catLabel));
             gastos.add(new BarEntry(i, (float) slice.getGastado()));
             presupuestos.add(new BarEntry(i, (float) slice.getPresupuesto()));
         }
@@ -541,9 +541,9 @@ public class HomeFragment extends Fragment {
 
         XAxis xAxis = chartBalance.getXAxis();
         xAxis.setValueFormatter(new IndexAxisValueFormatter(Arrays.asList(
-                getString(R.string.chart_label_income_short),
-                getString(R.string.chart_label_expense_short),
-                getString(R.string.chart_label_balance)
+                safeLabel(getString(R.string.chart_label_income_short)),
+                safeLabel(getString(R.string.chart_label_expense_short)),
+                safeLabel(getString(R.string.chart_label_balance))
         )));
         xAxis.setGranularity(1f);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
@@ -582,7 +582,7 @@ public class HomeFragment extends Fragment {
             if (progreso <= 1) progreso = progreso * 100.0;
             float clamped = (float) Math.min(100, Math.max(0, progreso));
             progressEntries.add(new BarEntry(i, clamped));
-            labels.add(goal.getTitulo());
+            labels.add(safeLabel(goal.getTitulo()));
         }
 
         BarDataSet dataSet = new BarDataSet(progressEntries, getString(R.string.home_chart_goals_label));
@@ -644,7 +644,7 @@ public class HomeFragment extends Fragment {
         for (int i = 0; i < safePoints.size(); i++) {
             MonthlyTrendPoint point = safePoints.get(i);
             String trendLabel = point.getEtiqueta();
-            labels.add((trendLabel == null || trendLabel.trim().isEmpty()) ? "-" : trendLabel);
+            labels.add(safeLabel(trendLabel));
             ingresosEntries.add(new Entry(i, (float) point.getIngresos()));
             gastosEntries.add(new Entry(i, (float) point.getGastos()));
             float saldo = (float) point.getSaldo();
@@ -1120,5 +1120,11 @@ public class HomeFragment extends Fragment {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    private String safeLabel(@Nullable String value) {
+        if (value == null) return "Sin datos";
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? "Sin datos" : trimmed;
     }
 }
