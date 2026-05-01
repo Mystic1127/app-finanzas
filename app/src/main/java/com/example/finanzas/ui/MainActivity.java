@@ -9,6 +9,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -99,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         navController.addOnDestinationChangedListener((controller, destination, args) -> {
+            configureSystemBars();
             int destId = destination.getId();
             boolean isAuthScreen = (destId == R.id.nav_login
                     || destId == R.id.nav_register
@@ -140,6 +142,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         enforcePinIfNeeded();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            configureSystemBars();
+        }
     }
 
     @Override
@@ -237,12 +247,34 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void configureSystemBars() {
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-        getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.md_theme_background));
-        getWindow().setNavigationBarColor(ContextCompat.getColor(this, R.color.md_theme_background));
-        WindowInsetsControllerCompat controller = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
+
+        int systemBarColor = ContextCompat.getColor(this, R.color.md_theme_background);
+
+        getWindow().clearFlags(
+                WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
+                        | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION
+        );
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+
+        getWindow().setStatusBarColor(systemBarColor);
+        getWindow().setNavigationBarColor(systemBarColor);
+
+        // Si Samsung/Android deja la status bar transparente, esto evita que se vea una capa verde debajo.
+        getWindow().getDecorView().setBackgroundColor(systemBarColor);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+
         controller.setAppearanceLightStatusBars(!night);
         controller.setAppearanceLightNavigationBars(!night);
     }
