@@ -3,6 +3,7 @@ package com.example.finanzas.data.api
 import android.content.Context
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.Categoria
+import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +26,8 @@ object CategoryStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     @Volatile
+    private var cacheUserId: Long = 0L
+    @Volatile
     private var cache: List<Categoria>? = null
     @Volatile
     private var loading = false
@@ -36,14 +39,33 @@ object CategoryStore {
 
     suspend fun create(ctx: Context, nombre: String, esIngreso: Boolean): Categoria = withContext(Dispatchers.IO) {
         val id = LocalRepository.getInstance(ctx).createCategoria(nombre, esIngreso)
-        Categoria(id, nombre, esIngreso)
+        Categoria(id, nombre, esIngreso).also { nueva ->
+            val userId = Prefs.getCurrentUserId(ctx)
+            synchronized(this@CategoryStore) {
+                val current = cache
+                if (current != null && cacheUserId == userId) {
+                    cache = Collections.unmodifiableList(
+                        (current + nueva).distinctBy { it.id }.sortedBy { it.nombre ?: "" }
+                    )
+                } else {
+                    cache = null
+                    loading = false
+                }
+            }
+        }
     }
 
     @JvmStatic
     @Synchronized
     fun loadOnce(ctx: Context, cb: Callback) {
+        val userId = Prefs.getCurrentUserId(ctx)
+        if (cacheUserId != userId) {
+            cache = null
+            loading = false
+            pending.clear()
+        }
         val localCache = cache
-        if (localCache != null) {
+        if (localCache != null && cacheUserId == userId) {
             cb.onReady(localCache)
             return
         }
@@ -56,6 +78,7 @@ object CategoryStore {
             runCatching { load(ctx) }
                 .onSuccess { cats ->
                     val callbacks = synchronized(this@CategoryStore) {
+                        cacheUserId = userId
                         cache = cats
                         loading = false
                         pending.toList().also { pending.clear() }
@@ -74,16 +97,16 @@ object CategoryStore {
 
     @JvmStatic
     fun createCategoria(ctx: Context, nombre: String, esIngreso: Boolean, cb: CreateCallback) {
+        val userId = Prefs.getCurrentUserId(ctx)
         scope.launch {
             runCatching { create(ctx, nombre, esIngreso) }
                 .onSuccess { nueva ->
                     synchronized(this@CategoryStore) {
                         val current = cache
-                        if (current != null) {
-                            val updated = current.toMutableList()
-                            updated.add(nueva)
-                            updated.sortBy { it.nombre ?: "" }
-                            cache = Collections.unmodifiableList(updated)
+                        if (current != null && cacheUserId == userId) {
+                            cache = Collections.unmodifiableList(
+                                (current + nueva).distinctBy { it.id }.sortedBy { it.nombre ?: "" }
+                            )
                         }
                     }
                     cb.onReady(nueva)

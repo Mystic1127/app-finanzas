@@ -9,6 +9,7 @@ public class TransaccionFiltro {
     @Nullable private Long fechaFin;
     @Nullable private Integer categoriaId;
     @Nullable private Orden orden;
+    @Nullable private String texto;
     private boolean ascendente;
 
     @Nullable
@@ -30,6 +31,11 @@ public class TransaccionFiltro {
     public Orden getOrden() { return orden; }
 
     public void setOrden(@Nullable Orden orden) { this.orden = orden; }
+
+    @Nullable
+    public String getTexto() { return texto; }
+
+    public void setTexto(@Nullable String texto) { this.texto = texto; }
 
     public boolean isAscendente() { return ascendente; }
 

@@ -9,6 +9,11 @@ public class HomeSummary {
     private double ingresos;
     private double gastos;
     private double saldo;
+    private double saldoActualTotal;
+    private double initialCashBalance;
+    private double initialCardBalance;
+    private double efectivo;
+    private double tarjetaCuenta;
     private double presupuestoMonto;
     private double presupuestoRestante;
     private double presupuestoPorcentaje;
@@ -17,11 +22,29 @@ public class HomeSummary {
     private double gastoPromedioDiario;
     private int diasRestantes;
     private String riesgoPresupuesto;
+    private double gastosMesAnterior;
+    private double variacionGastosPorcentaje;
+    private String categoriaMayorGasto;
+    private double categoriaMayorGastoMonto;
+    private String estadoFinanciero;
+    private String insightPrincipal;
+    private double proyeccionFinMes;
+    private String alertaPrincipal;
+    private int scoreFinanciero;
+    private String scoreEstado;
+    private String scoreExplicacion;
+    private String scoreTendencia;
+    private double ahorroSugerido;
+    private String ahorroSugeridoMensaje;
+    private String recomendacionAhorroMeta;
+    private String estadoAhorro;
+    private boolean proUser;
     private final List<CategoryBudgetSummary> presupuestosCategoria = new ArrayList<>();
     private final List<SavingsGoal> metas = new ArrayList<>();
     private final List<PaymentReminder> recordatorios = new ArrayList<>();
     private final List<String> alertas = new ArrayList<>();
     private final List<String> alertasPredictivas = new ArrayList<>();
+    private final List<String> recomendacionesInteligentes = new ArrayList<>();
     private final List<CategoryChartSlice> chartCategorias = new ArrayList<>();
     private final List<MonthlyTrendPoint> tendenciaMensual = new ArrayList<>();
     private int importacionesPendientes;
@@ -45,6 +68,21 @@ public class HomeSummary {
 
     public double getSaldo() { return saldo; }
     public void setSaldo(double saldo) { this.saldo = saldo; }
+
+    public double getSaldoActualTotal() { return saldoActualTotal; }
+    public void setSaldoActualTotal(double saldoActualTotal) { this.saldoActualTotal = saldoActualTotal; }
+
+    public double getInitialCashBalance() { return initialCashBalance; }
+    public void setInitialCashBalance(double initialCashBalance) { this.initialCashBalance = initialCashBalance; }
+
+    public double getInitialCardBalance() { return initialCardBalance; }
+    public void setInitialCardBalance(double initialCardBalance) { this.initialCardBalance = initialCardBalance; }
+
+    public double getEfectivo() { return efectivo; }
+    public void setEfectivo(double efectivo) { this.efectivo = efectivo; }
+
+    public double getTarjetaCuenta() { return tarjetaCuenta; }
+    public void setTarjetaCuenta(double tarjetaCuenta) { this.tarjetaCuenta = tarjetaCuenta; }
 
     public double getPresupuestoMonto() { return presupuestoMonto; }
     public void setPresupuestoMonto(double presupuestoMonto) { this.presupuestoMonto = presupuestoMonto; }
@@ -71,6 +109,58 @@ public class HomeSummary {
     public String getRiesgoPresupuesto() { return riesgoPresupuesto; }
     public void setRiesgoPresupuesto(String riesgoPresupuesto) { this.riesgoPresupuesto = riesgoPresupuesto; }
 
+    public double getGastosMesAnterior() { return gastosMesAnterior; }
+    public void setGastosMesAnterior(double gastosMesAnterior) { this.gastosMesAnterior = gastosMesAnterior; }
+
+    public double getVariacionGastosPorcentaje() { return variacionGastosPorcentaje; }
+    public void setVariacionGastosPorcentaje(double variacionGastosPorcentaje) { this.variacionGastosPorcentaje = variacionGastosPorcentaje; }
+
+    public String getCategoriaMayorGasto() { return categoriaMayorGasto; }
+    public void setCategoriaMayorGasto(String categoriaMayorGasto) { this.categoriaMayorGasto = categoriaMayorGasto; }
+
+    public double getCategoriaMayorGastoMonto() { return categoriaMayorGastoMonto; }
+    public void setCategoriaMayorGastoMonto(double categoriaMayorGastoMonto) { this.categoriaMayorGastoMonto = categoriaMayorGastoMonto; }
+
+    public String getEstadoFinanciero() { return estadoFinanciero; }
+    public void setEstadoFinanciero(String estadoFinanciero) { this.estadoFinanciero = estadoFinanciero; }
+
+    public String getInsightPrincipal() { return insightPrincipal; }
+    public void setInsightPrincipal(String insightPrincipal) { this.insightPrincipal = insightPrincipal; }
+
+    public double getProyeccionFinMes() { return proyeccionFinMes; }
+    public void setProyeccionFinMes(double proyeccionFinMes) { this.proyeccionFinMes = proyeccionFinMes; }
+
+    public String getAlertaPrincipal() { return alertaPrincipal; }
+    public void setAlertaPrincipal(String alertaPrincipal) { this.alertaPrincipal = alertaPrincipal; }
+
+    public int getScoreFinanciero() { return scoreFinanciero; }
+    public void setScoreFinanciero(int scoreFinanciero) { this.scoreFinanciero = scoreFinanciero; }
+
+    public String getScoreEstado() { return scoreEstado; }
+    public void setScoreEstado(String scoreEstado) { this.scoreEstado = scoreEstado; }
+
+    public String getScoreExplicacion() { return scoreExplicacion; }
+    public void setScoreExplicacion(String scoreExplicacion) { this.scoreExplicacion = scoreExplicacion; }
+
+    public String getScoreTendencia() { return scoreTendencia; }
+    public void setScoreTendencia(String scoreTendencia) { this.scoreTendencia = scoreTendencia; }
+
+    public double getAhorroSugerido() { return ahorroSugerido; }
+    public void setAhorroSugerido(double ahorroSugerido) { this.ahorroSugerido = ahorroSugerido; }
+
+    public String getAhorroSugeridoMensaje() { return ahorroSugeridoMensaje; }
+    public void setAhorroSugeridoMensaje(String ahorroSugeridoMensaje) { this.ahorroSugeridoMensaje = ahorroSugeridoMensaje; }
+
+    public String getRecomendacionAhorroMeta() { return recomendacionAhorroMeta; }
+    public void setRecomendacionAhorroMeta(String recomendacionAhorroMeta) { this.recomendacionAhorroMeta = recomendacionAhorroMeta; }
+
+    public String getEstadoAhorro() { return estadoAhorro; }
+    public void setEstadoAhorro(String estadoAhorro) { this.estadoAhorro = estadoAhorro; }
+
+    public boolean isProUser() { return proUser; }
+    public boolean getProUser() { return proUser; }
+    public void setProUser(boolean proUser) { this.proUser = proUser; }
+
     public List<CategoryBudgetSummary> getPresupuestosCategoria() { return presupuestosCategoria; }
 
     public List<SavingsGoal> getMetas() { return metas; }
@@ -80,6 +170,8 @@ public class HomeSummary {
     public List<String> getAlertas() { return alertas; }
 
     public List<String> getAlertasPredictivas() { return alertasPredictivas; }
+
+    public List<String> getRecomendacionesInteligentes() { return recomendacionesInteligentes; }
 
     public List<CategoryChartSlice> getChartCategorias() { return chartCategorias; }
 

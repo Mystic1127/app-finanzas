@@ -16,11 +16,12 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/md_theme_surface"
-            android:theme="@style/ThemeOverlay.Material3.Light"
+            android:background="?attr/colorSurface"
+            app:popupTheme="@style/ThemeOverlay.Material3.Light"
             app:title="Finanzas"
             app:titleCentered="true"
-            app:titleTextColor="@color/md_theme_onSurface" />
+            app:titleTextColor="?attr/colorOnSurface"
+            android:elevation="0dp"/>
 
         <androidx.fragment.app.FragmentContainerView
             android:id="@+id/nav_host_fragment"

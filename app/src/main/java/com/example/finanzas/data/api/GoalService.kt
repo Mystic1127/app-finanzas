@@ -29,7 +29,8 @@ object GoalService {
         val objetivo = body.optDouble("monto_objetivo", 0.0)
         val actual = body.optDouble("monto_actual", 0.0)
         val fecha = body.optString("fecha_objetivo", null)
-        LocalRepository.getInstance(ctx).saveGoal(id, titulo, objetivo, actual, fecha)
+        val moneda = body.optString("moneda", SettingsService.getCurrencyCode(ctx))
+        LocalRepository.getInstance(ctx).saveGoal(id, titulo, objetivo, actual, fecha, moneda)
     }
 
     suspend fun delete(ctx: Context, id: Int): Boolean = withContext(Dispatchers.IO) {
@@ -42,10 +43,11 @@ object GoalService {
         val titulo = body.optString("titulo", "")
         val monto = body.optDouble("monto_planificado", 0.0)
         val fecha = body.optString("fecha_objetivo", null)
+        val moneda = body.optString("moneda", SettingsService.getCurrencyCode(ctx))
         val notificar = body.optInt("notificar", 0) == 1 || body.optBoolean("notificar", false)
         val dias = body.optInt("dias_recordatorio", 0)
         val completado = body.optInt("completado", 0) == 1 || body.optBoolean("completado", false)
-        LocalRepository.getInstance(ctx).saveMilestone(id, metaId, titulo, monto, fecha, notificar, dias, completado)
+        LocalRepository.getInstance(ctx).saveMilestone(id, metaId, titulo, monto, fecha, notificar, dias, completado, moneda)
     }
 
     suspend fun deleteMilestone(ctx: Context, id: Int): Boolean = withContext(Dispatchers.IO) {

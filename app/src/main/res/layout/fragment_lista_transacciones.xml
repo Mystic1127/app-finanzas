@@ -55,13 +55,29 @@
                 android:layout_weight="1"
                 style="@style/Widget.Finanzas.Card">
 
-                <ListView
-                    android:id="@+id/listView"
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:dividerHeight="0dp"
-                    android:padding="4dp"
-                    android:clipToPadding="false" />
+                    android:layout_height="match_parent">
+
+                    <ListView
+                        android:id="@+id/listView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:dividerHeight="0dp"
+                        android:padding="4dp"
+                        android:clipToPadding="false" />
+
+                    <TextView
+                        android:id="@+id/tvTransactionsEmpty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:padding="24dp"
+                        android:text="@string/transactions_empty_filtered"
+                        android:textAlignment="center"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:visibility="gone" />
+                </FrameLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

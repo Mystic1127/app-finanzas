@@ -26,8 +26,11 @@ object BudgetService {
         LocalRepository.getInstance(ctx).getPresupuesto(anio, mes)
     }
 
-    suspend fun set(ctx: Context, anio: Int, mes: Int, monto: Double) = withContext(Dispatchers.IO) {
-        LocalRepository.getInstance(ctx).setPresupuesto(anio, mes, monto)
+    suspend fun set(ctx: Context, anio: Int, mes: Int, monto: Double) =
+        set(ctx, anio, mes, monto, SettingsService.getCurrencyCode(ctx))
+
+    suspend fun set(ctx: Context, anio: Int, mes: Int, monto: Double, moneda: String) = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).setPresupuesto(anio, mes, monto, moneda)
     }
 
     @JvmStatic

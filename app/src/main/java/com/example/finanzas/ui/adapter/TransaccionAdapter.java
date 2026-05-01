@@ -16,7 +16,9 @@ import com.example.finanzas.R;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.util.Format;
 
+import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.Locale;
 
 public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
 
@@ -45,10 +47,13 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         tvTitulo.setText(cat + nota);
 
 
-        tvSub.setText(Format.date(t.getFecha()));
+        String account = t.isCash()
+                ? getContext().getString(R.string.transaction_account_cash)
+                : getContext().getString(R.string.transaction_account_card);
+        tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " · " + account);
 
         double mostrado = t.isEsIngreso() ? t.getMonto() : -t.getMonto();
-        tvMonto.setText(Format.money(mostrado));
+        tvMonto.setText(Format.money(mostrado, t.getMoneda()));
 
         int color = ContextCompat.getColor(getContext(), t.isEsIngreso() ? R.color.income : R.color.expense);
         tvMonto.setTextColor(color);
@@ -59,5 +64,10 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         }
 
         return v;
+    }
+
+    private String formatTime(@NonNull Transaccion tx) {
+        if (tx.getFecha() == null) return "";
+        return new SimpleDateFormat("HH:mm", Locale.US).format(tx.getFecha());
     }
 }

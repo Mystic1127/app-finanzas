@@ -38,6 +38,7 @@
                     android:textColor="@color/md_theme_onSurface"/>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPresupuesto"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
@@ -49,6 +50,22 @@
                         android:layout_height="wrap_content"
                         android:hint="@string/pres_hint"
                         android:inputType="numberDecimal"/>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPresupuestoMoneda"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/transaction_currency"
+                    app:endIconMode="dropdown_menu">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/actPresupuestoMoneda"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.button.MaterialButton
@@ -80,6 +97,7 @@
                     android:textColor="@color/md_theme_onSurface"/>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilNuevaCategoria"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"

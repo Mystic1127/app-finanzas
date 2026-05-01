@@ -6,8 +6,11 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.finanzas.data.api.TransService
+import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.Transaccion
 import com.example.finanzas.data.model.TransaccionFiltro
+import com.example.finanzas.util.PerfLogger
+import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.launch
 
 class TransactionsViewModel(application: Application) : AndroidViewModel(application) {
@@ -26,12 +29,44 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
     private val _deleted = MutableLiveData<Boolean>()
     val deleted: LiveData<Boolean> = _deleted
 
-    fun load(anio: Int, mes: Int, filtro: TransaccionFiltro?) {
-        _loading.value = true
+    private var loadedYear = 0
+    private var loadedMonth = 0
+    private var loadedVersion = -1L
+    private var loadedFilterKey = ""
+    private var loadedUserId = -1L
+
+    @JvmOverloads
+    fun load(anio: Int, mes: Int, filtro: TransaccionFiltro?, force: Boolean = false) {
+        clearCacheIfUserChanged()
+        val loadStart = PerfLogger.now()
+        PerfLogger.log("ListaTransaccionesFragment", "loadStart year=$anio month=$mes force=$force")
+        val version = LocalRepository.getDataVersion()
+        val userId = Prefs.getCurrentUserId(getApplication())
+        val filterKey = filtro.cacheKey()
+        if (!force &&
+            loadedVersion >= 0 &&
+            loadedUserId == userId &&
+            loadedYear == anio &&
+            loadedMonth == mes &&
+            loadedVersion == version &&
+            loadedFilterKey == filterKey
+        ) {
+            PerfLogger.logSince("ListaTransaccionesFragment", "loadCacheHit", loadStart)
+            return
+        }
+        _loading.value = loadedVersion < 0 || force
         viewModelScope.launch {
             runCatching { TransService.list(getApplication(), anio, mes, filtro) }
-                .onSuccess { _items.value = it }
+                .onSuccess {
+                    loadedUserId = userId
+                    loadedYear = anio
+                    loadedMonth = mes
+                    loadedVersion = LocalRepository.getDataVersion()
+                    loadedFilterKey = filterKey
+                    _items.value = it
+                }
                 .onFailure { _error.value = null }
+            PerfLogger.logSince("ListaTransaccionesFragment", "loadComplete", loadStart)
             _loading.value = false
         }
     }
@@ -54,5 +89,34 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
                 .onFailure { _error.value = "No se pudo exportar" }
             _loading.value = false
         }
+    }
+
+    private fun TransaccionFiltro?.cacheKey(): String {
+        if (this == null) return ""
+        return listOf(
+            fechaInicio?.toString().orEmpty(),
+            fechaFin?.toString().orEmpty(),
+            categoriaId?.toString().orEmpty(),
+            orden?.name.orEmpty(),
+            texto.orEmpty(),
+            isAscendente.toString()
+        ).joinToString("|")
+    }
+
+    fun clearCacheIfUserChanged() {
+        val currentUserId = Prefs.getCurrentUserId(getApplication())
+        if (loadedUserId > 0 && loadedUserId != currentUserId) {
+            clearCache()
+        }
+    }
+
+    fun clearCache() {
+        loadedUserId = -1L
+        loadedYear = 0
+        loadedMonth = 0
+        loadedVersion = -1L
+        loadedFilterKey = ""
+        _items.value = emptyList()
+        _loading.value = false
     }
 }

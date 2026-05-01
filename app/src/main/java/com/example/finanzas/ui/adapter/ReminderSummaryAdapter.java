@@ -48,8 +48,9 @@ public class ReminderSummaryAdapter extends RecyclerView.Adapter<ReminderSummary
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
         PaymentReminder item = items.get(position);
+        String currency = item.getMoneda();
         holder.tvTitulo.setText(item.getTitulo());
-        holder.tvMonto.setText(holder.itemView.getContext().getString(R.string.reminder_amount, Format.money(item.getMonto())));
+        holder.tvMonto.setText(holder.itemView.getContext().getString(R.string.reminder_amount, Format.money(item.getMonto(), currency)));
 
         String fechaTexto = Format.date(item.getFechaVencimiento());
         if (!item.isPagado()) {

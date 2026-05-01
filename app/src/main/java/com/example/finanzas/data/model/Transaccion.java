@@ -9,7 +9,9 @@ public class Transaccion {
     private String categoriaNombre;
     private boolean esIngreso;
     private double monto;
+    private String moneda;
     private Date fecha;
+    private String accountType;
     private String nota;
 
     public Transaccion() {
@@ -17,12 +19,24 @@ public class Transaccion {
 
     public Transaccion(int id, int categoriaId, String categoriaNombre,
                        boolean esIngreso, double monto, Date fecha, String nota) {
+        this(id, categoriaId, categoriaNombre, esIngreso, monto, "PEN", fecha, nota);
+    }
+
+    public Transaccion(int id, int categoriaId, String categoriaNombre,
+                       boolean esIngreso, double monto, String moneda, Date fecha, String nota) {
+        this(id, categoriaId, categoriaNombre, esIngreso, monto, moneda, fecha, "CARD", nota);
+    }
+
+    public Transaccion(int id, int categoriaId, String categoriaNombre,
+                       boolean esIngreso, double monto, String moneda, Date fecha, String accountType, String nota) {
         this.id = id;
         this.categoriaId = categoriaId;
         this.categoriaNombre = categoriaNombre;
         this.esIngreso = esIngreso;
         this.monto = monto;
+        this.moneda = moneda == null || moneda.trim().isEmpty() ? "PEN" : moneda;
         this.fecha = fecha;
+        this.accountType = normalizeAccountType(accountType);
         this.nota = nota;
     }
 
@@ -66,12 +80,32 @@ public class Transaccion {
         this.monto = monto;
     }
 
+    public String getMoneda() {
+        return moneda;
+    }
+
+    public void setMoneda(String moneda) {
+        this.moneda = moneda;
+    }
+
     public Date getFecha() {
         return fecha;
     }
 
     public void setFecha(Date fecha) {
         this.fecha = fecha;
+    }
+
+    public String getAccountType() {
+        return accountType == null || accountType.trim().isEmpty() ? "CARD" : accountType;
+    }
+
+    public void setAccountType(String accountType) {
+        this.accountType = normalizeAccountType(accountType);
+    }
+
+    public boolean isCash() {
+        return "CASH".equalsIgnoreCase(getAccountType());
     }
 
     public String getNota() {
@@ -91,8 +125,16 @@ public class Transaccion {
                 ", categoriaNombre='" + categoriaNombre + '\'' +
                 ", esIngreso=" + esIngreso +
                 ", monto=" + monto +
+                ", moneda='" + moneda + '\'' +
                 ", fecha=" + fecha +
+                ", accountType='" + accountType + '\'' +
                 ", nota='" + nota + '\'' +
                 '}';
+    }
+
+    private String normalizeAccountType(String value) {
+        if (value == null) return "CARD";
+        String clean = value.trim().toUpperCase(java.util.Locale.ROOT);
+        return "CASH".equals(clean) ? "CASH" : "CARD";
     }
 }

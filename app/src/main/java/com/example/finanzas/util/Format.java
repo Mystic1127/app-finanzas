@@ -1,6 +1,7 @@
 package com.example.finanzas.util;
 
 import java.text.DateFormatSymbols;
+import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.Currency;
@@ -24,10 +25,12 @@ public class Format {
             return money(v);
         }
         try {
-            Currency currency = Currency.getInstance(currencyCode.trim().toUpperCase(Locale.ROOT));
-            NumberFormat nf = NumberFormat.getCurrencyInstance(LOCALE);
-            nf.setCurrency(currency);
-            return nf.format(v);
+            String code = CurrencyConverter.normalize(currencyCode);
+            Currency.getInstance(code);
+            DecimalFormat nf = (DecimalFormat) NumberFormat.getNumberInstance(LOCALE);
+            nf.setMinimumFractionDigits(2);
+            nf.setMaximumFractionDigits(2);
+            return CurrencyConverter.symbol(code) + " " + nf.format(v);
         } catch (Exception e) {
             return money(v);
         }

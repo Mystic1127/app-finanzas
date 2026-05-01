@@ -1,17 +1,15 @@
 package com.example.finanzas.ui;
 
 import android.app.AlertDialog;
-import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
-import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,19 +18,22 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.ui.adapter.ReminderSummaryAdapter;
 import com.example.finanzas.ui.viewmodel.RemindersViewModel;
+import com.example.finanzas.util.CurrencyConverter;
+import com.example.finanzas.util.UiFormUtils;
 import com.example.finanzas.util.ReminderScheduler;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 public class RemindersFragment extends Fragment {
@@ -91,8 +92,11 @@ public class RemindersFragment extends Fragment {
         EditText etFecha = form.findViewById(R.id.etReminderFecha);
         EditText etHora = form.findViewById(R.id.etReminderHora);
         EditText etDias = form.findViewById(R.id.etReminderDias);
-        Spinner spFrecuencia = form.findViewById(R.id.spReminderFrecuencia);
+        MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actReminderMoneda);
+        MaterialAutoCompleteTextView actFrecuencia = form.findViewById(R.id.actReminderFrecuencia);
         SwitchMaterial swNotificar = form.findViewById(R.id.swReminderNotificar);
+        applyCurrencyPrefix(etMonto);
+        setupCurrencySelector(actMoneda, reminder == null ? SettingsService.getCurrencyCode(requireContext()) : reminder.getMoneda());
 
         final String[] freqValues = new String[]{"once", "mensual", "trimestral"};
         String[] freqLabels = new String[]{
@@ -102,15 +106,18 @@ public class RemindersFragment extends Fragment {
         };
         ArrayAdapter<String> freqAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, freqLabels);
         freqAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spFrecuencia.setAdapter(freqAdapter);
+        actFrecuencia.setAdapter(freqAdapter);
+        actFrecuencia.setInputType(0);
+        actFrecuencia.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actFrecuencia.showDropDown(); });
+        actFrecuencia.setOnClickListener(view -> actFrecuencia.showDropDown());
+        actFrecuencia.setText(freqLabels[0], false);
 
         boolean editando = reminder != null;
         if (editando) {
             etTitulo.setText(reminder.getTitulo());
             etMonto.setText(String.valueOf(reminder.getMonto()));
             if (reminder.getFechaVencimiento() != null) {
-                java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-                etFecha.setText(df.format(reminder.getFechaVencimiento()));
+                etFecha.setText(UiFormUtils.formatUiDate(reminder.getFechaVencimiento()));
             }
             if (reminder.getHoraRecordatorio() != null) {
                 String hora = reminder.getHoraRecordatorio();
@@ -131,102 +138,110 @@ public class RemindersFragment extends Fragment {
                     break;
                 }
             }
-            spFrecuencia.setSelection(selIndex);
+            actFrecuencia.setText(freqLabels[selIndex], false);
             swNotificar.setChecked(reminder.isNotificar());
         } else {
             swNotificar.setChecked(true);
         }
 
-        setupDatePicker(etFecha);
+        UiFormUtils.bindDatePicker(requireContext(), etFecha);
+        UiFormUtils.bindTimePicker(requireContext(), etHora);
+        UiFormUtils.clearErrorOnTextChange(etTitulo, etMonto, etFecha, etHora, etDias);
 
-        new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle(editando ? R.string.reminder_dialog_title_edit : R.string.reminder_dialog_title_new)
                 .setView(form)
-                .setPositiveButton(R.string.reminder_btn_save, (dialog, which) -> {
-                    String titulo = etTitulo.getText() == null ? "" : etTitulo.getText().toString().trim();
-                    String montoStr = etMonto.getText() == null ? "" : etMonto.getText().toString().trim();
-                    String fecha = etFecha.getText() == null ? "" : etFecha.getText().toString().trim();
-                    String hora = etHora.getText() == null ? "" : etHora.getText().toString().trim();
-                    String diasStr = etDias.getText() == null ? "" : etDias.getText().toString().trim();
-                    int freqIndex = spFrecuencia.getSelectedItemPosition();
-                    if (freqIndex < 0 || freqIndex >= freqValues.length) freqIndex = 0;
-                    String frecuencia = freqValues[freqIndex];
-                    boolean notificar = swNotificar.isChecked();
-
-                    if (TextUtils.isEmpty(titulo) || TextUtils.isEmpty(montoStr) || TextUtils.isEmpty(fecha)) {
-                        Toast.makeText(requireContext(), R.string.error_campos_obligatorios, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-
-                    double montoVal = parseMontoSeguro(montoStr);
-                    if (montoVal <= 0) {
-                        Toast.makeText(requireContext(), R.string.reminder_field_amount, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-
-                    int diasVal = 0;
-                    if (!diasStr.isEmpty()) {
-                        try {
-                            diasVal = Integer.parseInt(diasStr);
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(requireContext(), R.string.reminder_field_days, Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        if (diasVal < 0) diasVal = 0;
-                    }
-
-                    // 👇 copia final para poder usarla dentro de la clase interna
-                    final int finalDiasVal = diasVal;
-
-                    String notificationId = reminder != null ? reminder.getNotificationId() : null;
-                    if (notificar && (notificationId == null || notificationId.isEmpty())) {
-                        notificationId = UUID.randomUUID().toString();
-                    }
-
-                    JSONObject body = new JSONObject();
-                    try {
-                        if (editando && reminder != null) body.put("id", reminder.getId());
-                        body.put("titulo", titulo);
-                        body.put("monto", montoVal);
-                        body.put("fecha_vencimiento", fecha);
-                        if (!TextUtils.isEmpty(hora)) body.put("hora_recordatorio", hora);
-                        body.put("dias_recordatorio", finalDiasVal);
-                        body.put("frecuencia", frecuencia);
-                        body.put("notificar", notificar);
-                        if (!TextUtils.isEmpty(notificationId)) {
-                            body.put("notification_id", notificationId);
-                        }
-                    } catch (Exception ignore) { }
-
-                    String finalNotificationId = notificationId;
-                    viewModel.saveReminder(body);
-                })
+                .setPositiveButton(R.string.reminder_btn_save, null)
                 .setNegativeButton(android.R.string.cancel, null)
-                .show();
-    }
+                .create();
 
-    private void setupDatePicker(@NonNull EditText input) {
-        input.setFocusable(false);
-        input.setOnClickListener(v -> showDatePicker(input));
-        input.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) showDatePicker(input); });
-    }
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            clearErrors(etTitulo, etMonto, etFecha, etHora, etDias);
 
-    private void showDatePicker(@NonNull EditText input) {
-        java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-        Calendar calendar = Calendar.getInstance();
-        String current = input.getText() == null ? "" : input.getText().toString();
-        try {
-            java.util.Date parsed = df.parse(current);
-            if (parsed != null) calendar.setTime(parsed);
-        } catch (Exception ignored) { }
+            String titulo = etTitulo.getText() == null ? "" : etTitulo.getText().toString().trim();
+            String montoStr = etMonto.getText() == null ? "" : etMonto.getText().toString().trim();
+            String fecha = etFecha.getText() == null ? "" : etFecha.getText().toString().trim();
+            String hora = etHora.getText() == null ? "" : etHora.getText().toString().trim();
+            String diasStr = etDias.getText() == null ? "" : etDias.getText().toString().trim();
+            int freqIndex = findFrequencyIndex(actFrecuencia.getText() == null ? "" : actFrecuencia.getText().toString(), freqLabels);
+            if (freqIndex < 0 || freqIndex >= freqValues.length) freqIndex = 0;
+            String frecuencia = freqValues[freqIndex];
+            boolean notificar = swNotificar.isChecked();
 
-        DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
-            calendar.set(Calendar.YEAR, year);
-            calendar.set(Calendar.MONTH, month);
-            calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-            input.setText(df.format(calendar.getTime()));
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+            boolean valido = true;
+            if (TextUtils.isEmpty(titulo)) {
+                setFieldError(etTitulo, getString(R.string.error_campos_obligatorios));
+                valido = false;
+            }
+            if (TextUtils.isEmpty(montoStr)) {
+                setFieldError(etMonto, getString(R.string.error_campos_obligatorios));
+                valido = false;
+            }
+            if (TextUtils.isEmpty(fecha)) {
+                setFieldError(etFecha, getString(R.string.error_campos_obligatorios));
+                valido = false;
+            } else if (!UiFormUtils.isValidUiDate(fecha)) {
+                setFieldError(etFecha, "Usa el formato dd/MM/yyyy");
+                valido = false;
+            }
+            if (!TextUtils.isEmpty(hora) && !UiFormUtils.isValidTime(hora)) {
+                setFieldError(etHora, "Usa el formato HH:mm");
+                valido = false;
+            }
+            if (!valido) {
+                return;
+            }
 
+            double montoVal = parseMontoSeguro(montoStr);
+            if (montoVal <= 0) {
+                setFieldError(etMonto, "Ingresa un monto mayor a 0");
+                return;
+            }
+
+            int diasVal = 0;
+            if (!diasStr.isEmpty()) {
+                try {
+                    diasVal = Integer.parseInt(diasStr);
+                } catch (NumberFormatException e) {
+                    setFieldError(etDias, "Ingresa un numero valido");
+                    return;
+                }
+                if (diasVal < 0) {
+                    setFieldError(etDias, "Ingresa un numero valido");
+                    return;
+                }
+            }
+
+            String notificationId = reminder != null ? reminder.getNotificationId() : null;
+            if (notificar && (notificationId == null || notificationId.isEmpty())) {
+                notificationId = UUID.randomUUID().toString();
+            }
+
+            String fechaIso = UiFormUtils.uiDateToIso(fecha);
+            if (fechaIso == null) {
+                setFieldError(etFecha, "Usa el formato dd/MM/yyyy");
+                return;
+            }
+
+            JSONObject body = new JSONObject();
+            try {
+                if (editando && reminder != null) body.put("id", reminder.getId());
+                body.put("titulo", titulo);
+                body.put("monto", montoVal);
+                body.put("moneda", CurrencyConverter.normalize(actMoneda.getText() == null ? "" : actMoneda.getText().toString()));
+                body.put("fecha_vencimiento", fechaIso);
+                if (!TextUtils.isEmpty(hora)) body.put("hora_recordatorio", hora);
+                body.put("dias_recordatorio", diasVal);
+                body.put("frecuencia", frecuencia);
+                body.put("notificar", notificar);
+                if (!TextUtils.isEmpty(notificationId)) {
+                    body.put("notification_id", notificationId);
+                }
+            } catch (Exception ignore) { }
+
+            viewModel.saveReminder(body);
+            dialog.dismiss();
+        }));
         dialog.show();
     }
 
@@ -262,7 +277,7 @@ public class RemindersFragment extends Fragment {
             }
         });
         viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
-            if (msgRes != null) Toast.makeText(requireContext(), msgRes, Toast.LENGTH_SHORT).show();
+            if (msgRes != null) UiFormUtils.showMessage(requireView(), msgRes);
         });
     }
 
@@ -292,5 +307,46 @@ public class RemindersFragment extends Fragment {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    private void clearErrors(@NonNull EditText... fields) {
+        UiFormUtils.clearErrors(fields);
+    }
+
+    private void setFieldError(@NonNull EditText field, @NonNull String message) {
+        UiFormUtils.setError(field, message);
+    }
+
+    private int findFrequencyIndex(@NonNull String selected, @NonNull String[] labels) {
+        for (int i = 0; i < labels.length; i++) {
+            if (labels[i].equals(selected)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private void applyCurrencyPrefix(@NonNull EditText field) {
+        String prefix = SettingsService.getCurrencySymbol(requireContext()) + " ";
+        ViewParent parent = field.getParent();
+        while (parent != null && !(parent instanceof TextInputLayout)) {
+            parent = parent.getParent();
+        }
+        if (parent instanceof TextInputLayout) {
+            ((TextInputLayout) parent).setPrefixText(prefix);
+        }
+    }
+
+    private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                requireContext(),
+                android.R.layout.simple_list_item_1,
+                CurrencyConverter.supportedCurrencies()
+        );
+        input.setAdapter(adapter);
+        input.setInputType(0);
+        input.setText(CurrencyConverter.normalize(selected), false);
+        input.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) input.showDropDown(); });
+        input.setOnClickListener(view -> input.showDropDown());
     }
 }

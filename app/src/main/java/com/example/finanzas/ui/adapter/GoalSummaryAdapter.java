@@ -51,12 +51,13 @@ public class GoalSummaryAdapter extends RecyclerView.Adapter<GoalSummaryAdapter.
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
         SavingsGoal item = items.get(position);
+        String currency = item.getMoneda();
         holder.tvTitulo.setText(item.getTitulo());
 
         String monto = holder.itemView.getContext().getString(
                 R.string.goal_amount_detail,
-                Format.money(item.getMontoActual()),
-                Format.money(item.getMontoObjetivo())
+                Format.money(item.getMontoActual(), currency),
+                Format.money(item.getMontoObjetivo(), currency)
         );
         holder.tvMonto.setText(monto);
 
@@ -78,7 +79,7 @@ public class GoalSummaryAdapter extends RecyclerView.Adapter<GoalSummaryAdapter.
                     }
                     if (milestone.getMontoPlanificado() > 0) {
                         if (label.length() > 0) label.append(" • ");
-                        label.append(Format.money(milestone.getMontoPlanificado()));
+                        label.append(Format.money(milestone.getMontoPlanificado(), milestone.getMoneda()));
                     }
                     if (milestone.getFechaObjetivo() != null) {
                         if (label.length() > 0) label.append(" • ");

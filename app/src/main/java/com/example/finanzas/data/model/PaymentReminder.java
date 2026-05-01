@@ -6,6 +6,7 @@ public class PaymentReminder {
     private int id;
     private String titulo;
     private double monto;
+    private String moneda;
     private Date fechaVencimiento;
     private int diasRestantes;
     private boolean pagado;
@@ -25,6 +26,9 @@ public class PaymentReminder {
 
     public double getMonto() { return monto; }
     public void setMonto(double monto) { this.monto = monto; }
+
+    public String getMoneda() { return moneda == null || moneda.trim().isEmpty() ? "PEN" : moneda; }
+    public void setMoneda(String moneda) { this.moneda = moneda; }
 
     public Date getFechaVencimiento() { return fechaVencimiento; }
     public void setFechaVencimiento(Date fechaVencimiento) { this.fechaVencimiento = fechaVencimiento; }
