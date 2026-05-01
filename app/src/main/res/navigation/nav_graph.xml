@@ -3,14 +3,20 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/nav_login">
+    app:startDestination="@id/nav_welcome">
 
     <!-- LOGOUT GLOBAL -->
     <action
         android:id="@+id/action_global_logout"
-        app:destination="@id/nav_login"
+        app:destination="@id/nav_welcome"
         app:popUpTo="@id/nav_graph"
         app:popUpToInclusive="true" />
+
+    <fragment
+        android:id="@+id/nav_welcome"
+        android:name="com.example.finanzas.ui.WelcomeFragment"
+        android:label="@string/app_name_spendly"
+        tools:layout="@layout/fragment_welcome" />
 
     <!-- LOGIN -->
     <fragment

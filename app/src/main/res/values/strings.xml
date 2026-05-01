@@ -1,4 +1,8 @@
 <resources>
+    <string name="app_name_spendly">Spendly</string>
+    <string name="welcome_tagline">Controla tu dinero con claridad.</string>
+    <string name="welcome_login">Iniciar sesión</string>
+    <string name="welcome_register">Crear cuenta</string>
     <string name="app_name">Finanzas</string>
     <string name="nav_open_drawer">Abrir menú</string>
     <string name="nav_close_drawer">Cerrar menú</string>

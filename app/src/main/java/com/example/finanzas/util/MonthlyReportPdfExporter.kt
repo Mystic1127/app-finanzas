@@ -20,6 +20,15 @@ class MonthlyReportPdfExporter(private val context: Context) {
     private val margin = 42f
     private val lineHeight = 18f
 
+    private object PdfPalette {
+        val page = Color.rgb(255, 255, 255)
+        val title = Color.rgb(23, 33, 27)
+        val primary = Color.rgb(35, 107, 78)
+        val muted = Color.rgb(81, 97, 89)
+        val expense = Color.rgb(195, 59, 74)
+        val barTrack = Color.rgb(221, 233, 226)
+    }
+
     fun export(report: FinancialReport): File {
         val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "reports")
         if (!dir.exists() && !dir.mkdirs()) {
@@ -48,34 +57,34 @@ class MonthlyReportPdfExporter(private val context: Context) {
 
     private fun drawReport(writer: PdfWriter, report: FinancialReport) {
         val title = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(31, 42, 36)
+            color = PdfPalette.title
             textSize = 22f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
         val section = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(46, 125, 91)
+            color = PdfPalette.primary
             textSize = 14f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
         val body = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(31, 42, 36)
+            color = PdfPalette.title
             textSize = 11f
         }
         val muted = Paint(body).apply {
-            color = Color.rgb(76, 90, 83)
+            color = PdfPalette.muted
         }
         val incomeBar = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(46, 125, 91)
+            color = PdfPalette.primary
             style = Paint.Style.FILL
         }
         val expenseBar = Paint(incomeBar).apply {
-            color = Color.rgb(198, 82, 82)
+            color = PdfPalette.expense
         }
         val barBg = Paint(incomeBar).apply {
-            color = Color.rgb(232, 238, 234)
+            color = PdfPalette.barTrack
         }
 
-        writer.text("Finanzas", section)
+        writer.text("Spendly", section)
         writer.move(10f)
         writer.text("Reporte financiero mensual", title)
         writer.text("${report.monthLabel} - Moneda base: ${report.currencyCode}", muted)
@@ -222,7 +231,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
             val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
             currentPage = page
             canvas = page.canvas
-            canvas.drawColor(Color.WHITE)
+            canvas.drawColor(PdfPalette.page)
             y = margin
         }
 

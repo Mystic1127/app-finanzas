@@ -6,6 +6,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.finanzas.data.api.SettingsService
+import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.DashboardModulePref
 import com.example.finanzas.data.model.HomeSummary
 import com.example.finanzas.data.model.TravelPreference
@@ -37,6 +38,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currencyCode = MutableLiveData(SettingsService.getCurrencyCode(application))
     val currencyCode: LiveData<String> = _currencyCode
+
+    private var loadedYear = 0
+    private var loadedMonth = 0
+    private var loadedVersion = -1L
 
     private fun hydrateUiPreferences(summary: HomeSummary): HomeSummary {
         runCatching {
@@ -74,8 +79,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         return summary
     }
 
-    fun loadSummary(anio: Int, mes: Int) {
-        _loading.value = true
+    @JvmOverloads
+    fun loadSummary(anio: Int, mes: Int, force: Boolean = false) {
+        val version = LocalRepository.getDataVersion()
+        val current = _summary.value
+        if (!force && current != null && loadedYear == anio && loadedMonth == mes && loadedVersion == version) {
+            _currencyCode.value = SettingsService.getCurrencyCode(getApplication())
+            return
+        }
+        _loading.value = current == null || force
         viewModelScope.launch {
             runCatching {
                 _currencyCode.value = SettingsService.getCurrencyCode(getApplication())
@@ -129,6 +141,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
                 .onSuccess {
+                    loadedYear = anio
+                    loadedMonth = mes
+                    loadedVersion = LocalRepository.getDataVersion()
                     _summary.value = it.first
                     _smartAlert.value = it.second
                     _insights.value = it.third

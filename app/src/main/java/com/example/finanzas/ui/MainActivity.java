@@ -1,16 +1,22 @@
 package com.example.finanzas.ui;
 
 import android.Manifest;
+import android.graphics.Color;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDestination;
@@ -36,21 +42,26 @@ public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private NavigationView navView;
     private MaterialToolbar toolbar;
+    private View navHostView;
+    private int contentTopMargin;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        requestNotificationPermissionIfNeeded();
         PinSession.lock();
 
 
         toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        configureSystemBars();
 
         drawerLayout = findViewById(R.id.drawer_layout);
         navView = findViewById(R.id.nav_view);
+        navHostView = findViewById(R.id.nav_host_fragment);
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
+        contentTopMargin = params.topMargin;
 
         NavHostFragment navHost =
                 (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
@@ -67,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
                 R.id.nav_reminders,
                 R.id.nav_imports,
                 R.id.nav_perfil,
+                R.id.nav_welcome,
                 R.id.nav_login,
                 R.id.nav_register
         ).setOpenableLayout(drawerLayout).build();
@@ -82,7 +94,11 @@ public class MainActivity extends AppCompatActivity {
             int destId = destination.getId();
             boolean isAuthScreen = (destId == R.id.nav_login
                     || destId == R.id.nav_register
+                    || destId == R.id.nav_welcome
                     || destId == R.id.nav_pin_lock);
+            boolean isWelcomeScreen = destId == R.id.nav_welcome;
+            toolbar.setVisibility(isWelcomeScreen ? View.GONE : View.VISIBLE);
+            setContentTopMargin(isWelcomeScreen ? 0 : contentTopMargin);
 
             if (isAuthScreen) {
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
@@ -106,6 +122,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (!isAuthScreen) {
+                requestNotificationPermissionIfNeeded();
                 enforcePinIfNeeded();
             }
         });
@@ -158,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
             NavOptions out = new NavOptions.Builder()
                     .setPopUpTo(navController.getGraph().getId(), true)
                     .build();
-            navController.navigate(R.id.nav_login, null, out);
+            navController.navigate(R.id.nav_welcome, null, out);
             return true;
         }
 
@@ -179,10 +196,29 @@ public class MainActivity extends AppCompatActivity {
         if (dest == null) return;
         int destId = dest.getId();
         if (destId == R.id.nav_pin_lock || destId == R.id.nav_login
-                || destId == R.id.nav_register || destId == R.id.nav_pin_setup) {
+                || destId == R.id.nav_register || destId == R.id.nav_welcome || destId == R.id.nav_pin_setup) {
             return;
         }
         navController.navigate(R.id.nav_pin_lock);
+    }
+
+    private void configureSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(ContextCompat.getColor(this, R.color.md_theme_background));
+        WindowInsetsControllerCompat controller = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+        controller.setAppearanceLightStatusBars(!night);
+        controller.setAppearanceLightNavigationBars(!night);
+    }
+
+    private void setContentTopMargin(int topMargin) {
+        if (navHostView == null) return;
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
+        if (params.topMargin == topMargin) return;
+        params.topMargin = topMargin;
+        navHostView.setLayoutParams(params);
     }
 
     private void requestNotificationPermissionIfNeeded() {

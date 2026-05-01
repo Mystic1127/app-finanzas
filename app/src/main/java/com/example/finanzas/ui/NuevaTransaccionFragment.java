@@ -11,6 +11,7 @@ import android.widget.CompoundButton;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.finanzas.R;
@@ -416,7 +417,7 @@ public class NuevaTransaccionFragment extends Fragment {
                         @Override public void onOk(int newId) {
                             UiFormUtils.setActionLoading(btnGuardar, false);
                             UiFormUtils.showMessage(requireView(), R.string.trans_saved);
-                            NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
+                            finishAfterCreate();
                         }
                         @Override public void onError(@Nullable String message) {
                             UiFormUtils.setActionLoading(btnGuardar, false);
@@ -480,6 +481,19 @@ public class NuevaTransaccionFragment extends Fragment {
             return Double.parseDouble(limpio);
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    private void finishAfterCreate() {
+        NavController controller = NavHostFragment.findNavController(this);
+        int previousId = controller.getPreviousBackStackEntry() == null
+                ? 0
+                : controller.getPreviousBackStackEntry().getDestination().getId();
+        if (previousId == R.id.nav_home) {
+            controller.popBackStack();
+            controller.navigate(R.id.nav_list);
+        } else {
+            controller.popBackStack();
         }
     }
 

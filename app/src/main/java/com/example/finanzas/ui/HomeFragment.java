@@ -1,6 +1,5 @@
 package com.example.finanzas.ui;
 
-import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -112,6 +111,7 @@ public class HomeFragment extends Fragment {
     private final List<String> latestInsights = new ArrayList<>();
     private final Map<String, Boolean> moduleVisibility = new HashMap<>();
     private HomeSummary lastSummary;
+    private boolean manualRefresh;
 
     @Nullable
     @Override
@@ -169,7 +169,10 @@ public class HomeFragment extends Fragment {
         setupMenu();
         setupCharts();
         setupNavigation(v);
-        swipe.setOnRefreshListener(this::cargarResumen);
+        swipe.setOnRefreshListener(() -> {
+            manualRefresh = true;
+            cargarResumen(true);
+        });
         observeViewModel();
     }
 
@@ -177,7 +180,7 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         currencyCode = SettingsService.getCurrencyCode(requireContext());
-        cargarResumen();
+        cargarResumen(false);
     }
 
     private void setupMenu() {
@@ -201,15 +204,21 @@ public class HomeFragment extends Fragment {
     }
 
     private void cargarResumen() {
+        cargarResumen(false);
+    }
+
+    private void cargarResumen(boolean force) {
         Calendar cal = Calendar.getInstance();
-        viewModel.loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1);
+        viewModel.loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, force);
     }
 
     private void observeViewModel() {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             boolean isLoading = Boolean.TRUE.equals(loading);
-            if (progress != null) progress.setVisibility(isLoading ? View.VISIBLE : View.GONE);
-            if (swipe != null) swipe.setRefreshing(isLoading);
+            boolean hasContent = lastSummary != null;
+            if (progress != null) progress.setVisibility(isLoading && !hasContent ? View.VISIBLE : View.GONE);
+            if (swipe != null) swipe.setRefreshing(isLoading && manualRefresh);
+            if (!isLoading) manualRefresh = false;
         });
 
         viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
@@ -353,7 +362,7 @@ public class HomeFragment extends Fragment {
 
     private void renderTrendChart(@Nullable List<MonthlyTrendPoint> points) {
         List<MonthlyTrendPoint> safe = points == null ? new ArrayList<>() : points;
-        boolean empty = safe.isEmpty();
+        boolean empty = safe.isEmpty() || !hasTrendValues(safe);
         tvTrendEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
         chartTrend.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (empty) {
@@ -461,6 +470,16 @@ public class HomeFragment extends Fragment {
         renderSmartSaving(lastSummary);
     }
 
+    private boolean hasTrendValues(@NonNull List<MonthlyTrendPoint> points) {
+        for (MonthlyTrendPoint point : points) {
+            if (point == null) continue;
+            if (point.getIngresos() != 0.0 || point.getGastos() != 0.0 || point.getSaldo() != 0.0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void renderSmartSaving(@NonNull HomeSummary summary) {
         if (summary.getAhorroSugerido() > 0) {
             tvSmartSavingSuggested.setText(getString(
@@ -556,7 +575,7 @@ public class HomeFragment extends Fragment {
         colors.add(ContextCompat.getColor(requireContext(), R.color.md_theme_secondary));
         colors.add(ContextCompat.getColor(requireContext(), R.color.risk_medium_text));
         colors.add(ContextCompat.getColor(requireContext(), R.color.risk_high_text));
-        colors.add(Color.rgb(90, 113, 185));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chartAccent));
         return colors;
     }
 

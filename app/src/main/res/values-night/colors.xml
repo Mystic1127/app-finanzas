@@ -1,50 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#8DE9BB</color>
-    <color name="colorOnPrimary">#0B2217</color>
-    <color name="colorAccent">#6BD8A8</color>
-    <color name="danger">#FFB3C0</color>
-    <color name="bg">#0F1713</color>
+    <color name="colorPrimary">#86DDB2</color>
+    <color name="colorOnPrimary">#062315</color>
+    <color name="colorAccent">#78CFA5</color>
+    <color name="danger">#FFB3BE</color>
+    <color name="bg">#0E1511</color>
 
-    <color name="md_theme_primary">#6BD8A8</color>
-    <color name="md_theme_onPrimary">#0C2519</color>
-    <color name="md_theme_secondary">#88C2A5</color>
-    <color name="md_theme_onSecondary">#0F1D17</color>
+    <color name="md_theme_primary">#86DDB2</color>
+    <color name="md_theme_onPrimary">#062315</color>
+    <color name="md_theme_primaryContainer">#123B29</color>
+    <color name="md_theme_onPrimaryContainer">#B8F2D4</color>
+
+    <color name="md_theme_secondary">#A6CDB6</color>
+    <color name="md_theme_onSecondary">#122219</color>
+    <color name="md_theme_secondaryContainer">#213129</color>
+    <color name="md_theme_onSecondaryContainer">#D5E8DC</color>
+
+    <color name="md_theme_tertiary">#9ED0CD</color>
+    <color name="md_theme_onTertiary">#062021</color>
+    <color name="md_theme_tertiaryContainer">#173B3A</color>
+    <color name="md_theme_onTertiaryContainer">#BCEDE9</color>
+
     <color name="md_theme_background">@color/bg</color>
-    <color name="md_theme_onBackground">#E4E8E3</color>
-    <color name="md_theme_surface">#141D18</color>
-    <color name="md_theme_onSurface">#E4E8E3</color>
-    <color name="md_theme_outline">#3B4B43</color>
-    <color name="md_theme_outlineVariant">#223029</color>
-    <color name="md_theme_onSurfaceVariant">#B6C4BC</color>
-    <color name="md_theme_onSecondaryContainer">#E4E8E3</color>
+    <color name="md_theme_onBackground">#E2E9E3</color>
+    <color name="md_theme_surface">#151E19</color>
+    <color name="md_theme_onSurface">#E2E9E3</color>
+    <color name="md_theme_surfaceVariant">#26342D</color>
+    <color name="md_theme_onSurfaceVariant">#BAC8BF</color>
+    <color name="md_theme_outline">#6F8177</color>
+    <color name="md_theme_outlineVariant">#2A3931</color>
+
     <color name="md_theme_error">@color/danger</color>
-    <color name="income">#8DE9BB</color>
-    <color name="expense">#F08A94</color>
-    <color name="md_theme_primaryContainer">#1E2C25</color>
-    <color name="md_theme_onPrimaryContainer">#C6F3DF</color>
-    <color name="md_theme_secondaryContainer">#1D2B24</color>
-    <color name="md_theme_tertiary">#9CC7B5</color>
-    <color name="md_theme_onTertiary">#10201A</color>
-    <color name="md_theme_tertiaryContainer">#1E2F27</color>
-    <color name="md_theme_onTertiaryContainer">#CDEAD9</color>
-    <color name="md_theme_onError">#2D0A12</color>
-    <color name="md_theme_errorContainer">#5C1B29</color>
-    <color name="md_theme_onErrorContainer">#FFDDE4</color>
+    <color name="md_theme_onError">#4A0711</color>
+    <color name="md_theme_errorContainer">#7B2632</color>
+    <color name="md_theme_onErrorContainer">#FFDDE2</color>
 
-    <color name="risk_low_bg">#1F2C24</color>
-    <color name="risk_low_text">#A5E6C7</color>
-    <color name="risk_medium_bg">#2F2A1C</color>
-    <color name="risk_medium_text">#F1C27D</color>
-    <color name="risk_high_bg">#3A2424</color>
-    <color name="risk_high_text">#FFB3C0</color>
+    <color name="income">#8EE6BC</color>
+    <color name="expense">#FF9AA7</color>
+    <color name="chartBudget">#78CFA5</color>
+    <color name="chartBalance">#8AD9CF</color>
+    <color name="chartAccent">#A9B8FF</color>
 
-    <color name="white">#E4E8E3</color>
-    <color name="black">#0B0F0D</color>
-    <color name="gray_light">#2A342F</color>
-    <color name="gray_medium">#5C6B63</color>
-    <color name="gray_dark">#A9B7B0</color>
+    <color name="risk_low_bg">#173827</color>
+    <color name="risk_low_text">#A8E9C9</color>
+    <color name="risk_medium_bg">#3A2E14</color>
+    <color name="risk_medium_text">#FFD27D</color>
+    <color name="risk_high_bg">#47242A</color>
+    <color name="risk_high_text">#FFB3BE</color>
 
-    <color name="gradient_start">#1E2C25</color>
-    <color name="gradient_end">#14211B</color>
+    <color name="white">#E2E9E3</color>
+    <color name="black">#0A0F0C</color>
+    <color name="gray_light">#26342D</color>
+    <color name="gray_medium">#5D6F64</color>
+    <color name="gray_dark">#B8C6BD</color>
+
+    <color name="gradient_start">#17472F</color>
+    <color name="gradient_end">#10291E</color>
+    <color name="alert_surface">#2C1A1E</color>
+    <color name="forecast_gradient_start">#17271F</color>
+    <color name="forecast_gradient_end">#101B16</color>
 </resources>
