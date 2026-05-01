@@ -7,6 +7,7 @@ public class GoalMilestone {
     private int metaId;
     private String titulo;
     private double montoPlanificado;
+    private String moneda;
     private Date fechaObjetivo;
     private boolean notificar;
     private int diasRecordatorio;
@@ -24,6 +25,9 @@ public class GoalMilestone {
 
     public double getMontoPlanificado() { return montoPlanificado; }
     public void setMontoPlanificado(double montoPlanificado) { this.montoPlanificado = montoPlanificado; }
+
+    public String getMoneda() { return moneda == null || moneda.trim().isEmpty() ? "PEN" : moneda; }
+    public void setMoneda(String moneda) { this.moneda = moneda; }
 
     public Date getFechaObjetivo() { return fechaObjetivo; }
     public void setFechaObjetivo(Date fechaObjetivo) { this.fechaObjetivo = fechaObjetivo; }

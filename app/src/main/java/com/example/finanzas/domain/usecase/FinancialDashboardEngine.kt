@@ -8,6 +8,7 @@ import com.example.finanzas.data.model.MonthlyTrendPoint
 import com.example.finanzas.data.model.SavingsGoal
 import com.example.finanzas.data.model.Transaccion
 import com.example.finanzas.util.Format
+import com.example.finanzas.util.CurrencyConverter
 import com.example.finanzas.util.ProFeatureManager
 import java.util.Calendar
 import java.util.Locale
@@ -244,7 +245,7 @@ class FinancialDashboardEngine(
                 .thenBy { it.id }
         ) ?: return "Crea una meta para recibir recomendaciones de ahorro"
 
-        val remaining = (activeGoal.montoObjetivo - activeGoal.montoActual).coerceAtLeast(0.0)
+        val remaining = convertGoalAmount((activeGoal.montoObjetivo - activeGoal.montoActual).coerceAtLeast(0.0), activeGoal)
         if (remaining <= 0.0) return "Crea una meta para recibir recomendaciones de ahorro"
 
         val title = activeGoal.titulo?.takeIf { it.isNotBlank() } ?: "tu meta"
@@ -268,7 +269,7 @@ class FinancialDashboardEngine(
                 .thenBy { it.id }
         ) ?: return 0.0
 
-        val remaining = (activeGoal.montoObjetivo - activeGoal.montoActual).coerceAtLeast(0.0)
+        val remaining = convertGoalAmount((activeGoal.montoObjetivo - activeGoal.montoActual).coerceAtLeast(0.0), activeGoal)
         if (remaining <= 0.0) return 0.0
         val daysToGoal = daysUntil(activeGoal.fechaObjetivo?.time)
         if (daysToGoal == null) return remaining.coerceAtMost(summary.proyeccionFinMes.coerceAtLeast(0.0))
@@ -281,6 +282,11 @@ class FinancialDashboardEngine(
 
     private fun activeGoals(goals: List<SavingsGoal>): List<SavingsGoal> {
         return goals.filter { it.montoObjetivo > 0.0 && it.montoActual < it.montoObjetivo }
+    }
+
+    private fun convertGoalAmount(amount: Double, goal: SavingsGoal): Double {
+        val base = SettingsService.getCurrencyCode(context)
+        return CurrencyConverter.convert(amount, goal.moneda, base, base, SettingsService.getManualRate(context))
     }
 
     private fun buildCategoryExpenseChart(currentTx: List<Transaccion>): List<CategoryChartSlice> {

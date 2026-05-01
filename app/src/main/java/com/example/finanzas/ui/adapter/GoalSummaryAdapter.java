@@ -9,7 +9,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
-import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.GoalMilestone;
 import com.example.finanzas.util.Format;
@@ -52,7 +51,7 @@ public class GoalSummaryAdapter extends RecyclerView.Adapter<GoalSummaryAdapter.
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
         SavingsGoal item = items.get(position);
-        String currency = SettingsService.getCurrencyCode(holder.itemView.getContext());
+        String currency = item.getMoneda();
         holder.tvTitulo.setText(item.getTitulo());
 
         String monto = holder.itemView.getContext().getString(
@@ -80,7 +79,7 @@ public class GoalSummaryAdapter extends RecyclerView.Adapter<GoalSummaryAdapter.
                     }
                     if (milestone.getMontoPlanificado() > 0) {
                         if (label.length() > 0) label.append(" • ");
-                        label.append(Format.money(milestone.getMontoPlanificado(), currency));
+                        label.append(Format.money(milestone.getMontoPlanificado(), milestone.getMoneda()));
                     }
                     if (milestone.getFechaObjetivo() != null) {
                         if (label.length() > 0) label.append(" • ");

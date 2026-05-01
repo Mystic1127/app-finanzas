@@ -39,7 +39,20 @@ object CategoryStore {
 
     suspend fun create(ctx: Context, nombre: String, esIngreso: Boolean): Categoria = withContext(Dispatchers.IO) {
         val id = LocalRepository.getInstance(ctx).createCategoria(nombre, esIngreso)
-        Categoria(id, nombre, esIngreso)
+        Categoria(id, nombre, esIngreso).also { nueva ->
+            val userId = Prefs.getCurrentUserId(ctx)
+            synchronized(this@CategoryStore) {
+                val current = cache
+                if (current != null && cacheUserId == userId) {
+                    cache = Collections.unmodifiableList(
+                        (current + nueva).distinctBy { it.id }.sortedBy { it.nombre ?: "" }
+                    )
+                } else {
+                    cache = null
+                    loading = false
+                }
+            }
+        }
     }
 
     @JvmStatic
@@ -91,10 +104,9 @@ object CategoryStore {
                     synchronized(this@CategoryStore) {
                         val current = cache
                         if (current != null && cacheUserId == userId) {
-                            val updated = current.toMutableList()
-                            updated.add(nueva)
-                            updated.sortBy { it.nombre ?: "" }
-                            cache = Collections.unmodifiableList(updated)
+                            cache = Collections.unmodifiableList(
+                                (current + nueva).distinctBy { it.id }.sortedBy { it.nombre ?: "" }
+                            )
                         }
                     }
                     cb.onReady(nueva)

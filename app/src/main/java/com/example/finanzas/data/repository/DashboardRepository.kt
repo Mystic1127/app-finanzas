@@ -12,9 +12,18 @@ import java.util.Locale
 
 class DashboardRepository(context: Context) {
     private val local = LocalRepository.getInstance(context.applicationContext)
+    private data class SummaryCacheKey(val anio: Int, val mes: Int, val version: Long)
+    @Volatile
+    private var cachedSummaryKey: SummaryCacheKey? = null
+    @Volatile
+    private var cachedSummary: HomeSummary? = null
 
     suspend fun getSummary(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {
-        local.buildHomeSummary(anio, mes)
+        val key = SummaryCacheKey(anio, mes, LocalRepository.getDataVersion())
+        cachedSummary?.takeIf { cachedSummaryKey == key } ?: local.buildHomeSummary(anio, mes).also {
+            cachedSummaryKey = key
+            cachedSummary = it
+        }
     }
 
     suspend fun listTransactions(anio: Int, mes: Int): List<Transaccion> = withContext(Dispatchers.IO) {

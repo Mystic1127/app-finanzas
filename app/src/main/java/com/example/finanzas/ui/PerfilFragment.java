@@ -16,7 +16,9 @@ import androidx.navigation.Navigation;
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.api.UserService;
+import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.Prefs;
+import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -36,8 +38,13 @@ public class PerfilFragment extends Fragment {
     private MaterialButton btnRemovePin;
     private MaterialAutoCompleteTextView actCurrency;
     private TextInputEditText etManualRate;
+    private TextInputEditText etInitialCash;
+    private TextInputEditText etInitialCard;
+    private MaterialAutoCompleteTextView actInitialBalancesCurrency;
     private TextInputLayout tilCurrency;
     private TextInputLayout tilManualRate;
+    private TextInputLayout tilInitialCash;
+    private TextInputLayout tilInitialCard;
 
     @Nullable
     @Override
@@ -55,11 +62,17 @@ public class PerfilFragment extends Fragment {
         MaterialButton btnCambiarPass = v.findViewById(R.id.btnCambiarPass);
         MaterialButton btnConfigPin = v.findViewById(R.id.btnConfigPin);
         MaterialButton btnSaveCurrency = v.findViewById(R.id.btnSaveCurrency);
+        MaterialButton btnSaveInitialBalances = v.findViewById(R.id.btnSaveInitialBalances);
         btnRemovePin = v.findViewById(R.id.btnRemovePin);
         actCurrency = v.findViewById(R.id.actCurrency);
         etManualRate = v.findViewById(R.id.etManualRate);
+        actInitialBalancesCurrency = v.findViewById(R.id.actInitialBalancesCurrency);
+        etInitialCash = v.findViewById(R.id.etInitialCash);
+        etInitialCard = v.findViewById(R.id.etInitialCard);
         tilCurrency = v.findViewById(R.id.tilCurrency);
         tilManualRate = v.findViewById(R.id.tilManualRate);
+        tilInitialCash = v.findViewById(R.id.tilInitialCash);
+        tilInitialCard = v.findViewById(R.id.tilInitialCard);
 
         String cachedNombre = Prefs.getCurrentUserName(requireContext());
         String cachedEmail  = Prefs.getCurrentUserEmail(requireContext());
@@ -81,7 +94,9 @@ public class PerfilFragment extends Fragment {
         }
 
         setupCurrencyControls();
+        setupInitialBalanceControls();
         btnSaveCurrency.setOnClickListener(view -> saveCurrency());
+        btnSaveInitialBalances.setOnClickListener(view -> saveInitialBalances());
 
         btnCambiarPass.setOnClickListener(view ->
                 Navigation.findNavController(view).navigate(R.id.nav_change_password));
@@ -112,6 +127,7 @@ public class PerfilFragment extends Fragment {
         super.onResume();
         updatePinButtons();
         loadCurrency();
+        loadInitialBalances();
     }
 
     private void setupCurrencyControls() {
@@ -129,6 +145,62 @@ public class PerfilFragment extends Fragment {
         actCurrency.setText(labelForCurrency(code), false);
         double rate = SettingsService.getManualRate(requireContext());
         etManualRate.setText(rate > 0 ? String.format(Locale.US, "%.4f", rate) : "");
+    }
+
+    private void setupInitialBalanceControls() {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                requireContext(),
+                android.R.layout.simple_list_item_1,
+                CurrencyConverter.supportedCurrencies()
+        );
+        actInitialBalancesCurrency.setAdapter(adapter);
+        actInitialBalancesCurrency.setOnClickListener(v -> actInitialBalancesCurrency.showDropDown());
+        actInitialBalancesCurrency.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) actInitialBalancesCurrency.showDropDown(); });
+        actInitialBalancesCurrency.setOnItemClickListener((parent, view, position, id) -> updateInitialBalancePrefixes());
+        UiFormUtils.clearErrorOnTextChange(etInitialCash, etInitialCard);
+        loadInitialBalances();
+    }
+
+    private void loadInitialBalances() {
+        if (actInitialBalancesCurrency == null || getContext() == null) return;
+        String currency = SettingsService.getInitialBalancesCurrency(requireContext());
+        actInitialBalancesCurrency.setText(CurrencyConverter.normalize(currency), false);
+        double cash = SettingsService.getInitialCashBalance(requireContext());
+        double card = SettingsService.getInitialCardBalance(requireContext());
+        etInitialCash.setText(cash > 0 ? String.format(Locale.US, "%.2f", cash) : "0");
+        etInitialCard.setText(card > 0 ? String.format(Locale.US, "%.2f", card) : "0");
+        updateInitialBalancePrefixes();
+    }
+
+    private void saveInitialBalances() {
+        tilInitialCash.setError(null);
+        tilInitialCard.setError(null);
+
+        Double cash = parseAmount(etInitialCash.getText() == null ? "" : etInitialCash.getText().toString());
+        Double card = parseAmount(etInitialCard.getText() == null ? "" : etInitialCard.getText().toString());
+        if (cash == null) {
+            tilInitialCash.setError(getString(R.string.error_monto_invalido));
+            return;
+        }
+        if (card == null) {
+            tilInitialCard.setError(getString(R.string.error_monto_invalido));
+            return;
+        }
+
+        String currency = CurrencyConverter.normalize(
+                actInitialBalancesCurrency.getText() == null ? "" : actInitialBalancesCurrency.getText().toString()
+        );
+        SettingsService.saveInitialBalances(requireContext(), cash, card, currency, new SettingsService.SaveCb() {
+            @Override
+            public void onSuccess() {
+                if (isAdded()) Toast.makeText(requireContext(), R.string.perfil_initial_balances_saved, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onFail() {
+                if (isAdded()) Toast.makeText(requireContext(), R.string.perfil_initial_balances_error, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void saveCurrency() {
@@ -183,5 +255,40 @@ public class PerfilFragment extends Fragment {
     private void updatePinButtons() {
         if (btnRemovePin == null || getContext() == null) return;
         btnRemovePin.setVisibility(Prefs.hasPin(requireContext()) ? View.VISIBLE : View.GONE);
+    }
+
+    @Nullable
+    private Double parseAmount(@Nullable String raw) {
+        if (raw == null) return 0.0;
+        String clean = raw.trim();
+        if (clean.isEmpty()) return null;
+        clean = clean.replaceAll("[^0-9,.-]", "");
+        if (clean.isEmpty()) return null;
+        int lastComma = clean.lastIndexOf(',');
+        int lastDot = clean.lastIndexOf('.');
+        if (lastComma >= 0 && lastDot >= 0) {
+            if (lastComma > lastDot) {
+                clean = clean.replace(".", "").replace(',', '.');
+            } else {
+                clean = clean.replace(",", "");
+            }
+        } else if (lastComma >= 0) {
+            clean = clean.replace(',', '.');
+        }
+        try {
+            double value = Double.parseDouble(clean);
+            return Double.isNaN(value) || Double.isInfinite(value) || value < 0 ? null : value;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private void updateInitialBalancePrefixes() {
+        String currency = CurrencyConverter.normalize(
+                actInitialBalancesCurrency.getText() == null ? "" : actInitialBalancesCurrency.getText().toString()
+        );
+        String prefix = SettingsService.getCurrencySymbol(currency) + " ";
+        tilInitialCash.setPrefixText(prefix);
+        tilInitialCard.setPrefixText(prefix);
     }
 }

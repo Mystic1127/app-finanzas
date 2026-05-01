@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.finanzas.data.api.BudgetService
 import com.example.finanzas.data.api.CategoryBudgetService
 import com.example.finanzas.data.api.CategoryStore
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.model.Categoria
 import com.example.finanzas.data.model.CategoryBudgetInput
 import kotlinx.coroutines.async
@@ -43,6 +44,8 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                         categoriaId = cat.id
                         categoriaNombre = cat.nombre
                         monto = guardados.firstOrNull { it.categoriaId == cat.id }?.limite ?: 0.0
+                        moneda = guardados.firstOrNull { it.categoriaId == cat.id }?.moneda
+                            ?: SettingsService.getCurrencyCode(getApplication())
                     }
                 }
                 Triple(presupuesto, out, Unit)
@@ -57,9 +60,13 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun saveBudget(anio: Int, mes: Int, monto: Double) {
+        saveBudget(anio, mes, monto, SettingsService.getCurrencyCode(getApplication()))
+    }
+
+    fun saveBudget(anio: Int, mes: Int, monto: Double, moneda: String) {
         _loading.value = true
         viewModelScope.launch {
-            runCatching { BudgetService.set(getApplication(), anio, mes, monto) }
+            runCatching { BudgetService.set(getApplication(), anio, mes, monto, moneda) }
                 .onSuccess { _message.value = com.example.finanzas.R.string.pres_guardado }
                 .onFailure { _message.value = com.example.finanzas.R.string.error_guardar_presupuesto }
             _loading.value = false
@@ -83,10 +90,11 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 .onSuccess { nueva ->
                     val next = current.toMutableList()
                     next.add(CategoryBudgetInput().apply {
-                        categoriaId = nueva.id
-                        categoriaNombre = nueva.nombre
-                        monto = 0.0
-                    })
+                    categoriaId = nueva.id
+                    categoriaNombre = nueva.nombre
+                    monto = 0.0
+                    moneda = SettingsService.getCurrencyCode(getApplication())
+                })
                     next.sortBy { it.categoriaNombre ?: "" }
                     _categoryBudgets.value = next
                     _message.value = com.example.finanzas.R.string.pres_category_created

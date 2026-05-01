@@ -21,7 +21,7 @@ import com.example.finanzas.util.PasswordSecurity
         ImportJobEntity::class,
         ImportRuleEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppRoomDatabase : RoomDatabase() {
@@ -291,7 +291,7 @@ abstract class AppRoomDatabase : RoomDatabase() {
         @JvmStatic
         fun build(context: Context): AppRoomDatabase {
             return Room.databaseBuilder(context, AppRoomDatabase::class.java, "finanzas_local.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
@@ -329,6 +329,31 @@ abstract class AppRoomDatabase : RoomDatabase() {
                     db.execSQL("ALTER TABLE categorias ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
                 }
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_categorias_user_id ON categorias(user_id)")
+            }
+        }
+
+        @JvmStatic
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!hasColumn(db, "transacciones", "account_type")) {
+                    db.execSQL("ALTER TABLE transacciones ADD COLUMN account_type TEXT NOT NULL DEFAULT 'CARD'")
+                }
+                if (!hasColumn(db, "presupuestos", "moneda")) {
+                    db.execSQL("ALTER TABLE presupuestos ADD COLUMN moneda TEXT NOT NULL DEFAULT 'PEN'")
+                }
+                if (!hasColumn(db, "presupuestos_categoria", "moneda")) {
+                    db.execSQL("ALTER TABLE presupuestos_categoria ADD COLUMN moneda TEXT NOT NULL DEFAULT 'PEN'")
+                }
+                if (!hasColumn(db, "metas", "moneda")) {
+                    db.execSQL("ALTER TABLE metas ADD COLUMN moneda TEXT NOT NULL DEFAULT 'PEN'")
+                }
+                if (!hasColumn(db, "metas_hitos", "moneda")) {
+                    db.execSQL("ALTER TABLE metas_hitos ADD COLUMN moneda TEXT NOT NULL DEFAULT 'PEN'")
+                }
+                if (!hasColumn(db, "recordatorios", "moneda")) {
+                    db.execSQL("ALTER TABLE recordatorios ADD COLUMN moneda TEXT NOT NULL DEFAULT 'PEN'")
+                }
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transacciones_account_type ON transacciones(account_type)")
             }
         }
 

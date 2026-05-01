@@ -21,7 +21,7 @@ data class CategoriaEntity(
     @ColumnInfo(name = "es_ingreso") val esIngreso: Int
 )
 
-@Entity(tableName = "transacciones", indices = [Index("user_id"), Index("fecha"), Index("categoria_id")])
+@Entity(tableName = "transacciones", indices = [Index("user_id"), Index("fecha"), Index("categoria_id"), Index("account_type")])
 data class TransaccionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     @ColumnInfo(name = "user_id") val userId: Int,
@@ -30,6 +30,7 @@ data class TransaccionEntity(
     val monto: Double,
     @ColumnInfo(defaultValue = "'PEN'") val moneda: String = "PEN",
     val fecha: Long,
+    @ColumnInfo(name = "account_type", defaultValue = "'CARD'") val accountType: String = "CARD",
     val nota: String?
 )
 
@@ -38,7 +39,8 @@ data class PresupuestoEntity(
     @ColumnInfo(name = "user_id") val userId: Int,
     val anio: Int,
     val mes: Int,
-    val monto: Double
+    val monto: Double,
+    @ColumnInfo(defaultValue = "'PEN'") val moneda: String = "PEN"
 )
 
 @Entity(tableName = "presupuestos_categoria", primaryKeys = ["user_id", "anio", "mes", "categoria_id"])
@@ -47,7 +49,8 @@ data class PresupuestoCategoriaEntity(
     val anio: Int,
     val mes: Int,
     @ColumnInfo(name = "categoria_id") val categoriaId: Int,
-    val monto: Double
+    val monto: Double,
+    @ColumnInfo(defaultValue = "'PEN'") val moneda: String = "PEN"
 )
 
 @Entity(tableName = "metas", indices = [Index("user_id")])
@@ -57,6 +60,7 @@ data class MetaEntity(
     val titulo: String,
     @ColumnInfo(name = "monto_objetivo") val montoObjetivo: Double,
     @ColumnInfo(name = "monto_actual") val montoActual: Double,
+    @ColumnInfo(defaultValue = "'PEN'") val moneda: String = "PEN",
     @ColumnInfo(name = "fecha_objetivo") val fechaObjetivo: Long?
 )
 
@@ -67,6 +71,7 @@ data class MetaHitoEntity(
     @ColumnInfo(name = "meta_id") val metaId: Int,
     val titulo: String,
     @ColumnInfo(name = "monto_planificado") val montoPlanificado: Double,
+    @ColumnInfo(defaultValue = "'PEN'") val moneda: String = "PEN",
     @ColumnInfo(name = "fecha_objetivo") val fechaObjetivo: Long?,
     val notificar: Int,
     @ColumnInfo(name = "dias_recordatorio") val diasRecordatorio: Int,
@@ -79,6 +84,7 @@ data class RecordatorioEntity(
     @ColumnInfo(name = "user_id") val userId: Int,
     val titulo: String,
     val monto: Double,
+    @ColumnInfo(defaultValue = "'PEN'") val moneda: String = "PEN",
     @ColumnInfo(name = "fecha_vencimiento") val fechaVencimiento: Long,
     val pagado: Int,
     @ColumnInfo(name = "categoria_id") val categoriaId: Int?,

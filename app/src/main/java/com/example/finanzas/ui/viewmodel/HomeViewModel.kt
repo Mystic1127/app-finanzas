@@ -11,7 +11,9 @@ import com.example.finanzas.data.model.HomeSummary
 import com.example.finanzas.data.model.TravelPreference
 import com.example.finanzas.di.AppGraph
 import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.util.Calendar
 
@@ -109,27 +111,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val summary = hydrateUiPreferences(summaryDeferred.await())
                 val currentTx = currentTxDeferred.await()
                 val previousTx = prevTxDeferred.await()
-                graph.financialDashboardEngine.enrichDashboard(
-                    summary,
-                    currentTx,
-                    previousTx,
-                    trendDeferred.await()
-                )
-                graph.financialDashboardEngine.applyScoreTrend(
-                    summary,
-                    previousSummaryDeferred.await(),
-                    previousTx,
-                    prevPrevTxDeferred.await()
-                )
-                val smart = graph.smartSpendingAlertUseCase.execute(currentTx, previousTx)
-                if (summary.alertaPrincipal == "Sin alertas relevantes por ahora" && !smart?.message.isNullOrBlank()) {
-                    summary.alertaPrincipal = smart?.message
+                val trend = trendDeferred.await()
+                val previousSummary = previousSummaryDeferred.await()
+                val previousPreviousTx = prevPrevTxDeferred.await()
+                withContext(Dispatchers.Default) {
+                    graph.financialDashboardEngine.enrichDashboard(summary, currentTx, previousTx, trend)
+                    graph.financialDashboardEngine.applyScoreTrend(summary, previousSummary, previousTx, previousPreviousTx)
+                    val smart = graph.smartSpendingAlertUseCase.execute(currentTx, previousTx)
+                    if (summary.alertaPrincipal == "Sin alertas relevantes por ahora" && !smart?.message.isNullOrBlank()) {
+                        summary.alertaPrincipal = smart?.message
+                    }
+                    Triple(
+                        summary,
+                        smart?.message,
+                        graph.financialDashboardEngine.buildInsights(summary, currentTx, previousTx)
+                    )
                 }
-                Triple(
-                    summary,
-                    smart?.message,
-                    graph.financialDashboardEngine.buildInsights(summary, currentTx, previousTx)
-                )
             }
                 .onSuccess {
                     _summary.value = it.first

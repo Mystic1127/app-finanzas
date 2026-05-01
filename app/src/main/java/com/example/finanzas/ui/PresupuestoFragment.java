@@ -19,7 +19,9 @@ import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
+import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -30,6 +32,7 @@ public class PresupuestoFragment extends Fragment {
 
     private EditText etPresupuesto;
     private EditText etNuevaCategoria;
+    private MaterialAutoCompleteTextView actPresupuestoMoneda;
     private TextInputLayout tilPresupuesto;
     private TextInputLayout tilNuevaCategoria;
     private CategoryBudgetEditAdapter categoryAdapter;
@@ -54,6 +57,7 @@ public class PresupuestoFragment extends Fragment {
 
         etPresupuesto = v.findViewById(R.id.etPresupuesto);
         etNuevaCategoria = v.findViewById(R.id.etNuevaCategoria);
+        actPresupuestoMoneda = v.findViewById(R.id.actPresupuestoMoneda);
         tilPresupuesto = v.findViewById(R.id.tilPresupuesto);
         tilNuevaCategoria = v.findViewById(R.id.tilNuevaCategoria);
         btnGuardarPresupuesto = v.findViewById(R.id.btnGuardarPresupuesto);
@@ -76,6 +80,7 @@ public class PresupuestoFragment extends Fragment {
         btnAgregarCategoria.setOnClickListener(view -> crearCategoria());
         UiFormUtils.clearErrorOnTextChange(etPresupuesto, etNuevaCategoria);
         tilPresupuesto.setPrefixText(SettingsService.getCurrencySymbol(requireContext()) + " ");
+        setupCurrencySelector();
 
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setOnRefreshListener(this::recargarDatos);
@@ -100,7 +105,9 @@ public class PresupuestoFragment extends Fragment {
         }
 
         tilPresupuesto.setError(null);
-        viewModel.saveBudget(anio, mes, val);
+        viewModel.saveBudget(anio, mes, val, CurrencyConverter.normalize(
+                actPresupuestoMoneda.getText() == null ? "" : actPresupuestoMoneda.getText().toString()
+        ));
     }
 
     private void guardarCategorias() {
@@ -169,5 +176,20 @@ public class PresupuestoFragment extends Fragment {
             return 0;
         }
         return Double.parseDouble(limpio);
+    }
+
+    private void setupCurrencySelector() {
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                requireContext(),
+                android.R.layout.simple_list_item_1,
+                CurrencyConverter.supportedCurrencies()
+        );
+        actPresupuestoMoneda.setAdapter(adapter);
+        actPresupuestoMoneda.setText(SettingsService.getCurrencyCode(requireContext()), false);
+        actPresupuestoMoneda.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actPresupuestoMoneda.showDropDown(); });
+        actPresupuestoMoneda.setOnClickListener(view -> actPresupuestoMoneda.showDropDown());
+        actPresupuestoMoneda.setOnItemClickListener((parent, view, position, id) ->
+                tilPresupuesto.setPrefixText(SettingsService.getCurrencySymbol(CurrencyConverter.normalize(actPresupuestoMoneda.getText().toString())) + " ")
+        );
     }
 }

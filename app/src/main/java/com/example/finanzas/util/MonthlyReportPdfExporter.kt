@@ -34,10 +34,10 @@ class MonthlyReportPdfExporter(private val context: Context) {
         val document = PdfDocument()
 
         try {
-            val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create())
-            val canvas = page.canvas
-            drawReport(canvas, report)
-            document.finishPage(page)
+            val writer = PdfWriter(document)
+            writer.startPage()
+            drawReport(writer, report)
+            writer.finish()
             FileOutputStream(file).use { document.writeTo(it) }
         } finally {
             document.close()
@@ -46,10 +46,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
         return file
     }
 
-    private fun drawReport(canvas: Canvas, report: FinancialReport) {
-        canvas.drawColor(Color.WHITE)
-        var y = margin
-
+    private fun drawReport(writer: PdfWriter, report: FinancialReport) {
         val title = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(31, 42, 36)
             textSize = 22f
@@ -67,96 +64,115 @@ class MonthlyReportPdfExporter(private val context: Context) {
         val muted = Paint(body).apply {
             color = Color.rgb(76, 90, 83)
         }
-
-        canvas.drawText("Finanzas", margin, y, section)
-        y += 28f
-        canvas.drawText("Reporte financiero mensual", margin, y, title)
-        y += 22f
-        canvas.drawText("${report.monthLabel} · Moneda base: ${report.currencyCode}", margin, y, muted)
-        y += 28f
-
-        if (!report.hasData) {
-            y = drawSection(canvas, "Estado del reporte", y, section)
-            y = drawWrapped(canvas, "No hay datos suficientes para este mes. Registra ingresos y gastos para generar métricas completas.", y, body)
-            y += 10f
+        val incomeBar = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(46, 125, 91)
+            style = Paint.Style.FILL
+        }
+        val expenseBar = Paint(incomeBar).apply {
+            color = Color.rgb(198, 82, 82)
+        }
+        val barBg = Paint(incomeBar).apply {
+            color = Color.rgb(232, 238, 234)
         }
 
-        y = drawSection(canvas, "Resumen", y, section)
+        writer.text("Finanzas", section)
+        writer.move(10f)
+        writer.text("Reporte financiero mensual", title)
+        writer.text("${report.monthLabel} - Moneda base: ${report.currencyCode}", muted)
+        writer.move(10f)
+
+        if (!report.hasData) {
+            drawSection(writer, "Estado del reporte", section)
+            drawWrapped(writer, "No hay datos suficientes para este mes. Registra ingresos y gastos para generar metricas completas.", body)
+            writer.move(10f)
+        }
+
         val summary = report.summary
-        val rows = listOf(
+        drawSection(writer, "Resumen", section)
+        listOf(
             "Ingresos totales" to Format.money(summary.ingresos, report.currencyCode),
             "Gastos totales" to Format.money(summary.gastos, report.currencyCode),
-            "Saldo mensual" to Format.money(summary.saldo, report.currencyCode),
+            "Balance mensual" to Format.money(summary.saldo, report.currencyCode),
+            "Saldo inicial efectivo" to Format.money(summary.initialCashBalance, report.currencyCode),
+            "Saldo inicial tarjeta/cuenta" to Format.money(summary.initialCardBalance, report.currencyCode),
+            "Saldo actual efectivo" to Format.money(summary.efectivo, report.currencyCode),
+            "Saldo actual tarjeta/cuenta" to Format.money(summary.tarjetaCuenta, report.currencyCode),
+            "Saldo total actual" to Format.money(summary.saldoActualTotal, report.currencyCode),
             "Ahorro estimado" to Format.money(summary.ahorroSugerido, report.currencyCode),
             "Score financiero" to "${summary.scoreFinanciero}/100 - ${summary.scoreEstado ?: "Sin estado"}",
             "Estado general" to report.status
-        )
-        rows.forEach { (label, value) ->
-            canvas.drawText(label, margin, y, muted)
-            canvas.drawText(value, 320f, y, body)
-            y += lineHeight
+        ).forEach { (label, value) ->
+            writer.ensure(lineHeight)
+            writer.canvas.drawText(label, margin, writer.y, muted)
+            writer.canvas.drawText(value, 320f, writer.y, body)
+            writer.move(lineHeight)
         }
-        y += 12f
+        writer.move(12f)
 
-        y = drawSection(canvas, "Top categorías de gasto", y, section)
+        drawSection(writer, "Ingresos vs gastos", section)
+        val maxSummary = maxOf(summary.ingresos, summary.gastos)
+        drawHorizontalBar(writer, "Ingresos", summary.ingresos, maxSummary, report.currencyCode, incomeBar, barBg, body)
+        drawHorizontalBar(writer, "Gastos", summary.gastos, maxSummary, report.currencyCode, expenseBar, barBg, body)
+        writer.move(12f)
+
+        drawSection(writer, "Top categorias de gasto", section)
         if (report.topCategories.isEmpty()) {
-            y = drawWrapped(canvas, "Sin gastos por categoría para mostrar.", y, body)
+            drawWrapped(writer, "Sin gastos por categoria para mostrar.", body)
         } else {
+            val maxCategory = report.topCategories.maxOfOrNull { it.gastado } ?: 0.0
             report.topCategories.forEachIndexed { index, item ->
-                val name = item.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoría"
-                canvas.drawText("${index + 1}. $name", margin, y, body)
-                canvas.drawText(Format.money(item.gastado, report.currencyCode), 320f, y, body)
-                y += lineHeight
+                val name = item.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoria"
+                drawHorizontalBar(writer, "${index + 1}. $name", item.gastado, maxCategory, report.currencyCode, expenseBar, barBg, body)
             }
         }
-        y += 12f
+        writer.move(12f)
 
-        y = drawSection(canvas, "Alertas e insights", y, section)
+        drawSection(writer, "Alertas e insights", section)
         val insights = (listOfNotNull(summary.insightPrincipal, summary.alertaPrincipal) + summary.alertas)
             .filter { it.isNotBlank() }
             .distinct()
             .take(4)
         if (insights.isEmpty()) {
-            y = drawWrapped(canvas, "Sin alertas relevantes por ahora.", y, body)
+            drawWrapped(writer, "Sin alertas relevantes por ahora.", body)
         } else {
-            insights.forEach { insight ->
-                y = drawWrapped(canvas, "• $insight", y, body)
-            }
+            insights.forEach { drawWrapped(writer, "- $it", body) }
         }
-        y += 12f
+        writer.move(12f)
 
-        y = drawSection(canvas, "Transacciones recientes", y, section)
+        drawSection(writer, "Transacciones recientes", section)
         if (report.recentTransactions.isEmpty()) {
-            y = drawWrapped(canvas, "Sin transacciones recientes en este periodo.", y, body)
+            drawWrapped(writer, "Sin transacciones recientes en este periodo.", body)
         } else {
-            report.recentTransactions.take(8).forEach { tx ->
+            report.recentTransactions.forEach { tx ->
                 val type = if (tx.isEsIngreso) "Ingreso" else "Gasto"
-                val name = tx.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoría"
-                val note = tx.nota?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
+                val name = tx.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoria"
+                val note = tx.nota?.takeIf { it.isNotBlank() }?.let { " - $it" } ?: ""
+                val account = if (tx.isCash) "Efectivo" else "Tarjeta/Cuenta"
                 val amount = Format.money(if (tx.isEsIngreso) tx.monto else -tx.monto, report.currencyCode)
-                y = drawWrapped(canvas, "${Format.date(tx.fecha)} · $type · $name$note · $amount", y, body)
+                drawWrapped(writer, "${Format.date(tx.fecha)} - $type - $name - $account$note - $amount", body)
             }
         }
 
         val generated = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "PE")).format(Date(report.generatedAt))
-        canvas.drawText("Generado el $generated", margin, pageHeight - 36f, muted)
+        writer.footer("Generado el $generated", muted)
     }
 
-    private fun drawSection(canvas: Canvas, label: String, y: Float, paint: Paint): Float {
-        canvas.drawText(label, margin, y, paint)
-        return y + 20f
+    private fun drawSection(writer: PdfWriter, label: String, paint: Paint) {
+        writer.ensure(24f)
+        writer.canvas.drawText(label, margin, writer.y, paint)
+        writer.move(20f)
     }
 
-    private fun drawWrapped(canvas: Canvas, text: String, yStart: Float, paint: Paint): Float {
+    private fun drawWrapped(writer: PdfWriter, text: String, paint: Paint) {
         val maxWidth = pageWidth - margin * 2
         val words = text.split(" ")
         val line = StringBuilder()
-        var y = yStart
         words.forEach { word ->
             val candidate = if (line.isEmpty()) word else "$line $word"
             if (paint.measureText(candidate) > maxWidth && line.isNotEmpty()) {
-                canvas.drawText(line.toString(), margin, y, paint)
-                y += lineHeight
+                writer.ensure(lineHeight)
+                writer.canvas.drawText(line.toString(), margin, writer.y, paint)
+                writer.move(lineHeight)
                 line.clear()
                 line.append(word)
             } else {
@@ -165,9 +181,80 @@ class MonthlyReportPdfExporter(private val context: Context) {
             }
         }
         if (line.isNotEmpty()) {
-            canvas.drawText(line.toString(), margin, y, paint)
-            y += lineHeight
+            writer.ensure(lineHeight)
+            writer.canvas.drawText(line.toString(), margin, writer.y, paint)
+            writer.move(lineHeight)
         }
-        return y
+    }
+
+    private fun drawHorizontalBar(
+        writer: PdfWriter,
+        label: String,
+        value: Double,
+        maxValue: Double,
+        currencyCode: String,
+        fill: Paint,
+        background: Paint,
+        text: Paint
+    ) {
+        writer.ensure(36f)
+        writer.canvas.drawText(label.take(34), margin, writer.y, text)
+        writer.canvas.drawText(Format.money(value, currencyCode), 380f, writer.y, text)
+        val top = writer.y + 6f
+        val left = margin
+        val width = pageWidth - margin * 2
+        writer.canvas.drawRect(left, top, left + width, top + 8f, background)
+        val ratio = if (maxValue > 0.0) (value / maxValue).coerceIn(0.0, 1.0).toFloat() else 0f
+        writer.canvas.drawRect(left, top, left + width * ratio, top + 8f, fill)
+        writer.move(32f)
+    }
+
+    private inner class PdfWriter(private val document: PdfDocument) {
+        private var pageNumber = 0
+        private var currentPage: PdfDocument.Page? = null
+        lateinit var canvas: Canvas
+            private set
+        var y: Float = margin
+            private set
+
+        fun startPage() {
+            pageNumber++
+            val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+            currentPage = page
+            canvas = page.canvas
+            canvas.drawColor(Color.WHITE)
+            y = margin
+        }
+
+        fun ensure(required: Float) {
+            if (y + required <= pageHeight - 58f) return
+            finishCurrent()
+            startPage()
+        }
+
+        fun text(text: String, paint: Paint) {
+            ensure(lineHeight)
+            canvas.drawText(text, margin, y, paint)
+            move(lineHeight)
+        }
+
+        fun move(delta: Float) {
+            y += delta
+        }
+
+        fun footer(text: String, paint: Paint) {
+            canvas.drawText(text, margin, pageHeight - 36f, paint)
+        }
+
+        fun finish() {
+            finishCurrent()
+        }
+
+        private fun finishCurrent() {
+            currentPage?.let {
+                document.finishPage(it)
+                currentPage = null
+            }
+        }
     }
 }

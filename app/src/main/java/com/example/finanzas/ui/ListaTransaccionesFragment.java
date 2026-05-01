@@ -95,6 +95,7 @@ public class ListaTransaccionesFragment extends Fragment {
                     t.getNota() == null ? "" : t.getNota());
             args.putString(NuevaTransaccionFragment.EXTRA_MONEDA,
                     t.getMoneda() == null ? "PEN" : t.getMoneda());
+            args.putString(NuevaTransaccionFragment.EXTRA_ACCOUNT_TYPE, t.getAccountType());
             if (t.getFecha() != null) {
                 args.putLong(NuevaTransaccionFragment.EXTRA_FECHA, t.getFecha().getTime());
             }

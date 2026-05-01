@@ -48,11 +48,14 @@ class LocalRepository private constructor(
             convertToBase(monto, moneda),
             base,
             fecha,
+            accountType,
             nota
         )
     }
     companion object {
         private val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        @Volatile
+        private var dataVersion: Long = 0L
         @Volatile
         private var instance: LocalRepository? = null
 
@@ -64,6 +67,18 @@ class LocalRepository private constructor(
                     context.applicationContext
                 ).also { instance = it }
             }
+        }
+
+        @JvmStatic
+        fun getDataVersion(): Long = dataVersion
+
+        @JvmStatic
+        fun invalidateDataVersion() {
+            bumpDataVersion()
+        }
+
+        private fun bumpDataVersion() {
+            dataVersion++
         }
     }
 
@@ -119,6 +134,7 @@ class LocalRepository private constructor(
         val current = db.categoriaDao().listAll()
         val nextId = ((current.maxOfOrNull { it.id } ?: 0) + 1)
         db.categoriaDao().insert(CategoriaEntity(nextId, currentUserId(), nombre, if (esIngreso) 1 else 0))
+        bumpDataVersion()
         nextId
     }
 
@@ -140,11 +156,11 @@ class LocalRepository private constructor(
             if (it.fechaFin != null) end = it.fechaFin!!
         }
 
-        val categorias = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
+        val userId = currentUserId()
+        val categorias = db.categoriaDao().listForUser(userId).associateBy { it.id }
         val searchText = filtro?.texto?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.ROOT)
-        var list = db.transaccionDao().listAll(currentUserId())
+        var list = db.transaccionDao().listBetween(userId, start, end)
             .asSequence()
-            .filter { it.fecha >= start && it.fecha < end }
             .filter { filtro?.categoriaId == null || it.categoriaId == filtro.categoriaId }
             .map {
                 Transaccion(
@@ -155,6 +171,7 @@ class LocalRepository private constructor(
                     it.monto,
                     CurrencyConverter.normalize(it.moneda),
                     Date(it.fecha),
+                    normalizeAccountType(it.accountType),
                     it.nota
                 )
             }
@@ -179,7 +196,7 @@ class LocalRepository private constructor(
         listTransacciones(anio, mes, filtro).map { it.toBaseCurrencyCopy() }
     }
 
-    suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency()): Int = withContext(Dispatchers.IO) {
+    suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency(), accountType: String = "CARD"): Int = withContext(Dispatchers.IO) {
         require(categoriaId > 0) { "Categoria invalida" }
         require(monto > 0.0) { "Monto invalido" }
         require(fecha > 0L) { "Fecha invalida" }
@@ -191,12 +208,13 @@ class LocalRepository private constructor(
                 monto = monto,
                 moneda = CurrencyConverter.normalize(moneda),
                 fecha = fecha,
+                accountType = normalizeAccountType(accountType),
                 nota = nota
             )
-        ).toInt()
+        ).toInt().also { bumpDataVersion() }
     }
 
-    suspend fun updateTransaccion(id: Int, categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long, moneda: String = baseCurrency()): Boolean = withContext(Dispatchers.IO) {
+    suspend fun updateTransaccion(id: Int, categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long, moneda: String = baseCurrency(), accountType: String = "CARD"): Boolean = withContext(Dispatchers.IO) {
         val updated = db.transaccionDao().updateById(
             id = id,
             userId = currentUserId(),
@@ -205,17 +223,21 @@ class LocalRepository private constructor(
             monto = monto,
             moneda = CurrencyConverter.normalize(moneda),
             fecha = fecha,
+            accountType = normalizeAccountType(accountType),
             nota = nota
         )
+        if (updated > 0) bumpDataVersion()
         updated > 0
     }
 
-    suspend fun deleteTransaccion(id: Int): Boolean = withContext(Dispatchers.IO) { db.transaccionDao().deleteById(id, currentUserId()) > 0 }
+    suspend fun deleteTransaccion(id: Int): Boolean = withContext(Dispatchers.IO) {
+        (db.transaccionDao().deleteById(id, currentUserId()) > 0).also { if (it) bumpDataVersion() }
+    }
 
     suspend fun listTodasTransacciones(): List<Transaccion> = withContext(Dispatchers.IO) {
         val cats = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
         db.transaccionDao().listAll(currentUserId()).sortedByDescending { it.fecha }.map {
-            Transaccion(it.id, it.categoriaId, cats[it.categoriaId]?.nombre ?: "", it.esIngreso == 1, it.monto, CurrencyConverter.normalize(it.moneda), Date(it.fecha), it.nota)
+            Transaccion(it.id, it.categoriaId, cats[it.categoriaId]?.nombre ?: "", it.esIngreso == 1, it.monto, CurrencyConverter.normalize(it.moneda), Date(it.fecha), normalizeAccountType(it.accountType), it.nota)
         }
     }
 
@@ -230,7 +252,7 @@ class LocalRepository private constructor(
         val dateDf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val outFile = File(dir, "transacciones-${fileDf.format(Date())}.txt")
 
-        val sb = StringBuilder().append("ID | Fecha | Categoría | Tipo | Monto | Moneda | Nota\n")
+        val sb = StringBuilder().append("ID | Fecha | Categoría | Tipo | Monto | Moneda | Cuenta | Nota\n")
         transacciones.forEach {
             sb.append(it.id).append(" | ")
                 .append(dateDf.format(it.fecha)).append(" | ")
@@ -238,6 +260,7 @@ class LocalRepository private constructor(
                 .append(if (it.isEsIngreso) "Ingreso" else "Gasto").append(" | ")
                 .append(it.monto).append(" | ")
                 .append(it.moneda ?: baseCurrency()).append(" | ")
+                .append(if (it.isCash) "Efectivo" else "Tarjeta/Cuenta").append(" | ")
                 .append(it.nota ?: "").append('\n')
         }
 
@@ -246,11 +269,12 @@ class LocalRepository private constructor(
     }
 
     suspend fun getPresupuesto(anio: Int, mes: Int): Double = withContext(Dispatchers.IO) {
-        db.presupuestoDao().find(currentUserId(), anio, mes)?.monto ?: 0.0
+        db.presupuestoDao().find(currentUserId(), anio, mes)?.let { convertToBase(it.monto, it.moneda) } ?: 0.0
     }
 
-    suspend fun setPresupuesto(anio: Int, mes: Int, monto: Double) = withContext(Dispatchers.IO) {
-        db.presupuestoDao().upsert(PresupuestoEntity(currentUserId(), anio, mes, monto))
+    suspend fun setPresupuesto(anio: Int, mes: Int, monto: Double, moneda: String = baseCurrency()) = withContext(Dispatchers.IO) {
+        db.presupuestoDao().upsert(PresupuestoEntity(currentUserId(), anio, mes, monto, CurrencyConverter.normalize(moneda)))
+        bumpDataVersion()
     }
 
     suspend fun listPresupuestosCategoria(anio: Int, mes: Int): List<CategoryBudgetSummary> = withContext(Dispatchers.IO) {
@@ -260,7 +284,8 @@ class LocalRepository private constructor(
             CategoryBudgetSummary().apply {
                 categoriaId = it.categoriaId
                 categoriaNombre = catNames[it.categoriaId]?.nombre ?: ""
-                limite = it.monto
+                limite = convertToBase(it.monto, it.moneda)
+                moneda = baseCurrency()
             }
         }.toMutableList()
 
@@ -284,6 +309,7 @@ class LocalRepository private constructor(
                     categoriaId = catId
                     categoriaNombre = catNames[catId]?.nombre ?: ""
                     limite = 0.0
+                    moneda = baseCurrency()
                 }
                 out.add(target)
             }
@@ -310,7 +336,17 @@ class LocalRepository private constructor(
                 }
                 else -> return@forEach
             }
-            if (catId > 0) db.presupuestoCategoriaDao().upsert(PresupuestoCategoriaEntity(currentUserId(), anio, mes, catId, monto))
+            if (catId > 0) {
+                val moneda = when (raw) {
+                    is CategoryBudgetSummary -> raw.moneda
+                    is CategoryBudgetInput -> raw.moneda
+                    else -> baseCurrency()
+                }
+                db.presupuestoCategoriaDao().upsert(
+                    PresupuestoCategoriaEntity(currentUserId(), anio, mes, catId, monto, CurrencyConverter.normalize(moneda))
+                )
+                bumpDataVersion()
+            }
         }
     }
 
@@ -319,6 +355,7 @@ class LocalRepository private constructor(
             SavingsGoal().apply {
                 id = meta.id
                 titulo = meta.titulo
+                moneda = CurrencyConverter.normalize(meta.moneda)
                 montoObjetivo = meta.montoObjetivo
                 montoActual = meta.montoActual
                 if (meta.fechaObjetivo != null && meta.fechaObjetivo > 0) fechaObjetivo = Date(meta.fechaObjetivo)
@@ -329,6 +366,7 @@ class LocalRepository private constructor(
                         metaId = h.metaId
                         titulo = h.titulo
                         montoPlanificado = h.montoPlanificado
+                        moneda = CurrencyConverter.normalize(h.moneda)
                         if (h.fechaObjetivo != null && h.fechaObjetivo > 0) fechaObjetivo = Date(h.fechaObjetivo)
                         notificar = h.notificar == 1
                         diasRecordatorio = h.diasRecordatorio
@@ -339,30 +377,41 @@ class LocalRepository private constructor(
         }
     }
 
-    suspend fun saveGoal(id: Int, titulo: String, objetivo: Double, actual: Double, fechaStr: String?): Boolean = withContext(Dispatchers.IO) {
+    suspend fun saveGoal(id: Int, titulo: String, objetivo: Double, actual: Double, fechaStr: String?, moneda: String = baseCurrency()): Boolean = withContext(Dispatchers.IO) {
         val userId = currentUserId()
         val fecha = if (!fechaStr.isNullOrBlank()) runCatching { df.parse(fechaStr)?.time }.getOrNull() else null
-        if (id > 0) {
-            db.metaDao().updateById(id, userId, titulo, objetivo, actual, fecha) > 0
+        val ok = if (id > 0) {
+            db.metaDao().updateById(id, userId, titulo, objetivo, actual, CurrencyConverter.normalize(moneda), fecha) > 0
         } else {
-            db.metaDao().insert(MetaEntity(userId = userId, titulo = titulo, montoObjetivo = objetivo, montoActual = actual, fechaObjetivo = fecha)) > 0
+            db.metaDao().insert(
+                MetaEntity(
+                    userId = userId,
+                    titulo = titulo,
+                    montoObjetivo = objetivo,
+                    montoActual = actual,
+                    moneda = CurrencyConverter.normalize(moneda),
+                    fechaObjetivo = fecha
+                )
+            ) > 0
         }
+        if (ok) bumpDataVersion()
+        ok
     }
 
     suspend fun deleteGoal(id: Int): Boolean = withContext(Dispatchers.IO) {
         db.metaHitoDao().deleteByMeta(currentUserId(), id)
-        db.metaDao().deleteById(id, currentUserId()) > 0
+        (db.metaDao().deleteById(id, currentUserId()) > 0).also { if (it) bumpDataVersion() }
     }
 
-    suspend fun saveMilestone(id: Int, metaId: Int, titulo: String, monto: Double, fechaStr: String?, notificar: Boolean, dias: Int, completado: Boolean): Int = withContext(Dispatchers.IO) {
+    suspend fun saveMilestone(id: Int, metaId: Int, titulo: String, monto: Double, fechaStr: String?, notificar: Boolean, dias: Int, completado: Boolean, moneda: String = baseCurrency()): Int = withContext(Dispatchers.IO) {
         val userId = currentUserId()
         if (metaId <= 0 || db.metaDao().countById(metaId, userId) <= 0) return@withContext 0
         val fecha = if (!fechaStr.isNullOrBlank()) runCatching { df.parse(fechaStr)?.time }.getOrNull() else null
         val notificarInt = if (notificar) 1 else 0
         val completadoInt = if (completado) 1 else 0
         if (id > 0) {
-            val updated = db.metaHitoDao().updateById(id, userId, metaId, titulo, monto, fecha, notificarInt, dias, completadoInt)
-            if (updated > 0) id else 0
+            val updated = db.metaHitoDao().updateById(id, userId, metaId, titulo, monto, CurrencyConverter.normalize(moneda), fecha, notificarInt, dias, completadoInt)
+            if (updated > 0) id.also { bumpDataVersion() } else 0
         } else {
             db.metaHitoDao().insert(
                 MetaHitoEntity(
@@ -370,16 +419,19 @@ class LocalRepository private constructor(
                     metaId = metaId,
                     titulo = titulo,
                     montoPlanificado = monto,
+                    moneda = CurrencyConverter.normalize(moneda),
                     fechaObjetivo = fecha,
                     notificar = notificarInt,
                     diasRecordatorio = dias,
                     completado = completadoInt
                 )
-            ).toInt()
+            ).toInt().also { bumpDataVersion() }
         }
     }
 
-    suspend fun deleteMilestone(id: Int): Boolean = withContext(Dispatchers.IO) { db.metaHitoDao().deleteById(id, currentUserId()) > 0 }
+    suspend fun deleteMilestone(id: Int): Boolean = withContext(Dispatchers.IO) {
+        (db.metaHitoDao().deleteById(id, currentUserId()) > 0).also { if (it) bumpDataVersion() }
+    }
 
     suspend fun listReminders(includePaid: Boolean): List<PaymentReminder> = withContext(Dispatchers.IO) {
         db.recordatorioDao().listAll(currentUserId())
@@ -389,6 +441,7 @@ class LocalRepository private constructor(
                     id = it.id
                     titulo = it.titulo
                     monto = it.monto
+                    moneda = CurrencyConverter.normalize(it.moneda)
                     if (it.fechaVencimiento > 0) fechaVencimiento = Date(it.fechaVencimiento)
                     pagado = it.pagado == 1
                     categoriaId = it.categoriaId
@@ -410,11 +463,12 @@ class LocalRepository private constructor(
         val notificar = if (reminder.isNotificar) 1 else 0
 
         if (reminder.id > 0) {
-            db.recordatorioDao().updateById(
+            (db.recordatorioDao().updateById(
                 id = reminder.id,
                 userId = userId,
                 titulo = titulo,
                 monto = reminder.monto,
+                moneda = CurrencyConverter.normalize(reminder.moneda),
                 fechaVencimiento = fechaVencimiento,
                 pagado = pagado,
                 categoriaId = reminder.categoriaId,
@@ -424,13 +478,14 @@ class LocalRepository private constructor(
                 diasRecordatorio = reminder.diasRecordatorio,
                 googleEventId = reminder.googleEventId,
                 notificationId = reminder.notificationId
-            ) > 0
+            ) > 0).also { if (it) bumpDataVersion() }
         } else {
             val id = db.recordatorioDao().insert(
                 RecordatorioEntity(
                     userId = userId,
                     titulo = titulo,
                     monto = reminder.monto,
+                    moneda = CurrencyConverter.normalize(reminder.moneda),
                     fechaVencimiento = fechaVencimiento,
                     pagado = pagado,
                     categoriaId = reminder.categoriaId,
@@ -443,15 +498,18 @@ class LocalRepository private constructor(
                 )
             )
             reminder.id = id.toInt()
+            if (id > 0) bumpDataVersion()
             id > 0
         }
     }
 
     suspend fun markReminderPaid(id: Int, paid: Boolean): Boolean = withContext(Dispatchers.IO) {
-        db.recordatorioDao().markPaid(id, currentUserId(), if (paid) 1 else 0) > 0
+        (db.recordatorioDao().markPaid(id, currentUserId(), if (paid) 1 else 0) > 0).also { if (it) bumpDataVersion() }
     }
 
-    suspend fun deleteReminder(id: Int): Boolean = withContext(Dispatchers.IO) { db.recordatorioDao().deleteById(id, currentUserId()) > 0 }
+    suspend fun deleteReminder(id: Int): Boolean = withContext(Dispatchers.IO) {
+        (db.recordatorioDao().deleteById(id, currentUserId()) > 0).also { if (it) bumpDataVersion() }
+    }
 
     suspend fun listImports(): List<ImportJob> = withContext(Dispatchers.IO) {
         db.importJobDao().listAll(currentUserId()).map {
@@ -540,6 +598,7 @@ class LocalRepository private constructor(
                         monto = row.monto,
                         moneda = baseCurrency(),
                         fecha = row.fecha,
+                        accountType = "CARD",
                         nota = nota
                     )
                 )
@@ -557,6 +616,7 @@ class LocalRepository private constructor(
         }
 
         db.importJobDao().updateEstado(id, userId, if (procesados > 0) "procesado" else "error")
+        if (procesados > 0) bumpDataVersion()
         JSONObject().apply {
             put("procesados", procesados)
             put("errores", errores)
@@ -649,6 +709,31 @@ class LocalRepository private constructor(
         summary.gastos = gastos
         summary.saldo = ingresos - gastos
 
+        val base = baseCurrency()
+        val initialCurrency = SettingsService.getInitialBalancesCurrency(appContext)
+        val initialCash = CurrencyConverter.convert(
+            SettingsService.getInitialCashBalance(appContext),
+            initialCurrency,
+            base,
+            base,
+            manualRate()
+        )
+        val initialCard = CurrencyConverter.convert(
+            SettingsService.getInitialCardBalance(appContext),
+            initialCurrency,
+            base,
+            base,
+            manualRate()
+        )
+        val allTrans = listTodasTransacciones().map { it.toBaseCurrencyCopy() }
+        val cashMovement = allTrans.sumOf { if (it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
+        val cardMovement = allTrans.sumOf { if (!it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
+        summary.initialCashBalance = initialCash
+        summary.initialCardBalance = initialCard
+        summary.efectivo = initialCash + cashMovement
+        summary.tarjetaCuenta = initialCard + cardMovement
+        summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
+
         val presMonto = getPresupuesto(anio, mes)
         summary.presupuestoMonto = presMonto
         val presRestante = presMonto - gastos
@@ -664,5 +749,9 @@ class LocalRepository private constructor(
         summary.importacionesPendientes = listImports().size
 
         summary
+    }
+
+    private fun normalizeAccountType(value: String?): String {
+        return if ("CASH".equals(value, ignoreCase = true)) "CASH" else "CARD"
     }
 }

@@ -3,6 +3,7 @@ package com.example.finanzas.data.api;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.example.finanzas.data.local.LocalRepository;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.Prefs;
 
@@ -17,6 +18,7 @@ public class SettingsService {
     private static final String KEY_TRAVEL_LEGACY = "travel_prefs";
     private static final String KEY_DASHBOARD_PREFIX = "dashboard_prefs_user_";
     private static final String KEY_TRAVEL_PREFIX = "travel_prefs_user_";
+    private static final String KEY_INITIAL_BALANCES_PREFIX = "initial_balances_user_";
 
     public static void save(Context ctx, boolean notificationsEnabled, SaveCb cb) {
         cb.onSuccess();
@@ -59,6 +61,48 @@ public class SettingsService {
         }
     }
 
+    public static double getInitialCashBalance(Context ctx) {
+        return getInitialBalanceRaw(ctx, "cash");
+    }
+
+    public static double getInitialCardBalance(Context ctx) {
+        return getInitialBalanceRaw(ctx, "card");
+    }
+
+    public static String getInitialBalancesCurrency(Context ctx) {
+        try {
+            JSONObject body = new JSONObject(getInitialBalancesRaw(ctx));
+            return normalizeCurrency(body.optString("currency", getCurrencyCode(ctx)));
+        } catch (Exception e) {
+            return getCurrencyCode(ctx);
+        }
+    }
+
+    public static String getInitialBalancesRaw(Context ctx) {
+        SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String raw = sp.getString(initialBalancesKey(currentUserId(ctx)), null);
+        return raw != null ? raw : "{}";
+    }
+
+    public static void saveInitialBalances(Context ctx, double cashBalance, double cardBalance, String currencyCode, SaveCb cb) {
+        try {
+            if (!isValidAmount(cashBalance) || !isValidAmount(cardBalance)) {
+                cb.onFail();
+                return;
+            }
+            JSONObject body = new JSONObject();
+            body.put("cash", cashBalance);
+            body.put("card", cardBalance);
+            body.put("currency", normalizeCurrency(currencyCode == null || currencyCode.trim().isEmpty() ? getCurrencyCode(ctx) : currencyCode));
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            sp.edit().putString(initialBalancesKey(currentUserId(ctx)), body.toString()).apply();
+            LocalRepository.invalidateDataVersion();
+            cb.onSuccess();
+        } catch (Exception e) {
+            cb.onFail();
+        }
+    }
+
     public static void saveDashboard(Context ctx, JSONObject body, SaveCb cb) {
         try {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -73,6 +117,7 @@ public class SettingsService {
         try {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().putString(travelKey(currentUserId(ctx)), body != null ? body.toString() : "{}").apply();
+            LocalRepository.invalidateDataVersion();
             cb.onSuccess();
         } catch (Exception e) {
             cb.onFail();
@@ -112,6 +157,24 @@ public class SettingsService {
 
     private static String travelKey(long userId) {
         return KEY_TRAVEL_PREFIX + userId;
+    }
+
+    private static String initialBalancesKey(long userId) {
+        return KEY_INITIAL_BALANCES_PREFIX + userId;
+    }
+
+    private static double getInitialBalanceRaw(Context ctx, String key) {
+        try {
+            JSONObject body = new JSONObject(getInitialBalancesRaw(ctx));
+            double value = body.optDouble(key, 0.0);
+            return isValidAmount(value) ? value : 0.0;
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
+
+    private static boolean isValidAmount(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value) && value >= 0.0;
     }
 
     private static String getRawForUser(SharedPreferences sp, String userKey, String legacyKey) {

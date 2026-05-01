@@ -6,6 +6,11 @@
     <string name="hint_monto">Monto</string>
     <string name="transaction_currency">Moneda</string>
     <string name="transaction_currency_error">Selecciona una moneda válida</string>
+    <string name="transaction_time">Hora</string>
+    <string name="transaction_time_error">Selecciona una hora válida</string>
+    <string name="transaction_account_type">Origen del dinero</string>
+    <string name="transaction_account_cash">Efectivo</string>
+    <string name="transaction_account_card">Tarjeta/Cuenta</string>
 
     <string name="tipo_ingreso_on">Ingreso</string>
     <string name="tipo_ingreso_off">Gasto</string>
@@ -42,6 +47,9 @@
     <string name="home_ingresos">Ingresos</string>
     <string name="home_gastos">Gastos</string>
     <string name="home_balance">Balance</string>
+    <string name="home_total_current">Total actual</string>
+    <string name="home_cash">Efectivo</string>
+    <string name="home_card_account">Tarjeta/Cuenta</string>
     <string name="home_budget_used">Presupuesto usado</string>
     <string name="home_budget_used_value">%1$d%%</string>
     <string name="home_budget_no_budget">Sin presupuesto</string>
@@ -223,7 +231,7 @@
     <string name="reports_pdf_ready">PDF generado: %1$s</string>
     <string name="reports_pdf_error">No se pudo generar el PDF.</string>
     <string name="reports_share_title">Compartir reporte financiero</string>
-    <string name="reports_summary_format">Ingresos: %1$s\nGastos: %2$s\nSaldo: %3$s\nAhorro estimado: %4$s\nScore: %5$d/100</string>
+    <string name="reports_summary_format">Ingresos del mes: %1$s\nGastos del mes: %2$s\nBalance mensual: %3$s\nAhorro estimado: %4$s\nScore: %5$d/100\nEfectivo actual: %6$s\nTarjeta/Cuenta actual: %7$s\nSaldo total actual: %8$s</string>
     <string name="reports_status_format">Estado: %1$s · Moneda base: %2$s</string>
 
     <string name="imports_rules_title">Reglas de importación</string>
@@ -255,6 +263,7 @@
     <string name="goal_field_title">Título</string>
     <string name="goal_field_target">Monto objetivo</string>
     <string name="goal_field_current">Monto ahorrado</string>
+    <string name="goal_field_currency">Moneda</string>
     <string name="goal_field_deadline">Fecha objetivo (AAAA-MM-DD)</string>
     <string name="goal_btn_save">Guardar meta</string>
     <string name="goal_confirm_delete">¿Eliminar esta meta?</string>
@@ -410,6 +419,13 @@
     <string name="perfil_currency_hint">Moneda</string>
     <string name="perfil_currency_rate_hint">Tasa local opcional (PEN por 1 unidad)</string>
     <string name="perfil_currency_save">Guardar moneda</string>
+    <string name="perfil_initial_balances_title">Saldos iniciales</string>
+    <string name="perfil_initial_balances_subtitle">Define el dinero real con el que empiezas en efectivo y tarjeta/cuenta.</string>
+    <string name="perfil_initial_cash_hint">Efectivo inicial</string>
+    <string name="perfil_initial_card_hint">Tarjeta/Cuenta inicial</string>
+    <string name="perfil_initial_balances_save">Guardar saldos iniciales</string>
+    <string name="perfil_initial_balances_saved">Saldos iniciales actualizados</string>
+    <string name="perfil_initial_balances_error">No se pudieron guardar los saldos iniciales</string>
     <string name="perfil_currency_saved">Moneda actualizada.</string>
     <string name="perfil_currency_error">No se pudo guardar la moneda.</string>
     <string name="import_sheet_cancel">Cancelar</string>

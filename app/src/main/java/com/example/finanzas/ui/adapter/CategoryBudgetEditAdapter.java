@@ -36,6 +36,7 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
             clone.setCategoriaId(item.getCategoriaId());
             clone.setCategoriaNombre(item.getCategoriaNombre());
             clone.setMonto(item.getMonto());
+            clone.setMoneda(item.getMoneda());
             copy.add(clone);
         }
         return copy;
@@ -53,7 +54,7 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         CategoryBudgetInput item = items.get(position);
         holder.tvNombre.setText(item.getCategoriaNombre());
         holder.tilMonto.setHint(holder.itemView.getContext().getString(R.string.pres_category_hint, item.getCategoriaNombre()));
-        holder.tilMonto.setPrefixText(SettingsService.getCurrencySymbol(holder.itemView.getContext()) + " ");
+        holder.tilMonto.setPrefixText(SettingsService.getCurrencySymbol(item.getMoneda()) + " ");
 
         if (holder.watcher != null) {
             holder.etMonto.removeTextChangedListener(holder.watcher);

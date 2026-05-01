@@ -9,6 +9,11 @@ public class HomeSummary {
     private double ingresos;
     private double gastos;
     private double saldo;
+    private double saldoActualTotal;
+    private double initialCashBalance;
+    private double initialCardBalance;
+    private double efectivo;
+    private double tarjetaCuenta;
     private double presupuestoMonto;
     private double presupuestoRestante;
     private double presupuestoPorcentaje;
@@ -63,6 +68,21 @@ public class HomeSummary {
 
     public double getSaldo() { return saldo; }
     public void setSaldo(double saldo) { this.saldo = saldo; }
+
+    public double getSaldoActualTotal() { return saldoActualTotal; }
+    public void setSaldoActualTotal(double saldoActualTotal) { this.saldoActualTotal = saldoActualTotal; }
+
+    public double getInitialCashBalance() { return initialCashBalance; }
+    public void setInitialCashBalance(double initialCashBalance) { this.initialCashBalance = initialCashBalance; }
+
+    public double getInitialCardBalance() { return initialCardBalance; }
+    public void setInitialCardBalance(double initialCardBalance) { this.initialCardBalance = initialCardBalance; }
+
+    public double getEfectivo() { return efectivo; }
+    public void setEfectivo(double efectivo) { this.efectivo = efectivo; }
+
+    public double getTarjetaCuenta() { return tarjetaCuenta; }
+    public void setTarjetaCuenta(double tarjetaCuenta) { this.tarjetaCuenta = tarjetaCuenta; }
 
     public double getPresupuestoMonto() { return presupuestoMonto; }
     public void setPresupuestoMonto(double presupuestoMonto) { this.presupuestoMonto = presupuestoMonto; }

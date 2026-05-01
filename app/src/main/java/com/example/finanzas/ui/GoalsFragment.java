@@ -25,9 +25,11 @@ import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.GoalMilestone;
 import com.example.finanzas.ui.adapter.GoalSummaryAdapter;
 import com.example.finanzas.ui.viewmodel.GoalsViewModel;
+import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONObject;
@@ -93,8 +95,10 @@ public class GoalsFragment extends Fragment {
         EditText etObjetivo = form.findViewById(R.id.etGoalObjetivo);
         EditText etActual = form.findViewById(R.id.etGoalActual);
         EditText etFecha = form.findViewById(R.id.etGoalFecha);
+        MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actGoalMoneda);
 
         applyCurrencyPrefix(etObjetivo, etActual);
+        setupCurrencySelector(actMoneda, goal == null ? SettingsService.getCurrencyCode(requireContext()) : goal.getMoneda(), etObjetivo, etActual);
         setupDatePicker(etFecha);
         UiFormUtils.clearErrorOnTextChange(etTitulo, etObjetivo, etActual, etFecha);
 
@@ -168,6 +172,7 @@ public class GoalsFragment extends Fragment {
                         body.put("titulo", titulo);
                         body.put("monto_objetivo", objetivoVal);
                         body.put("monto_actual", actualVal);
+                        body.put("moneda", CurrencyConverter.normalize(actMoneda.getText() == null ? "" : actMoneda.getText().toString()));
                         String fechaIso = UiFormUtils.uiDateToIso(fecha);
                         if (fechaIso != null) body.put("fecha_objetivo", fechaIso);
                     } catch (Exception ignore) { }
@@ -196,10 +201,12 @@ public class GoalsFragment extends Fragment {
         EditText etMonto = form.findViewById(R.id.etMilestoneMonto);
         EditText etFecha = form.findViewById(R.id.etMilestoneFecha);
         EditText etDias = form.findViewById(R.id.etMilestoneDias);
+        MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actMilestoneMoneda);
         SwitchMaterial swNotificar = form.findViewById(R.id.swMilestoneNotificar);
         CheckBox cbCompletado = form.findViewById(R.id.cbMilestoneCompletado);
 
         applyCurrencyPrefix(etMonto);
+        setupCurrencySelector(actMoneda, milestone == null ? goal.getMoneda() : milestone.getMoneda(), etMonto);
         boolean editando = milestone != null;
         if (editando) {
             etTitulo.setText(milestone.getTitulo());
@@ -281,6 +288,7 @@ public class GoalsFragment extends Fragment {
                         body.put("meta_id", goal.getId());
                         body.put("titulo", titulo);
                         body.put("monto_planificado", montoVal);
+                        body.put("moneda", CurrencyConverter.normalize(actMoneda.getText() == null ? "" : actMoneda.getText().toString()));
                         String fechaIso = UiFormUtils.uiDateToIso(fecha);
                         if (fechaIso != null) body.put("fecha_objetivo", fechaIso);
                         body.put("notificar", swNotificar.isChecked());
@@ -327,6 +335,7 @@ public class GoalsFragment extends Fragment {
             body.put("meta_id", goal.getId());
             body.put("titulo", milestone.getTitulo());
             body.put("monto_planificado", milestone.getMontoPlanificado());
+            body.put("moneda", milestone.getMoneda());
             if (milestone.getFechaObjetivo() != null) {
                 body.put("fecha_objetivo", UiFormUtils.formatIsoDate(milestone.getFechaObjetivo()));
             }
@@ -378,5 +387,18 @@ public class GoalsFragment extends Fragment {
                 ((TextInputLayout) parent).setPrefixText(prefix);
             }
         }
+    }
+
+    private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected, @NonNull EditText... amountFields) {
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                requireContext(),
+                android.R.layout.simple_list_item_1,
+                CurrencyConverter.supportedCurrencies()
+        );
+        input.setAdapter(adapter);
+        input.setText(CurrencyConverter.normalize(selected), false);
+        input.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) input.showDropDown(); });
+        input.setOnClickListener(view -> input.showDropDown());
+        input.setOnItemClickListener((parent, view, position, id) -> applyCurrencyPrefix(amountFields));
     }
 }

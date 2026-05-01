@@ -11,7 +11,9 @@ import com.example.finanzas.di.AppGraph
 import com.example.finanzas.util.Format
 import com.example.finanzas.util.MonthlyReportPdfExporter
 import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
@@ -74,13 +76,17 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 val previousTx = previousTxDeferred.await()
                 val trend = trendDeferred.await()
 
-                graph.financialDashboardEngine.enrichDashboard(summary, currentTx, previousTx, trend)
-                graph.financialDashboardEngine.applyScoreTrend(
-                    summary,
-                    previousSummaryDeferred.await(),
-                    previousTx,
-                    previousPreviousTxDeferred.await()
-                )
+                val previousSummary = previousSummaryDeferred.await()
+                val previousPreviousTx = previousPreviousTxDeferred.await()
+                withContext(Dispatchers.Default) {
+                    graph.financialDashboardEngine.enrichDashboard(summary, currentTx, previousTx, trend)
+                    graph.financialDashboardEngine.applyScoreTrend(
+                        summary,
+                        previousSummary,
+                        previousTx,
+                        previousPreviousTx
+                    )
+                }
 
                 val status = when {
                     summary.saldo < 0.0 || summary.proyeccionFinMes < 0.0 -> "Negativo"
@@ -92,8 +98,8 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 FinancialReport(
                     summary = summary,
                     currencyCode = SettingsService.getCurrencyCode(getApplication()),
-                    topCategories = summary.chartCategorias.sortedByDescending { it.gastado }.take(3),
-                    recentTransactions = currentTx.sortedByDescending { it.fecha?.time ?: 0L }.take(8),
+                    topCategories = summary.chartCategorias.sortedByDescending { it.gastado }.take(8),
+                    recentTransactions = currentTx.sortedByDescending { it.fecha?.time ?: 0L },
                     trend = trend,
                     status = status,
                     monthLabel = Format.monthYear(anio, mes)

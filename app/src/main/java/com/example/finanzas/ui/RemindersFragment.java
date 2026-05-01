@@ -22,6 +22,7 @@ import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.ui.adapter.ReminderSummaryAdapter;
 import com.example.finanzas.ui.viewmodel.RemindersViewModel;
+import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.example.finanzas.util.ReminderScheduler;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -91,9 +92,11 @@ public class RemindersFragment extends Fragment {
         EditText etFecha = form.findViewById(R.id.etReminderFecha);
         EditText etHora = form.findViewById(R.id.etReminderHora);
         EditText etDias = form.findViewById(R.id.etReminderDias);
+        MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actReminderMoneda);
         MaterialAutoCompleteTextView actFrecuencia = form.findViewById(R.id.actReminderFrecuencia);
         SwitchMaterial swNotificar = form.findViewById(R.id.swReminderNotificar);
         applyCurrencyPrefix(etMonto);
+        setupCurrencySelector(actMoneda, reminder == null ? SettingsService.getCurrencyCode(requireContext()) : reminder.getMoneda());
 
         final String[] freqValues = new String[]{"once", "mensual", "trimestral"};
         String[] freqLabels = new String[]{
@@ -225,6 +228,7 @@ public class RemindersFragment extends Fragment {
                 if (editando && reminder != null) body.put("id", reminder.getId());
                 body.put("titulo", titulo);
                 body.put("monto", montoVal);
+                body.put("moneda", CurrencyConverter.normalize(actMoneda.getText() == null ? "" : actMoneda.getText().toString()));
                 body.put("fecha_vencimiento", fechaIso);
                 if (!TextUtils.isEmpty(hora)) body.put("hora_recordatorio", hora);
                 body.put("dias_recordatorio", diasVal);
@@ -331,5 +335,18 @@ public class RemindersFragment extends Fragment {
         if (parent instanceof TextInputLayout) {
             ((TextInputLayout) parent).setPrefixText(prefix);
         }
+    }
+
+    private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                requireContext(),
+                android.R.layout.simple_list_item_1,
+                CurrencyConverter.supportedCurrencies()
+        );
+        input.setAdapter(adapter);
+        input.setInputType(0);
+        input.setText(CurrencyConverter.normalize(selected), false);
+        input.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) input.showDropDown(); });
+        input.setOnClickListener(view -> input.showDropDown());
     }
 }

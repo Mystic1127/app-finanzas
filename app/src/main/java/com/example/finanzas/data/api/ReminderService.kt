@@ -30,6 +30,7 @@ object ReminderService {
             setId(body.optInt("id", 0))
             setTitulo(body.optString("titulo", ""))
             setMonto(body.optDouble("monto", 0.0))
+            setMoneda(body.optString("moneda", SettingsService.getCurrencyCode(ctx)))
             val fechaStr = body.optString("fecha_vencimiento", null)
             if (!fechaStr.isNullOrEmpty()) {
                 try {

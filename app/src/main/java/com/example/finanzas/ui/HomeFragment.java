@@ -82,6 +82,8 @@ public class HomeFragment extends Fragment {
     private TextView tvIngresos;
     private TextView tvGastos;
     private TextView tvBalance;
+    private TextView tvCash;
+    private TextView tvCard;
     private TextView tvBudgetUsed;
     private TextView tvBudgetDetail;
     private TextView tvCategoryEmpty;
@@ -136,6 +138,8 @@ public class HomeFragment extends Fragment {
         tvIngresos = v.findViewById(R.id.tvHomeIngresos);
         tvGastos = v.findViewById(R.id.tvHomeGastos);
         tvBalance = v.findViewById(R.id.tvHomeBalance);
+        tvCash = v.findViewById(R.id.tvHomeCash);
+        tvCard = v.findViewById(R.id.tvHomeCard);
         tvBudgetUsed = v.findViewById(R.id.tvHomeBudgetUsed);
         tvBudgetDetail = v.findViewById(R.id.tvHomeBudgetDetail);
         tvCategoryEmpty = v.findViewById(R.id.tvHomeCategoryEmpty);
@@ -243,7 +247,9 @@ public class HomeFragment extends Fragment {
         tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
         tvIngresos.setText(Format.money(summary.getIngresos(), currencyCode));
         tvGastos.setText(Format.money(summary.getGastos(), currencyCode));
-        tvBalance.setText(Format.money(summary.getSaldo(), currencyCode));
+        tvBalance.setText(Format.money(summary.getSaldoActualTotal(), currencyCode));
+        tvCash.setText(Format.money(summary.getEfectivo(), currencyCode));
+        tvCard.setText(Format.money(summary.getTarjetaCuenta(), currencyCode));
 
         double budgetPercent = summary.getPresupuestoPorcentaje();
         tvBudgetUsed.setText(summary.getPresupuestoMonto() > 0
@@ -260,11 +266,11 @@ public class HomeFragment extends Fragment {
 
         boolean hasData = summary.getIngresos() > 0
                 || summary.getGastos() > 0
-                || !summary.getChartCategorias().isEmpty()
-                || !summary.getTendenciaMensual().isEmpty();
+                || summary.getSaldoActualTotal() > 0
+                || !summary.getChartCategorias().isEmpty();
         emptyState.setVisibility(hasData ? View.GONE : View.VISIBLE);
 
-        applyModuleVisibility();
+        applyModuleVisibility(hasData);
         renderCategoryChart(summary.getChartCategorias());
         renderTrendChart(summary.getTendenciaMensual());
         renderAlerts(summary);
@@ -576,14 +582,14 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private void applyModuleVisibility() {
+    private void applyModuleVisibility(boolean hasData) {
         boolean summaryVisible = isModuleVisible(MODULE_SUMMARY);
         setVisible(moduleSummary, summaryVisible);
         setVisible(tvBudgetDetail, summaryVisible);
-        setVisible(moduleCategory, isModuleVisible(MODULE_CATEGORY));
-        setVisible(moduleTrend, isModuleVisible(MODULE_TREND));
-        setVisible(moduleAlerts, isModuleVisible(MODULE_ALERTS));
-        setVisible(moduleInsights, isModuleVisible(MODULE_INSIGHTS));
+        setVisible(moduleCategory, hasData && isModuleVisible(MODULE_CATEGORY));
+        setVisible(moduleTrend, hasData && isModuleVisible(MODULE_TREND));
+        setVisible(moduleAlerts, hasData && isModuleVisible(MODULE_ALERTS));
+        setVisible(moduleInsights, hasData && isModuleVisible(MODULE_INSIGHTS));
         setVisible(moduleQuick, isModuleVisible(MODULE_QUICK));
     }
 
@@ -637,7 +643,7 @@ public class HomeFragment extends Fragment {
                 @Override
                 public void onSuccess() {
                     if (!isAdded()) return;
-                    applyModuleVisibility();
+                    applyModuleVisibility(lastSummary == null || lastSummary.getIngresos() > 0 || lastSummary.getGastos() > 0 || lastSummary.getSaldoActualTotal() > 0);
                     UiFormUtils.showMessage(requireView(), R.string.dashboard_customize_saved);
                 }
 

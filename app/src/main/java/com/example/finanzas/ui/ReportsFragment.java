@@ -109,7 +109,10 @@ public class ReportsFragment extends Fragment {
                 Format.money(report.getSummary().getGastos(), currency),
                 Format.money(report.getSummary().getSaldo(), currency),
                 Format.money(report.getSummary().getAhorroSugerido(), currency),
-                report.getSummary().getScoreFinanciero()
+                report.getSummary().getScoreFinanciero(),
+                Format.money(report.getSummary().getEfectivo(), currency),
+                Format.money(report.getSummary().getTarjetaCuenta(), currency),
+                Format.money(report.getSummary().getSaldoActualTotal(), currency)
         ));
         tvCategories.setText(buildCategories(report.getTopCategories(), currency));
         tvTrend.setText(buildTrend(report.getTrend(), currency));

@@ -42,6 +42,7 @@ interface TransaccionDao {
             monto=:monto,
             moneda=:moneda,
             fecha=:fecha,
+            account_type=:accountType,
             nota=:nota
         WHERE id=:id AND user_id=:userId
         """
@@ -54,10 +55,13 @@ interface TransaccionDao {
         monto: Double,
         moneda: String,
         fecha: Long,
+        accountType: String,
         nota: String?
     ): Int
     @Query("DELETE FROM transacciones WHERE id=:id AND user_id=:userId") fun deleteById(id: Int, userId: Int): Int
     @Query("SELECT * FROM transacciones WHERE user_id=:userId ORDER BY fecha DESC") fun listAll(userId: Int): List<TransaccionEntity>
+    @Query("SELECT * FROM transacciones WHERE user_id=:userId AND fecha>=:start AND fecha<:end ORDER BY fecha DESC")
+    fun listBetween(userId: Int, start: Long, end: Long): List<TransaccionEntity>
 }
 
 @Dao
@@ -86,6 +90,7 @@ interface MetaDao {
         SET titulo=:titulo,
             monto_objetivo=:montoObjetivo,
             monto_actual=:montoActual,
+            moneda=:moneda,
             fecha_objetivo=:fechaObjetivo
         WHERE id=:id AND user_id=:userId
         """
@@ -96,6 +101,7 @@ interface MetaDao {
         titulo: String,
         montoObjetivo: Double,
         montoActual: Double,
+        moneda: String,
         fechaObjetivo: Long?
     ): Int
     @Query("DELETE FROM metas WHERE id=:id AND user_id=:userId") fun deleteById(id: Int, userId: Int): Int
@@ -111,6 +117,7 @@ interface MetaHitoDao {
         SET meta_id=:metaId,
             titulo=:titulo,
             monto_planificado=:montoPlanificado,
+            moneda=:moneda,
             fecha_objetivo=:fechaObjetivo,
             notificar=:notificar,
             dias_recordatorio=:diasRecordatorio,
@@ -124,6 +131,7 @@ interface MetaHitoDao {
         metaId: Int,
         titulo: String,
         montoPlanificado: Double,
+        moneda: String,
         fechaObjetivo: Long?,
         notificar: Int,
         diasRecordatorio: Int,
@@ -142,6 +150,7 @@ interface RecordatorioDao {
         UPDATE recordatorios
         SET titulo=:titulo,
             monto=:monto,
+            moneda=:moneda,
             fecha_vencimiento=:fechaVencimiento,
             pagado=:pagado,
             categoria_id=:categoriaId,
@@ -159,6 +168,7 @@ interface RecordatorioDao {
         userId: Int,
         titulo: String,
         monto: Double,
+        moneda: String,
         fechaVencimiento: Long,
         pagado: Int,
         categoriaId: Int?,
