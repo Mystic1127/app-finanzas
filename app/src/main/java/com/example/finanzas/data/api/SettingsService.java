@@ -3,6 +3,8 @@ package com.example.finanzas.data.api;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import androidx.appcompat.app.AppCompatDelegate;
+
 import com.example.finanzas.data.local.LocalRepository;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.Prefs;
@@ -19,6 +21,10 @@ public class SettingsService {
     private static final String KEY_DASHBOARD_PREFIX = "dashboard_prefs_user_";
     private static final String KEY_TRAVEL_PREFIX = "travel_prefs_user_";
     private static final String KEY_INITIAL_BALANCES_PREFIX = "initial_balances_user_";
+    private static final String KEY_THEME_MODE = "theme_mode";
+    public static final String THEME_SYSTEM = "system";
+    public static final String THEME_LIGHT = "light";
+    public static final String THEME_DARK = "dark";
 
     public static void save(Context ctx, boolean notificationsEnabled, SaveCb cb) {
         cb.onSuccess();
@@ -50,6 +56,18 @@ public class SettingsService {
 
     public static String getCurrencySymbol(String currencyCode) {
         return CurrencyConverter.symbol(currencyCode);
+    }
+
+    public static boolean hasCurrencyConfigured(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            String raw = getRawForUser(sp, travelKey(currentUserId(ctx)), KEY_TRAVEL_LEGACY);
+            JSONObject body = new JSONObject(raw);
+            String code = body.optString("currency", body.optString("base", ""));
+            return !code.trim().isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static double getManualRate(Context ctx) {
@@ -173,6 +191,31 @@ public class SettingsService {
         }
     }
 
+    public static void prepareCurrencySetupForNewUser(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            sp.edit().putString(travelKey(currentUserId(ctx)), "{}").apply();
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static String getThemeMode(Context ctx) {
+        SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String mode = sp.getString(KEY_THEME_MODE, THEME_SYSTEM);
+        return normalizeThemeMode(mode);
+    }
+
+    public static void saveThemeMode(Context ctx, String mode) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_THEME_MODE, normalizeThemeMode(mode))
+                .apply();
+    }
+
+    public static void applyThemeMode(Context ctx) {
+        AppCompatDelegate.setDefaultNightMode(appCompatNightMode(getThemeMode(ctx)));
+    }
+
     private static boolean isValidAmount(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value) && value >= 0.0;
     }
@@ -194,5 +237,17 @@ public class SettingsService {
 
     private static String normalizeCurrency(String code) {
         return CurrencyConverter.normalize(code);
+    }
+
+    private static String normalizeThemeMode(String mode) {
+        if (THEME_LIGHT.equals(mode)) return THEME_LIGHT;
+        if (THEME_DARK.equals(mode)) return THEME_DARK;
+        return THEME_SYSTEM;
+    }
+
+    private static int appCompatNightMode(String mode) {
+        if (THEME_LIGHT.equals(mode)) return AppCompatDelegate.MODE_NIGHT_NO;
+        if (THEME_DARK.equals(mode)) return AppCompatDelegate.MODE_NIGHT_YES;
+        return AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
     }
 }

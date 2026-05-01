@@ -1,9 +1,9 @@
-<resources>
+﻿<resources>
     <string name="app_name_spendly">Spendly</string>
     <string name="welcome_tagline">Controla tu dinero con claridad.</string>
     <string name="welcome_login">Iniciar sesión</string>
     <string name="welcome_register">Crear cuenta</string>
-    <string name="app_name">Finanzas</string>
+    <string name="app_name">Spendly</string>
     <string name="nav_open_drawer">Abrir menú</string>
     <string name="nav_close_drawer">Cerrar menú</string>
     <string name="prefix_moneda">S/ </string>
@@ -434,6 +434,13 @@
     <string name="perfil_initial_balances_error">No se pudieron guardar los saldos iniciales</string>
     <string name="perfil_currency_saved">Moneda actualizada.</string>
     <string name="perfil_currency_error">No se pudo guardar la moneda.</string>
+    <string name="initial_currency_title">&#191;Que moneda quieres usar?</string>
+    <string name="initial_currency_default">Usar PEN</string>
+    <string name="perfil_appearance">Apariencia</string>
+    <string name="perfil_theme_title">Tema</string>
+    <string name="perfil_theme_system">Seguir sistema</string>
+    <string name="perfil_theme_light">Claro</string>
+    <string name="perfil_theme_dark">Oscuro</string>
     <string name="import_sheet_cancel">Cancelar</string>
     <string name="import_sheet_create">Crear importaci&#243;n</string>
     <string name="import_sheet_save_rule">Guardar regla</string>

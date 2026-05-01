@@ -30,6 +30,7 @@ import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
 import com.example.finanzas.data.api.AuthService
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.ui.compose.SpendlyAuthCard
 import com.example.finanzas.ui.compose.SpendlyAuthHeader
 import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
@@ -102,6 +103,7 @@ class RegisterFragment : Fragment() {
                     result.email,
                     result.nombre
                 )
+                SettingsService.prepareCurrencySetupForNewUser(requireContext())
 
                 Toast.makeText(requireContext(), "Cuenta creada. ¡Bienvenido!", Toast.LENGTH_SHORT).show()
                 val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()

@@ -69,6 +69,7 @@ class PerfilFragment : Fragment() {
     private var initialCurrency by mutableStateOf("PEN")
     private var initialCashText by mutableStateOf("0")
     private var initialCardText by mutableStateOf("0")
+    private var themeMode by mutableStateOf(SettingsService.THEME_SYSTEM)
     private var hasPin by mutableStateOf(false)
 
     private var currencyError by mutableStateOf<String?>(null)
@@ -121,6 +122,8 @@ class PerfilFragment : Fragment() {
                     initialCashError = initialCashError,
                     initialCardError = initialCardError,
                     onSaveInitialBalances = { saveInitialBalances() },
+                    themeMode = themeMode,
+                    onThemeModeChange = { saveThemeMode(it) },
                     hasPin = hasPin,
                     onChangePassword = { findNavController().navigate(R.id.nav_change_password) },
                     onConfigurePin = { findNavController().navigate(R.id.nav_pin_setup) },
@@ -184,6 +187,7 @@ class PerfilFragment : Fragment() {
             val balancesCurrency = SettingsService.getInitialBalancesCurrency(appContext)
             val cash = SettingsService.getInitialCashBalance(appContext)
             val card = SettingsService.getInitialCardBalance(appContext)
+            val mode = SettingsService.getThemeMode(appContext)
 
             withContext(Dispatchers.Main) {
                 if (!isAdded) return@withContext
@@ -192,6 +196,7 @@ class PerfilFragment : Fragment() {
                 initialCurrency = CurrencyConverter.normalize(balancesCurrency)
                 initialCashText = if (cash > 0) String.format(Locale.US, "%.2f", cash) else "0"
                 initialCardText = if (card > 0) String.format(Locale.US, "%.2f", card) else "0"
+                themeMode = mode
                 PerfLogger.logSince("PerfilFragment", "loadComplete", loadStartMs)
             }
         }
@@ -257,6 +262,17 @@ class PerfilFragment : Fragment() {
         PerfLogger.logSince("PerfilFragment", "onViewCreated", perfStartMs)
     }
 
+    private fun saveThemeMode(mode: String) {
+        val normalized = when (mode) {
+            SettingsService.THEME_LIGHT -> SettingsService.THEME_LIGHT
+            SettingsService.THEME_DARK -> SettingsService.THEME_DARK
+            else -> SettingsService.THEME_SYSTEM
+        }
+        themeMode = normalized
+        SettingsService.saveThemeMode(requireContext(), normalized)
+        SettingsService.applyThemeMode(requireContext())
+    }
+
     private fun confirmRemovePin() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.perfil_remove_pin)
@@ -281,6 +297,7 @@ class PerfilFragment : Fragment() {
     private fun labelForCurrency(code: String?): String = when (code) {
         "USD" -> CURRENCY_USD
         "EUR" -> CURRENCY_EUR
+        "CLP" -> CURRENCY_CLP
         else -> CURRENCY_PEN
     }
 
@@ -289,6 +306,7 @@ class PerfilFragment : Fragment() {
         return when {
             normalized.startsWith("USD") -> "USD"
             normalized.startsWith("EUR") -> "EUR"
+            normalized.startsWith("CLP") -> "CLP"
             normalized.startsWith("PEN") -> "PEN"
             else -> ""
         }
@@ -321,7 +339,8 @@ class PerfilFragment : Fragment() {
         private const val CURRENCY_PEN = "PEN (S/)"
         private const val CURRENCY_USD = "USD ($)"
         private const val CURRENCY_EUR = "EUR (€)"
-        private val CURRENCY_OPTIONS = listOf(CURRENCY_PEN, CURRENCY_USD, CURRENCY_EUR)
+        private const val CURRENCY_CLP = "CLP (CLP$)"
+        private val CURRENCY_OPTIONS = listOf(CURRENCY_PEN, CURRENCY_USD, CURRENCY_EUR, CURRENCY_CLP)
     }
 }
 
@@ -347,6 +366,8 @@ private fun ProfileScreen(
     initialCashError: String?,
     initialCardError: String?,
     onSaveInitialBalances: () -> Unit,
+    themeMode: String,
+    onThemeModeChange: (String) -> Unit,
     hasPin: Boolean,
     onChangePassword: () -> Unit,
     onConfigurePin: () -> Unit,
@@ -415,6 +436,38 @@ private fun ProfileScreen(
                 ) {
                     Text(stringResource(R.string.perfil_currency_save))
                 }
+            }
+
+            ProfileSection(title = stringResource(R.string.perfil_appearance)) {
+                val themeSystem = stringResource(R.string.perfil_theme_system)
+                val themeLight = stringResource(R.string.perfil_theme_light)
+                val themeDark = stringResource(R.string.perfil_theme_dark)
+                val themeOptions = listOf(themeSystem, themeLight, themeDark)
+                val themeLabel = when (themeMode) {
+                    SettingsService.THEME_LIGHT -> themeLight
+                    SettingsService.THEME_DARK -> themeDark
+                    else -> themeSystem
+                }
+                Text(
+                    text = stringResource(R.string.perfil_theme_title),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                DropdownField(
+                    label = stringResource(R.string.perfil_theme_title),
+                    value = themeLabel,
+                    options = themeOptions,
+                    onValueChange = { selected ->
+                        onThemeModeChange(
+                            when (selected) {
+                                themeLight -> SettingsService.THEME_LIGHT
+                                themeDark -> SettingsService.THEME_DARK
+                                else -> SettingsService.THEME_SYSTEM
+                            }
+                        )
+                    }
+                )
             }
 
             ProfileSection(title = stringResource(R.string.perfil_initial_balances_title)) {

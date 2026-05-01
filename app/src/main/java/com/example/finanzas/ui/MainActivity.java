@@ -28,6 +28,7 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.local.LocalRepository;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
@@ -55,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SettingsService.applyThemeMode(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 

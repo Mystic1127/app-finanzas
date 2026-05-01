@@ -6,13 +6,14 @@ object CurrencyConverter {
     private val penPerUnit = mapOf(
         "PEN" to 1.0,
         "USD" to 3.75,
-        "EUR" to 4.05
+        "EUR" to 4.05,
+        "CLP" to 0.0040
     )
 
     @JvmStatic
     fun normalize(code: String?): String {
         val safe = code?.trim()?.uppercase(Locale.ROOT).orEmpty()
-        return if (safe == "PEN" || safe == "USD" || safe == "EUR") safe else "PEN"
+        return if (safe == "PEN" || safe == "USD" || safe == "EUR" || safe == "CLP") safe else "PEN"
     }
 
     @JvmStatic
@@ -20,12 +21,13 @@ object CurrencyConverter {
         return when (normalize(code)) {
             "USD" -> "$"
             "EUR" -> "€"
+            "CLP" -> "CLP$"
             else -> "S/"
         }
     }
 
     @JvmStatic
-    fun supportedCurrencies(): List<String> = listOf("PEN", "USD", "EUR")
+    fun supportedCurrencies(): List<String> = listOf("PEN", "USD", "EUR", "CLP")
 
     @JvmStatic
     fun convert(amount: Double, from: String?, to: String?, manualCurrency: String? = null, manualPenRate: Double = 0.0): Double {

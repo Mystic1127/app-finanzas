@@ -97,7 +97,6 @@ public class GoalsFragment extends Fragment {
         EditText etFecha = form.findViewById(R.id.etGoalFecha);
         MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actGoalMoneda);
 
-        applyCurrencyPrefix(etObjetivo, etActual);
         setupCurrencySelector(actMoneda, goal == null ? SettingsService.getCurrencyCode(requireContext()) : goal.getMoneda(), etObjetivo, etActual);
         setupDatePicker(etFecha);
         UiFormUtils.clearErrorOnTextChange(etTitulo, etObjetivo, etActual, etFecha);
@@ -205,7 +204,6 @@ public class GoalsFragment extends Fragment {
         SwitchMaterial swNotificar = form.findViewById(R.id.swMilestoneNotificar);
         CheckBox cbCompletado = form.findViewById(R.id.cbMilestoneCompletado);
 
-        applyCurrencyPrefix(etMonto);
         setupCurrencySelector(actMoneda, milestone == null ? goal.getMoneda() : milestone.getMoneda(), etMonto);
         boolean editando = milestone != null;
         if (editando) {
@@ -376,8 +374,8 @@ public class GoalsFragment extends Fragment {
         return Double.parseDouble(value.trim().replace(',', '.'));
     }
 
-    private void applyCurrencyPrefix(@NonNull EditText... fields) {
-        String prefix = SettingsService.getCurrencySymbol(requireContext()) + " ";
+    private void applyCurrencyPrefix(@NonNull String currency, @NonNull EditText... fields) {
+        String prefix = SettingsService.getCurrencySymbol(CurrencyConverter.normalize(currency)) + " ";
         for (EditText field : fields) {
             ViewParent parent = field.getParent();
             while (parent != null && !(parent instanceof TextInputLayout)) {
@@ -396,9 +394,13 @@ public class GoalsFragment extends Fragment {
                 CurrencyConverter.supportedCurrencies()
         );
         input.setAdapter(adapter);
-        input.setText(CurrencyConverter.normalize(selected), false);
+        String normalized = CurrencyConverter.normalize(selected);
+        input.setText(normalized, false);
+        applyCurrencyPrefix(normalized, amountFields);
         input.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) input.showDropDown(); });
         input.setOnClickListener(view -> input.showDropDown());
-        input.setOnItemClickListener((parent, view, position, id) -> applyCurrencyPrefix(amountFields));
+        input.setOnItemClickListener((parent, view, position, id) ->
+                applyCurrencyPrefix(input.getText() == null ? "" : input.getText().toString(), amountFields)
+        );
     }
 }

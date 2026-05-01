@@ -95,8 +95,7 @@ public class RemindersFragment extends Fragment {
         MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actReminderMoneda);
         MaterialAutoCompleteTextView actFrecuencia = form.findViewById(R.id.actReminderFrecuencia);
         SwitchMaterial swNotificar = form.findViewById(R.id.swReminderNotificar);
-        applyCurrencyPrefix(etMonto);
-        setupCurrencySelector(actMoneda, reminder == null ? SettingsService.getCurrencyCode(requireContext()) : reminder.getMoneda());
+        setupCurrencySelector(actMoneda, reminder == null ? SettingsService.getCurrencyCode(requireContext()) : reminder.getMoneda(), etMonto);
 
         final String[] freqValues = new String[]{"once", "mensual", "trimestral"};
         String[] freqLabels = new String[]{
@@ -326,8 +325,8 @@ public class RemindersFragment extends Fragment {
         return 0;
     }
 
-    private void applyCurrencyPrefix(@NonNull EditText field) {
-        String prefix = SettingsService.getCurrencySymbol(requireContext()) + " ";
+    private void applyCurrencyPrefix(@NonNull String currency, @NonNull EditText field) {
+        String prefix = SettingsService.getCurrencySymbol(CurrencyConverter.normalize(currency)) + " ";
         ViewParent parent = field.getParent();
         while (parent != null && !(parent instanceof TextInputLayout)) {
             parent = parent.getParent();
@@ -337,7 +336,7 @@ public class RemindersFragment extends Fragment {
         }
     }
 
-    private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected) {
+    private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected, @NonNull EditText amountField) {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 requireContext(),
                 R.layout.item_dropdown,
@@ -345,8 +344,13 @@ public class RemindersFragment extends Fragment {
         );
         input.setAdapter(adapter);
         input.setInputType(0);
-        input.setText(CurrencyConverter.normalize(selected), false);
+        String normalized = CurrencyConverter.normalize(selected);
+        input.setText(normalized, false);
+        applyCurrencyPrefix(normalized, amountField);
         input.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) input.showDropDown(); });
         input.setOnClickListener(view -> input.showDropDown());
+        input.setOnItemClickListener((parent, view, position, id) ->
+                applyCurrencyPrefix(input.getText() == null ? "" : input.getText().toString(), amountField)
+        );
     }
 }

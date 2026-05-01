@@ -185,6 +185,7 @@ public class HomeFragment extends Fragment {
             render(cachedSummary);
         }
         observeViewModel();
+        maybeShowInitialCurrencyDialog();
         PerfLogger.logSince("HomeFragment", "onViewCreated", perfStartMs);
     }
 
@@ -437,7 +438,7 @@ public class HomeFragment extends Fragment {
     }
 
     private String shortMoney(float value) {
-        String symbol = "PEN".equals(currencyCode) ? "S/" : ("EUR".equals(currencyCode) ? "€" : "$");
+        String symbol = SettingsService.getCurrencySymbol(currencyCode);
         float abs = Math.abs(value);
         String sign = value < 0 ? "-" : "";
         if (abs >= 1000f) {
@@ -711,6 +712,63 @@ public class HomeFragment extends Fragment {
     private String safeLabel(@Nullable String value) {
         String trimmed = value == null ? "" : value.trim();
         return trimmed.isEmpty() ? getString(R.string.home_uncategorized) : trimmed;
+    }
+
+    private void maybeShowInitialCurrencyDialog() {
+        if (!isAdded() || SettingsService.hasCurrencyConfigured(requireContext())) {
+            return;
+        }
+
+        final boolean[] saved = { false };
+        final String[] codes = new String[] { "PEN", "USD", "EUR", "CLP" };
+        final String[] labels = new String[] {
+                "PEN - Sol peruano - S/",
+                "USD - Dolar estadounidense - $",
+                "EUR - Euro - €",
+                "CLP - Peso chileno - CLP$"
+        };
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.initial_currency_title)
+                .setItems(labels, (d, which) -> {
+                    saved[0] = true;
+                    saveInitialCurrencyChoice(codes[Math.max(0, Math.min(which, codes.length - 1))]);
+                })
+                .setNegativeButton(R.string.initial_currency_default, (d, which) -> {
+                    saved[0] = true;
+                    saveInitialCurrencyChoice("PEN");
+                })
+                .create();
+        dialog.setOnCancelListener(d -> {
+            if (!saved[0]) {
+                saved[0] = true;
+                saveInitialCurrencyChoice("PEN");
+            }
+        });
+        dialog.show();
+    }
+
+    private void saveInitialCurrencyChoice(@NonNull String code) {
+        SettingsService.saveCurrency(requireContext(), code, 0.0, new SettingsService.SaveCb() {
+            @Override
+            public void onSuccess() {
+                if (!isAdded()) return;
+                currencyCode = SettingsService.getCurrencyCode(requireContext());
+                if (viewModel != null) {
+                    viewModel.clearCache();
+                    cargarResumen(true);
+                }
+            }
+
+            @Override
+            public void onFail() {
+                if (!isAdded()) return;
+                SettingsService.saveCurrency(requireContext(), "PEN", 0.0, new SettingsService.SaveCb() {
+                    @Override public void onSuccess() { }
+                    @Override public void onFail() { }
+                });
+            }
+        });
     }
 
     private String nonEmpty(@Nullable String value, @NonNull String fallback) {
