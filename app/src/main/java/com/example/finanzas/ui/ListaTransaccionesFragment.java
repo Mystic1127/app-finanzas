@@ -46,6 +46,7 @@ public class ListaTransaccionesFragment extends Fragment {
     private TransaccionAdapter adapter;
     private ProgressBar progress;
     private TextView tvPeriodo;
+    private TextView tvEmpty;
     private SwipeRefreshLayout swipeRefreshLayout;
     private int selectedYear = 0;
     private int selectedMonth = 0;
@@ -71,6 +72,7 @@ public class ListaTransaccionesFragment extends Fragment {
 
         ListView listView = v.findViewById(R.id.listView);
         tvPeriodo = v.findViewById(R.id.tvPeriodo);
+        tvEmpty = v.findViewById(R.id.tvTransactionsEmpty);
         progress = v.findViewById(R.id.progressLista);
         swipeRefreshLayout = v.findViewById(R.id.swipeTransacciones);
         btnExportar = v.findViewById(R.id.btnExportar);
@@ -91,6 +93,8 @@ public class ListaTransaccionesFragment extends Fragment {
             args.putDouble(NuevaTransaccionFragment.EXTRA_MONTO, t.getMonto());
             args.putString(NuevaTransaccionFragment.EXTRA_NOTA,
                     t.getNota() == null ? "" : t.getNota());
+            args.putString(NuevaTransaccionFragment.EXTRA_MONEDA,
+                    t.getMoneda() == null ? "PEN" : t.getMoneda());
             if (t.getFecha() != null) {
                 args.putLong(NuevaTransaccionFragment.EXTRA_FECHA, t.getFecha().getTime());
             }
@@ -198,6 +202,7 @@ public class ListaTransaccionesFragment extends Fragment {
 
     private void mostrarDialogoFiltros() {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_filtro_transacciones, null, false);
+        TextInputEditText etTexto = content.findViewById(R.id.etFiltroTexto);
         TextInputEditText etInicio = content.findViewById(R.id.etFiltroInicio);
         TextInputEditText etFin = content.findViewById(R.id.etFiltroFin);
         MaterialAutoCompleteTextView actCategoria = content.findViewById(R.id.actFiltroCategoria);
@@ -206,7 +211,7 @@ public class ListaTransaccionesFragment extends Fragment {
 
         UiFormUtils.bindDatePicker(requireContext(), etInicio);
         UiFormUtils.bindDatePicker(requireContext(), etFin);
-        UiFormUtils.clearErrorOnTextChange(etInicio, etFin);
+        UiFormUtils.clearErrorOnTextChange(etTexto, etInicio, etFin);
 
         ArrayAdapter<String> catAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>());
         actCategoria.setAdapter(catAdapter);
@@ -234,6 +239,9 @@ public class ListaTransaccionesFragment extends Fragment {
         });
 
         if (filtroActual != null) {
+            if (!TextUtils.isEmpty(filtroActual.getTexto())) {
+                etTexto.setText(filtroActual.getTexto());
+            }
             if (filtroActual.getFechaInicio() != null) {
                 etInicio.setText(UiFormUtils.formatUiDate(new Date(filtroActual.getFechaInicio())));
             }
@@ -282,6 +290,8 @@ public class ListaTransaccionesFragment extends Fragment {
                     }
                     if (inicio != null) filtro.setFechaInicio(inicio);
                     if (fin != null) filtro.setFechaFin(fin + 86_400_000L);
+                    String texto = etTexto.getText() == null ? "" : etTexto.getText().toString().trim();
+                    if (!TextUtils.isEmpty(texto)) filtro.setTexto(texto);
 
                     String catNombre = actCategoria.getText() == null ? null : actCategoria.getText().toString().trim();
                     if (!TextUtils.isEmpty(catNombre) && categorias != null) {
@@ -339,6 +349,7 @@ public class ListaTransaccionesFragment extends Fragment {
             adapter.clear();
             adapter.addAll(safe);
             adapter.notifyDataSetChanged();
+            if (tvEmpty != null) tvEmpty.setVisibility(safe.isEmpty() ? View.VISIBLE : View.GONE);
             int[] periodo = resolvePeriodo();
             if (pendingPrefClear) Prefs.clearLastTransactionsPeriod(requireContext());
             if (announcePeriod) {

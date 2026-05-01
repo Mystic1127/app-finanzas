@@ -18,7 +18,7 @@ class DashboardRepository(context: Context) {
     }
 
     suspend fun listTransactions(anio: Int, mes: Int): List<Transaccion> = withContext(Dispatchers.IO) {
-        local.listTransacciones(anio, mes)
+        local.listTransaccionesEnMonedaBase(anio, mes)
     }
 
     suspend fun buildMonthlyTrend(anio: Int, mes: Int, months: Int = 6): List<MonthlyTrendPoint> =
@@ -36,7 +36,7 @@ class DashboardRepository(context: Context) {
                 cal.add(Calendar.MONTH, offset)
                 val year = cal.get(Calendar.YEAR)
                 val month = cal.get(Calendar.MONTH) + 1
-                val tx = local.listTransacciones(year, month)
+                val tx = local.listTransaccionesEnMonedaBase(year, month)
                 val ingresos = tx.filter { it.isEsIngreso }.sumOf { it.monto }
                 val gastos = tx.filter { !it.isEsIngreso }.sumOf { it.monto }
                 MonthlyTrendPoint().apply {

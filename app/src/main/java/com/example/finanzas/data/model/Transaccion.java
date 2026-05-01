@@ -9,6 +9,7 @@ public class Transaccion {
     private String categoriaNombre;
     private boolean esIngreso;
     private double monto;
+    private String moneda;
     private Date fecha;
     private String nota;
 
@@ -17,11 +18,17 @@ public class Transaccion {
 
     public Transaccion(int id, int categoriaId, String categoriaNombre,
                        boolean esIngreso, double monto, Date fecha, String nota) {
+        this(id, categoriaId, categoriaNombre, esIngreso, monto, "PEN", fecha, nota);
+    }
+
+    public Transaccion(int id, int categoriaId, String categoriaNombre,
+                       boolean esIngreso, double monto, String moneda, Date fecha, String nota) {
         this.id = id;
         this.categoriaId = categoriaId;
         this.categoriaNombre = categoriaNombre;
         this.esIngreso = esIngreso;
         this.monto = monto;
+        this.moneda = moneda == null || moneda.trim().isEmpty() ? "PEN" : moneda;
         this.fecha = fecha;
         this.nota = nota;
     }
@@ -66,6 +73,14 @@ public class Transaccion {
         this.monto = monto;
     }
 
+    public String getMoneda() {
+        return moneda;
+    }
+
+    public void setMoneda(String moneda) {
+        this.moneda = moneda;
+    }
+
     public Date getFecha() {
         return fecha;
     }
@@ -91,6 +106,7 @@ public class Transaccion {
                 ", categoriaNombre='" + categoriaNombre + '\'' +
                 ", esIngreso=" + esIngreso +
                 ", monto=" + monto +
+                ", moneda='" + moneda + '\'' +
                 ", fecha=" + fecha +
                 ", nota='" + nota + '\'' +
                 '}';

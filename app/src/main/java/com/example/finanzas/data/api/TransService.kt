@@ -29,8 +29,18 @@ object TransService {
         monto: Double,
         nota: String,
         fecha: Long
+    ): Int = create(ctx, categoriaId, esIngreso, monto, nota, fecha, SettingsService.getCurrencyCode(ctx))
+
+    suspend fun create(
+        ctx: Context,
+        categoriaId: Long,
+        esIngreso: Boolean,
+        monto: Double,
+        nota: String,
+        fecha: Long,
+        moneda: String
     ): Int = withContext(Dispatchers.IO) {
-        LocalRepository.getInstance(ctx).createTransaccion(categoriaId.toInt(), esIngreso, monto, nota, fecha)
+        LocalRepository.getInstance(ctx).createTransaccion(categoriaId.toInt(), esIngreso, monto, nota, fecha, moneda)
     }
 
     suspend fun update(
@@ -41,9 +51,20 @@ object TransService {
         monto: Double,
         nota: String,
         fecha: Long
+    ): Boolean = update(ctx, id, categoriaId, esIngreso, monto, nota, fecha, SettingsService.getCurrencyCode(ctx))
+
+    suspend fun update(
+        ctx: Context,
+        id: Long,
+        categoriaId: Long,
+        esIngreso: Boolean,
+        monto: Double,
+        nota: String,
+        fecha: Long,
+        moneda: String
     ): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx)
-            .updateTransaccion(id.toInt(), categoriaId.toInt(), esIngreso, monto, nota, fecha)
+            .updateTransaccion(id.toInt(), categoriaId.toInt(), esIngreso, monto, nota, fecha, moneda)
     }
 
     suspend fun delete(ctx: Context, id: Long): Boolean = withContext(Dispatchers.IO) {
@@ -68,8 +89,13 @@ object TransService {
 
     @JvmStatic
     fun create(ctx: Context, categoriaId: Long, esIngreso: Boolean, monto: Double, nota: String, fecha: Long, cb: SimpleCb) {
+        create(ctx, categoriaId, esIngreso, monto, nota, fecha, SettingsService.getCurrencyCode(ctx), cb)
+    }
+
+    @JvmStatic
+    fun create(ctx: Context, categoriaId: Long, esIngreso: Boolean, monto: Double, nota: String, fecha: Long, moneda: String, cb: SimpleCb) {
         scope.launch {
-            runCatching { create(ctx, categoriaId, esIngreso, monto, nota, fecha) }
+            runCatching { create(ctx, categoriaId, esIngreso, monto, nota, fecha, moneda) }
                 .onSuccess(cb::onOk)
                 .onFailure { cb.onError("No se pudo crear") }
         }
@@ -77,8 +103,13 @@ object TransService {
 
     @JvmStatic
     fun update(ctx: Context, id: Long, categoriaId: Long, esIngreso: Boolean, monto: Double, nota: String, fecha: Long, cb: VoidCb) {
+        update(ctx, id, categoriaId, esIngreso, monto, nota, fecha, SettingsService.getCurrencyCode(ctx), cb)
+    }
+
+    @JvmStatic
+    fun update(ctx: Context, id: Long, categoriaId: Long, esIngreso: Boolean, monto: Double, nota: String, fecha: Long, moneda: String, cb: VoidCb) {
         scope.launch {
-            runCatching { update(ctx, id, categoriaId, esIngreso, monto, nota, fecha) }
+            runCatching { update(ctx, id, categoriaId, esIngreso, monto, nota, fecha, moneda) }
                 .onSuccess { if (it) cb.onOk() else cb.onError("No se pudo actualizar") }
                 .onFailure { cb.onError("No se pudo actualizar") }
         }

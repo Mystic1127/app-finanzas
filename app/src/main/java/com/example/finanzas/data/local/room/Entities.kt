@@ -13,9 +13,10 @@ data class UserEntity(
     val password: String
 )
 
-@Entity(tableName = "categorias")
+@Entity(tableName = "categorias", indices = [Index("user_id")])
 data class CategoriaEntity(
     @PrimaryKey val id: Int,
+    @ColumnInfo(name = "user_id", defaultValue = "0") val userId: Int = 0,
     val nombre: String,
     @ColumnInfo(name = "es_ingreso") val esIngreso: Int
 )
@@ -27,6 +28,7 @@ data class TransaccionEntity(
     @ColumnInfo(name = "categoria_id") val categoriaId: Int,
     @ColumnInfo(name = "es_ingreso") val esIngreso: Int,
     val monto: Double,
+    @ColumnInfo(defaultValue = "'PEN'") val moneda: String = "PEN",
     val fecha: Long,
     val nota: String?
 )

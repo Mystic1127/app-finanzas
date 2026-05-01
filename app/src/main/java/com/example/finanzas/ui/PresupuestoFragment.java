@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
@@ -74,6 +75,7 @@ public class PresupuestoFragment extends Fragment {
         btnGuardarCategorias.setOnClickListener(view -> guardarCategorias());
         btnAgregarCategoria.setOnClickListener(view -> crearCategoria());
         UiFormUtils.clearErrorOnTextChange(etPresupuesto, etNuevaCategoria);
+        tilPresupuesto.setPrefixText(SettingsService.getCurrencySymbol(requireContext()) + " ");
 
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setOnRefreshListener(this::recargarDatos);

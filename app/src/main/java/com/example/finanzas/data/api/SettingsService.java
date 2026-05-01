@@ -3,11 +3,10 @@ package com.example.finanzas.data.api;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.Prefs;
 
 import org.json.JSONObject;
-
-import java.util.Locale;
 
 public class SettingsService {
 
@@ -44,10 +43,11 @@ public class SettingsService {
     }
 
     public static String getCurrencySymbol(Context ctx) {
-        String code = getCurrencyCode(ctx);
-        if ("USD".equals(code)) return "$";
-        if ("EUR".equals(code)) return "€";
-        return "S/";
+        return CurrencyConverter.symbol(getCurrencyCode(ctx));
+    }
+
+    public static String getCurrencySymbol(String currencyCode) {
+        return CurrencyConverter.symbol(currencyCode);
     }
 
     public static double getManualRate(Context ctx) {
@@ -130,10 +130,6 @@ public class SettingsService {
     }
 
     private static String normalizeCurrency(String code) {
-        String safe = code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
-        if ("USD".equals(safe) || "EUR".equals(safe) || "PEN".equals(safe)) {
-            return safe;
-        }
-        return "PEN";
+        return CurrencyConverter.normalize(code);
     }
 }

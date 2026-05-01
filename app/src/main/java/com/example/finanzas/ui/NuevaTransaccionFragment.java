@@ -20,6 +20,7 @@ import com.example.finanzas.data.api.SuggestionService;
 import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.Categoria;
+import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
@@ -41,11 +42,12 @@ public class NuevaTransaccionFragment extends Fragment {
     public static final String EXTRA_MONTO      = "EXTRA_MONTO";
     public static final String EXTRA_NOTA       = "EXTRA_NOTA";
     public static final String EXTRA_FECHA      = "EXTRA_FECHA";
+    public static final String EXTRA_MONEDA     = "EXTRA_MONEDA";
 
     private TextInputEditText etMonto, etNota, etFecha;
-    private TextInputLayout tilMonto, tilFecha, tilCategoria;
+    private TextInputLayout tilMonto, tilFecha, tilCategoria, tilMoneda;
     private MaterialSwitch swTipo;
-    private MaterialAutoCompleteTextView actCategoria;
+    private MaterialAutoCompleteTextView actCategoria, actMoneda;
     private MaterialButton btnGuardar;
     private MaterialButton btnSugerir;
     private Chip chipSugerencia;
@@ -74,13 +76,16 @@ public class NuevaTransaccionFragment extends Fragment {
         tilMonto      = v.findViewById(R.id.tilMonto);
         tilFecha      = v.findViewById(R.id.tilFecha);
         tilCategoria  = v.findViewById(R.id.tilCategoria);
+        tilMoneda     = v.findViewById(R.id.tilMoneda);
         etNota        = v.findViewById(R.id.etNota);
         etFecha       = v.findViewById(R.id.etFecha);
         swTipo        = v.findViewById(R.id.swTipo);
         actCategoria  = v.findViewById(R.id.actCategoria);
+        actMoneda     = v.findViewById(R.id.actMoneda);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
         btnSugerir    = v.findViewById(R.id.btnSugerir);
         chipSugerencia = v.findViewById(R.id.chipSugerencia);
+        setupCurrencySelector();
         updateCurrencyPrefix();
 
         if (etFecha != null) UiFormUtils.bindDatePicker(requireContext(), etFecha);
@@ -119,8 +124,28 @@ public class NuevaTransaccionFragment extends Fragment {
 
     private void updateCurrencyPrefix() {
         if (tilMonto != null && getContext() != null) {
-            tilMonto.setPrefixText(SettingsService.getCurrencySymbol(requireContext()) + " ");
+            tilMonto.setPrefixText(SettingsService.getCurrencySymbol(resolveSelectedCurrency()) + " ");
         }
+    }
+
+    private void setupCurrencySelector() {
+        ArrayAdapter<String> currencyAdapter = new ArrayAdapter<>(
+                requireContext(),
+                android.R.layout.simple_list_item_1,
+                CurrencyConverter.supportedCurrencies()
+        );
+        actMoneda.setAdapter(currencyAdapter);
+        actMoneda.setText(SettingsService.getCurrencyCode(requireContext()), false);
+        actMoneda.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actMoneda.showDropDown(); });
+        actMoneda.setOnClickListener(view -> actMoneda.showDropDown());
+        actMoneda.setOnItemClickListener((parent, view, position, id) -> updateCurrencyPrefix());
+    }
+
+    private String resolveSelectedCurrency() {
+        String raw = actMoneda == null || actMoneda.getText() == null
+                ? SettingsService.getCurrencyCode(requireContext())
+                : actMoneda.getText().toString();
+        return CurrencyConverter.normalize(raw);
     }
 
     private void cargarCategoriasYRefrescar() {
@@ -272,6 +297,12 @@ public class NuevaTransaccionFragment extends Fragment {
                 if (etFecha != null) etFecha.setText(UiFormUtils.formatUiDate(new Date(fechaMs)));
             }
 
+            String moneda = args.getString(EXTRA_MONEDA);
+            if (moneda != null && actMoneda != null) {
+                actMoneda.setText(CurrencyConverter.normalize(moneda), false);
+                updateCurrencyPrefix();
+            }
+
             btnGuardar.setText(R.string.btn_guardar);
         } else {
             btnGuardar.setText(R.string.btn_guardar);
@@ -311,6 +342,12 @@ public class NuevaTransaccionFragment extends Fragment {
         }
 
         tilCategoria.setError(null);
+        final String monedaLocal = resolveSelectedCurrency();
+        if (!CurrencyConverter.supportedCurrencies().contains(monedaLocal)) {
+            tilMoneda.setError(getString(R.string.transaction_currency_error));
+            return;
+        }
+        tilMoneda.setError(null);
         final double montoLocal = Math.abs(parseMontoSeguro(sMonto));
         if (montoLocal <= 0) {
             tilMonto.setError(getString(R.string.error_monto_invalido));
@@ -326,7 +363,7 @@ public class NuevaTransaccionFragment extends Fragment {
         UiFormUtils.setActionLoading(btnGuardar, true);
 
         if (editingIdLocal == null || editingIdLocal < 0) {
-            TransService.create(requireContext(), catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs,
+            TransService.create(requireContext(), catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs, monedaLocal,
                     new TransService.SimpleCb() {
                         @Override public void onOk(int newId) {
                             UiFormUtils.setActionLoading(btnGuardar, false);
@@ -344,7 +381,7 @@ public class NuevaTransaccionFragment extends Fragment {
                     });
 
         } else {
-            TransService.update(requireContext(), editingIdLocal, catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs,
+            TransService.update(requireContext(), editingIdLocal, catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs, monedaLocal,
                     new TransService.VoidCb() {
                         @Override public void onOk() {
                             UiFormUtils.setActionLoading(btnGuardar, false);

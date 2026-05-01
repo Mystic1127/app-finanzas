@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -52,6 +53,7 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         CategoryBudgetInput item = items.get(position);
         holder.tvNombre.setText(item.getCategoriaNombre());
         holder.tilMonto.setHint(holder.itemView.getContext().getString(R.string.pres_category_hint, item.getCategoriaNombre()));
+        holder.tilMonto.setPrefixText(SettingsService.getCurrencySymbol(holder.itemView.getContext()) + " ");
 
         if (holder.watcher != null) {
             holder.etMonto.removeTextChangedListener(holder.watcher);

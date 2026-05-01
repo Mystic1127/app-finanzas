@@ -62,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
                 R.id.nav_home,
                 R.id.nav_list,
                 R.id.nav_budget,
+                R.id.nav_reports,
                 R.id.nav_goals,
                 R.id.nav_reminders,
                 R.id.nav_imports,
@@ -137,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
         if (destId == R.id.nav_home
                 || destId == R.id.nav_list
                 || destId == R.id.nav_budget
+                || destId == R.id.nav_reports
                 || destId == R.id.nav_goals
                 || destId == R.id.nav_reminders
                 || destId == R.id.nav_imports

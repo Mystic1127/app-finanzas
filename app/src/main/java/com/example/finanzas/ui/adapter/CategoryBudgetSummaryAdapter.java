@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.CategoryBudgetSummary;
 import com.example.finanzas.util.Format;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
@@ -36,13 +37,14 @@ public class CategoryBudgetSummaryAdapter extends RecyclerView.Adapter<CategoryB
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
         CategoryBudgetSummary item = items.get(position);
+        String currency = SettingsService.getCurrencyCode(holder.itemView.getContext());
         holder.tvNombre.setText(item.getCategoriaNombre());
 
         String detalle = holder.itemView.getContext().getString(
                 R.string.home_budget_detail,
-                Format.money(item.getGastado()),
-                Format.money(item.getLimite()),
-                Format.money(item.getDisponible())
+                Format.money(item.getGastado(), currency),
+                Format.money(item.getLimite(), currency),
+                Format.money(item.getDisponible(), currency)
         );
         holder.tvDetalle.setText(detalle);
 

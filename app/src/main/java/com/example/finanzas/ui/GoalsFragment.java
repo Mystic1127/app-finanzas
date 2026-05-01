@@ -11,6 +11,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.PopupMenu;
+import android.view.ViewParent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -19,6 +20,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.data.model.GoalMilestone;
 import com.example.finanzas.ui.adapter.GoalSummaryAdapter;
@@ -26,6 +28,7 @@ import com.example.finanzas.ui.viewmodel.GoalsViewModel;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONObject;
 
@@ -91,6 +94,7 @@ public class GoalsFragment extends Fragment {
         EditText etActual = form.findViewById(R.id.etGoalActual);
         EditText etFecha = form.findViewById(R.id.etGoalFecha);
 
+        applyCurrencyPrefix(etObjetivo, etActual);
         setupDatePicker(etFecha);
         UiFormUtils.clearErrorOnTextChange(etTitulo, etObjetivo, etActual, etFecha);
 
@@ -195,6 +199,7 @@ public class GoalsFragment extends Fragment {
         SwitchMaterial swNotificar = form.findViewById(R.id.swMilestoneNotificar);
         CheckBox cbCompletado = form.findViewById(R.id.cbMilestoneCompletado);
 
+        applyCurrencyPrefix(etMonto);
         boolean editando = milestone != null;
         if (editando) {
             etTitulo.setText(milestone.getTitulo());
@@ -360,5 +365,18 @@ public class GoalsFragment extends Fragment {
 
     private double parseDecimal(@NonNull String value) {
         return Double.parseDouble(value.trim().replace(',', '.'));
+    }
+
+    private void applyCurrencyPrefix(@NonNull EditText... fields) {
+        String prefix = SettingsService.getCurrencySymbol(requireContext()) + " ";
+        for (EditText field : fields) {
+            ViewParent parent = field.getParent();
+            while (parent != null && !(parent instanceof TextInputLayout)) {
+                parent = parent.getParent();
+            }
+            if (parent instanceof TextInputLayout) {
+                ((TextInputLayout) parent).setPrefixText(prefix);
+            }
+        }
     }
 }

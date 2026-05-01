@@ -75,6 +75,12 @@
         tools:layout="@layout/fragment_presupuesto" />
 
     <fragment
+        android:id="@+id/nav_reports"
+        android:name="com.example.finanzas.ui.ReportsFragment"
+        android:label="@string/reports_title"
+        tools:layout="@layout/fragment_reports" />
+
+    <fragment
         android:id="@+id/nav_goals"
         android:name="com.example.finanzas.ui.GoalsFragment"
         android:label="Metas"
@@ -93,6 +99,12 @@
         tools:layout="@layout/fragment_imports" />
 
     <!-- NUEVA TRANSACCIÓN -->
+    <fragment
+        android:id="@+id/nav_receipt_scan"
+        android:name="com.example.finanzas.ui.ReceiptScanFragment"
+        android:label="@string/receipt_scan_title"
+        tools:layout="@layout/fragment_receipt_scan" />
+
     <fragment
         android:id="@+id/nav_new"
         android:name="com.example.finanzas.ui.NuevaTransaccionFragment"

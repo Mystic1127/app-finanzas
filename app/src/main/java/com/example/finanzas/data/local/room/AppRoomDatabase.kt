@@ -21,7 +21,7 @@ import com.example.finanzas.util.PasswordSecurity
         ImportJobEntity::class,
         ImportRuleEntity::class
     ],
-    version = 5,
+    version = 7,
     exportSchema = false
 )
 abstract class AppRoomDatabase : RoomDatabase() {
@@ -291,16 +291,16 @@ abstract class AppRoomDatabase : RoomDatabase() {
         @JvmStatic
         fun build(context: Context): AppRoomDatabase {
             return Room.databaseBuilder(context, AppRoomDatabase::class.java, "finanzas_local.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        db.execSQL("INSERT INTO categorias (id, nombre, es_ingreso) VALUES (1, 'Salario', 1)")
-                        db.execSQL("INSERT INTO categorias (id, nombre, es_ingreso) VALUES (2, 'Inversión', 1)")
-                        db.execSQL("INSERT INTO categorias (id, nombre, es_ingreso) VALUES (3, 'Alimentación', 0)")
-                        db.execSQL("INSERT INTO categorias (id, nombre, es_ingreso) VALUES (4, 'Vivienda', 0)")
-                        db.execSQL("INSERT INTO categorias (id, nombre, es_ingreso) VALUES (5, 'Transporte', 0)")
-                        db.execSQL("INSERT INTO categorias (id, nombre, es_ingreso) VALUES (6, 'Entretenimiento', 0)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (1, 0, 'Salario', 1)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (2, 0, 'Inversión', 1)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (3, 0, 'Alimentación', 0)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (4, 0, 'Vivienda', 0)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (5, 0, 'Transporte', 0)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (6, 0, 'Entretenimiento', 0)")
                     }
                 })
                 .build()
@@ -310,6 +310,25 @@ abstract class AppRoomDatabase : RoomDatabase() {
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 rebuildUserScopedTables(db)
+            }
+        }
+
+        @JvmStatic
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!hasColumn(db, "transacciones", "moneda")) {
+                    db.execSQL("ALTER TABLE transacciones ADD COLUMN moneda TEXT NOT NULL DEFAULT 'PEN'")
+                }
+            }
+        }
+
+        @JvmStatic
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!hasColumn(db, "categorias", "user_id")) {
+                    db.execSQL("ALTER TABLE categorias ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
+                }
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_categorias_user_id ON categorias(user_id)")
             }
         }
 

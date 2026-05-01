@@ -47,6 +47,7 @@ public class JsonMapper {
             String categoriaNombre = o.optString("categoria_nombre", "");
             boolean esIngreso = safeBool(o, "es_ingreso");
             double monto = safeDouble(o, "monto");
+            String moneda = o.optString("moneda", "PEN");
             String sFecha = o.optString("fecha", "");
             String nota = o.optString("nota", "");
 
@@ -57,6 +58,7 @@ public class JsonMapper {
                     categoriaNombre,
                     esIngreso,
                     Math.abs(monto),
+                    moneda,
                     fecha,
                     nota
             );

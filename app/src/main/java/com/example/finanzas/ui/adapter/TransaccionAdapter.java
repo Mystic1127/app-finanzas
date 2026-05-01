@@ -13,7 +13,6 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.example.finanzas.R;
-import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.util.Format;
 
@@ -49,7 +48,7 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         tvSub.setText(Format.date(t.getFecha()));
 
         double mostrado = t.isEsIngreso() ? t.getMonto() : -t.getMonto();
-        tvMonto.setText(Format.money(mostrado, SettingsService.getCurrencyCode(getContext())));
+        tvMonto.setText(Format.money(mostrado, t.getMoneda()));
 
         int color = ContextCompat.getColor(getContext(), t.isEsIngreso() ? R.color.income : R.color.expense);
         tvMonto.setTextColor(color);

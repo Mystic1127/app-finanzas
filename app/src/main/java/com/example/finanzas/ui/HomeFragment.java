@@ -88,6 +88,18 @@ public class HomeFragment extends Fragment {
     private TextView tvTrendEmpty;
     private TextView tvAlertsEmpty;
     private TextView tvInsightsEmpty;
+    private TextView tvFinancialInsight;
+    private TextView tvFinancialProjection;
+    private TextView tvFinancialAlert;
+    private TextView tvFinancialScore;
+    private TextView tvFinancialScoreExplanation;
+    private TextView tvFinancialScoreTrend;
+    private TextView tvSmartSavingSuggested;
+    private TextView tvSmartSavingGoal;
+    private TextView tvSmartSavingProjection;
+    private TextView tvSmartSavingStatus;
+    private TextView tvRecommendationsPro;
+    private ChipGroup chipRecommendations;
     private PieChart chartCategorias;
     private LineChart chartTrend;
     private ChipGroup chipAlerts;
@@ -130,6 +142,18 @@ public class HomeFragment extends Fragment {
         tvTrendEmpty = v.findViewById(R.id.tvHomeTrendEmpty);
         tvAlertsEmpty = v.findViewById(R.id.tvHomeAlertsEmpty);
         tvInsightsEmpty = v.findViewById(R.id.tvHomeInsightsEmpty);
+        tvFinancialInsight = v.findViewById(R.id.tvFinancialInsight);
+        tvFinancialProjection = v.findViewById(R.id.tvFinancialProjection);
+        tvFinancialAlert = v.findViewById(R.id.tvFinancialAlert);
+        tvFinancialScore = v.findViewById(R.id.tvFinancialScore);
+        tvFinancialScoreExplanation = v.findViewById(R.id.tvFinancialScoreExplanation);
+        tvFinancialScoreTrend = v.findViewById(R.id.tvFinancialScoreTrend);
+        tvSmartSavingSuggested = v.findViewById(R.id.tvSmartSavingSuggested);
+        tvSmartSavingGoal = v.findViewById(R.id.tvSmartSavingGoal);
+        tvSmartSavingProjection = v.findViewById(R.id.tvSmartSavingProjection);
+        tvSmartSavingStatus = v.findViewById(R.id.tvSmartSavingStatus);
+        tvRecommendationsPro = v.findViewById(R.id.tvRecommendationsPro);
+        chipRecommendations = v.findViewById(R.id.chipRecommendations);
         chartCategorias = v.findViewById(R.id.chartHomeCategorias);
         chartTrend = v.findViewById(R.id.chartHomeTrend);
         chipAlerts = v.findViewById(R.id.chipHomeAlerts);
@@ -400,18 +424,80 @@ public class HomeFragment extends Fragment {
 
     private void renderInsights() {
         chipInsights.removeAllViews();
-        ArrayList<String> insights = new ArrayList<>();
-        if (lastSummary != null) {
-            insights.add(financialStateText(lastSummary.getEstadoFinanciero()));
-            insights.add(buildComparisonText(lastSummary));
-            insights.add(buildTopCategoryText(lastSummary));
+        chipInsights.setVisibility(View.GONE);
+
+        if (lastSummary == null) {
+            tvInsightsEmpty.setVisibility(View.VISIBLE);
+            return;
         }
-        for (String insight : latestInsights) {
-            if (insight != null && !insights.contains(insight)) insights.add(insight);
+
+        tvInsightsEmpty.setVisibility(View.GONE);
+        tvFinancialInsight.setText(nonEmpty(lastSummary.getInsightPrincipal(), getString(R.string.home_financial_missing)));
+        tvFinancialProjection.setText(getString(
+                R.string.home_financial_projection_value,
+                Format.money(lastSummary.getProyeccionFinMes(), currencyCode),
+                Format.money(lastSummary.getGastoPromedioDiario(), currencyCode)
+        ));
+        tvFinancialAlert.setText(nonEmpty(lastSummary.getAlertaPrincipal(), getString(R.string.home_alerts_empty)));
+        tvFinancialScore.setText(getString(
+                R.string.home_financial_score_value,
+                lastSummary.getScoreFinanciero(),
+                nonEmpty(lastSummary.getScoreEstado(), getString(R.string.home_financial_score_risk))
+        ));
+        tvFinancialScoreExplanation.setText(nonEmpty(
+                lastSummary.getScoreExplicacion(),
+                getString(R.string.home_financial_missing)
+        ));
+        tvFinancialScoreTrend.setText(nonEmpty(
+                lastSummary.getScoreTendencia(),
+                getString(R.string.home_comparison_no_previous)
+        ));
+        renderSmartSaving(lastSummary);
+    }
+
+    private void renderSmartSaving(@NonNull HomeSummary summary) {
+        if (summary.getAhorroSugerido() > 0) {
+            tvSmartSavingSuggested.setText(getString(
+                    R.string.home_smart_saving_suggested_value,
+                    Format.money(summary.getAhorroSugerido(), currencyCode)
+            ));
+        } else {
+            tvSmartSavingSuggested.setText(nonEmpty(
+                    summary.getAhorroSugeridoMensaje(),
+                    getString(R.string.home_smart_saving_not_recommended)
+            ));
         }
-        tvInsightsEmpty.setVisibility(insights.isEmpty() ? View.VISIBLE : View.GONE);
-        chipInsights.setVisibility(insights.isEmpty() ? View.GONE : View.VISIBLE);
-        for (String insight : insights) addChip(chipInsights, insight, false);
+        tvSmartSavingGoal.setText(nonEmpty(
+                summary.getRecomendacionAhorroMeta(),
+                getString(R.string.home_smart_saving_goal_empty)
+        ));
+        tvSmartSavingProjection.setText(getString(
+                R.string.home_smart_saving_projection_value,
+                Format.money(summary.getSaldo(), currencyCode),
+                Format.money(summary.getGastoProyectado(), currencyCode),
+                Format.money(summary.getProyeccionFinMes(), currencyCode)
+        ));
+        tvSmartSavingStatus.setText(nonEmpty(
+                summary.getEstadoAhorro(),
+                getString(R.string.home_smart_saving_status_adjusted)
+        ));
+        renderRecommendations(summary);
+    }
+
+    private void renderRecommendations(@NonNull HomeSummary summary) {
+        chipRecommendations.removeAllViews();
+        if (!summary.isProUser()) {
+            tvRecommendationsPro.setVisibility(View.VISIBLE);
+            tvRecommendationsPro.setText(R.string.home_pro_locked_recommendations);
+            chipRecommendations.setVisibility(View.GONE);
+            return;
+        }
+
+        ArrayList<String> recommendations = new ArrayList<>(summary.getRecomendacionesInteligentes());
+        tvRecommendationsPro.setVisibility(recommendations.isEmpty() ? View.VISIBLE : View.GONE);
+        tvRecommendationsPro.setText(R.string.home_recommendations_empty);
+        chipRecommendations.setVisibility(recommendations.isEmpty() ? View.GONE : View.VISIBLE);
+        for (String recommendation : recommendations) addChip(chipRecommendations, recommendation, false);
     }
 
     private void addChip(@NonNull ChipGroup group, @Nullable String text, boolean alert) {
@@ -474,6 +560,7 @@ public class HomeFragment extends Fragment {
         root.findViewById(R.id.btnMetas).setOnClickListener(v -> Navigation.findNavController(v).navigate(R.id.nav_goals));
         root.findViewById(R.id.btnRecordatorios).setOnClickListener(v -> Navigation.findNavController(v).navigate(R.id.nav_reminders));
         root.findViewById(R.id.btnImportaciones).setOnClickListener(v -> Navigation.findNavController(v).navigate(R.id.nav_imports));
+        root.findViewById(R.id.btnReceiptScan).setOnClickListener(v -> Navigation.findNavController(v).navigate(R.id.nav_receipt_scan));
         FloatingActionButton fabNueva = root.findViewById(R.id.fabNueva);
         fabNueva.setOnClickListener(v -> Navigation.findNavController(v).navigate(R.id.nav_new));
     }
@@ -578,6 +665,11 @@ public class HomeFragment extends Fragment {
     private String safeLabel(@Nullable String value) {
         String trimmed = value == null ? "" : value.trim();
         return trimmed.isEmpty() ? getString(R.string.home_uncategorized) : trimmed;
+    }
+
+    private String nonEmpty(@Nullable String value, @NonNull String fallback) {
+        String trimmed = value == null ? "" : value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
     }
 
     private static class ModuleDef {

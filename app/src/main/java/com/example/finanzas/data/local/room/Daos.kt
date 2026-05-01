@@ -23,6 +23,9 @@ interface CategoriaDao {
     @Query("SELECT * FROM categorias ORDER BY nombre")
     fun listAll(): List<CategoriaEntity>
 
+    @Query("SELECT * FROM categorias WHERE user_id = 0 OR user_id = :userId ORDER BY nombre")
+    fun listForUser(userId: Int): List<CategoriaEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(entity: CategoriaEntity): Long
 }
@@ -37,6 +40,7 @@ interface TransaccionDao {
         SET categoria_id=:categoriaId,
             es_ingreso=:esIngreso,
             monto=:monto,
+            moneda=:moneda,
             fecha=:fecha,
             nota=:nota
         WHERE id=:id AND user_id=:userId
@@ -48,6 +52,7 @@ interface TransaccionDao {
         categoriaId: Int,
         esIngreso: Int,
         monto: Double,
+        moneda: String,
         fecha: Long,
         nota: String?
     ): Int

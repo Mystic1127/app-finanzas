@@ -6,6 +6,7 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -17,6 +18,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.ui.adapter.ReminderSummaryAdapter;
 import com.example.finanzas.ui.viewmodel.RemindersViewModel;
@@ -25,6 +27,7 @@ import com.example.finanzas.util.ReminderScheduler;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONObject;
 
@@ -90,6 +93,7 @@ public class RemindersFragment extends Fragment {
         EditText etDias = form.findViewById(R.id.etReminderDias);
         MaterialAutoCompleteTextView actFrecuencia = form.findViewById(R.id.actReminderFrecuencia);
         SwitchMaterial swNotificar = form.findViewById(R.id.swReminderNotificar);
+        applyCurrencyPrefix(etMonto);
 
         final String[] freqValues = new String[]{"once", "mensual", "trimestral"};
         String[] freqLabels = new String[]{
@@ -316,5 +320,16 @@ public class RemindersFragment extends Fragment {
             }
         }
         return 0;
+    }
+
+    private void applyCurrencyPrefix(@NonNull EditText field) {
+        String prefix = SettingsService.getCurrencySymbol(requireContext()) + " ";
+        ViewParent parent = field.getParent();
+        while (parent != null && !(parent instanceof TextInputLayout)) {
+            parent = parent.getParent();
+        }
+        if (parent instanceof TextInputLayout) {
+            ((TextInputLayout) parent).setPrefixText(prefix);
+        }
     }
 }

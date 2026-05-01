@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.util.Format;
 import com.google.android.material.button.MaterialButton;
@@ -48,8 +49,9 @@ public class ReminderSummaryAdapter extends RecyclerView.Adapter<ReminderSummary
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
         PaymentReminder item = items.get(position);
+        String currency = SettingsService.getCurrencyCode(holder.itemView.getContext());
         holder.tvTitulo.setText(item.getTitulo());
-        holder.tvMonto.setText(holder.itemView.getContext().getString(R.string.reminder_amount, Format.money(item.getMonto())));
+        holder.tvMonto.setText(holder.itemView.getContext().getString(R.string.reminder_amount, Format.money(item.getMonto(), currency)));
 
         String fechaTexto = Format.date(item.getFechaVencimiento());
         if (!item.isPagado()) {

@@ -1,8 +1,10 @@
 package com.example.finanzas.data.local
 
 import android.content.Context
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.room.*
 import com.example.finanzas.data.model.*
+import com.example.finanzas.util.CurrencyConverter
 import com.example.finanzas.util.PasswordSecurity
 import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +27,29 @@ class LocalRepository private constructor(
         val userId = Prefs.getCurrentUserId(appContext)
         check(userId > 0L && userId <= Int.MAX_VALUE) { "No hay usuario autenticado" }
         return userId.toInt()
+    }
+
+    private fun baseCurrency(): String = SettingsService.getCurrencyCode(appContext)
+
+    private fun manualRate(): Double = SettingsService.getManualRate(appContext)
+
+    private fun convertToBase(amount: Double, currency: String?): Double {
+        val base = baseCurrency()
+        return CurrencyConverter.convert(amount, currency, base, base, manualRate())
+    }
+
+    private fun Transaccion.toBaseCurrencyCopy(): Transaccion {
+        val base = baseCurrency()
+        return Transaccion(
+            id,
+            categoriaId,
+            categoriaNombre,
+            isEsIngreso,
+            convertToBase(monto, moneda),
+            base,
+            fecha,
+            nota
+        )
     }
     companion object {
         private val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -93,12 +118,12 @@ class LocalRepository private constructor(
     suspend fun createCategoria(nombre: String, esIngreso: Boolean): Int = withContext(Dispatchers.IO) {
         val current = db.categoriaDao().listAll()
         val nextId = ((current.maxOfOrNull { it.id } ?: 0) + 1)
-        db.categoriaDao().insert(CategoriaEntity(nextId, nombre, if (esIngreso) 1 else 0))
+        db.categoriaDao().insert(CategoriaEntity(nextId, currentUserId(), nombre, if (esIngreso) 1 else 0))
         nextId
     }
 
     suspend fun listCategorias(): List<Categoria> = withContext(Dispatchers.IO) {
-        db.categoriaDao().listAll().map { Categoria(it.id, it.nombre, it.esIngreso == 1) }
+        db.categoriaDao().listForUser(currentUserId()).map { Categoria(it.id, it.nombre, it.esIngreso == 1) }
     }
 
     suspend fun listTransacciones(anio: Int, mes: Int, filtro: TransaccionFiltro? = null): List<Transaccion> = withContext(Dispatchers.IO) {
@@ -115,7 +140,8 @@ class LocalRepository private constructor(
             if (it.fechaFin != null) end = it.fechaFin!!
         }
 
-        val categorias = db.categoriaDao().listAll().associateBy { it.id }
+        val categorias = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
+        val searchText = filtro?.texto?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.ROOT)
         var list = db.transaccionDao().listAll(currentUserId())
             .asSequence()
             .filter { it.fecha >= start && it.fecha < end }
@@ -127,9 +153,17 @@ class LocalRepository private constructor(
                     categorias[it.categoriaId]?.nombre ?: "",
                     it.esIngreso == 1,
                     it.monto,
+                    CurrencyConverter.normalize(it.moneda),
                     Date(it.fecha),
                     it.nota
                 )
+            }
+            .filter { tx ->
+                searchText == null ||
+                    (tx.nota ?: "").lowercase(Locale.ROOT).contains(searchText) ||
+                    (tx.categoriaNombre ?: "").lowercase(Locale.ROOT).contains(searchText) ||
+                    (if (tx.isEsIngreso) "ingreso" else "gasto").contains(searchText) ||
+                    tx.monto.toString().contains(searchText)
             }
             .toList()
 
@@ -141,22 +175,35 @@ class LocalRepository private constructor(
         if (filtro == null || !filtro.isAscendente) list.reversed() else list
     }
 
-    suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis()): Int = withContext(Dispatchers.IO) {
+    suspend fun listTransaccionesEnMonedaBase(anio: Int, mes: Int, filtro: TransaccionFiltro? = null): List<Transaccion> = withContext(Dispatchers.IO) {
+        listTransacciones(anio, mes, filtro).map { it.toBaseCurrencyCopy() }
+    }
+
+    suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency()): Int = withContext(Dispatchers.IO) {
         require(categoriaId > 0) { "Categoria invalida" }
         require(monto > 0.0) { "Monto invalido" }
         require(fecha > 0L) { "Fecha invalida" }
         db.transaccionDao().insert(
-            TransaccionEntity(userId = currentUserId(), categoriaId = categoriaId, esIngreso = if (esIngreso) 1 else 0, monto = monto, fecha = fecha, nota = nota)
+            TransaccionEntity(
+                userId = currentUserId(),
+                categoriaId = categoriaId,
+                esIngreso = if (esIngreso) 1 else 0,
+                monto = monto,
+                moneda = CurrencyConverter.normalize(moneda),
+                fecha = fecha,
+                nota = nota
+            )
         ).toInt()
     }
 
-    suspend fun updateTransaccion(id: Int, categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long): Boolean = withContext(Dispatchers.IO) {
+    suspend fun updateTransaccion(id: Int, categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long, moneda: String = baseCurrency()): Boolean = withContext(Dispatchers.IO) {
         val updated = db.transaccionDao().updateById(
             id = id,
             userId = currentUserId(),
             categoriaId = categoriaId,
             esIngreso = if (esIngreso) 1 else 0,
             monto = monto,
+            moneda = CurrencyConverter.normalize(moneda),
             fecha = fecha,
             nota = nota
         )
@@ -166,9 +213,9 @@ class LocalRepository private constructor(
     suspend fun deleteTransaccion(id: Int): Boolean = withContext(Dispatchers.IO) { db.transaccionDao().deleteById(id, currentUserId()) > 0 }
 
     suspend fun listTodasTransacciones(): List<Transaccion> = withContext(Dispatchers.IO) {
-        val cats = db.categoriaDao().listAll().associateBy { it.id }
+        val cats = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
         db.transaccionDao().listAll(currentUserId()).sortedByDescending { it.fecha }.map {
-            Transaccion(it.id, it.categoriaId, cats[it.categoriaId]?.nombre ?: "", it.esIngreso == 1, it.monto, Date(it.fecha), it.nota)
+            Transaccion(it.id, it.categoriaId, cats[it.categoriaId]?.nombre ?: "", it.esIngreso == 1, it.monto, CurrencyConverter.normalize(it.moneda), Date(it.fecha), it.nota)
         }
     }
 
@@ -183,13 +230,14 @@ class LocalRepository private constructor(
         val dateDf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val outFile = File(dir, "transacciones-${fileDf.format(Date())}.txt")
 
-        val sb = StringBuilder().append("ID | Fecha | Categoría | Tipo | Monto | Nota\n")
+        val sb = StringBuilder().append("ID | Fecha | Categoría | Tipo | Monto | Moneda | Nota\n")
         transacciones.forEach {
             sb.append(it.id).append(" | ")
                 .append(dateDf.format(it.fecha)).append(" | ")
                 .append(it.categoriaNombre).append(" | ")
                 .append(if (it.isEsIngreso) "Ingreso" else "Gasto").append(" | ")
                 .append(it.monto).append(" | ")
+                .append(it.moneda ?: baseCurrency()).append(" | ")
                 .append(it.nota ?: "").append('\n')
         }
 
@@ -206,7 +254,7 @@ class LocalRepository private constructor(
     }
 
     suspend fun listPresupuestosCategoria(anio: Int, mes: Int): List<CategoryBudgetSummary> = withContext(Dispatchers.IO) {
-        val catNames = db.categoriaDao().listAll().associateBy { it.id }
+        val catNames = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
         val budgets = db.presupuestoCategoriaDao().listByMonth(currentUserId(), anio, mes)
         val out = budgets.map {
             CategoryBudgetSummary().apply {
@@ -227,7 +275,7 @@ class LocalRepository private constructor(
         val gastos = db.transaccionDao().listAll(currentUserId())
             .filter { it.esIngreso == 0 && it.fecha >= start && it.fecha < end }
             .groupBy { it.categoriaId }
-            .mapValues { e -> e.value.sumOf { it.monto } }
+            .mapValues { e -> e.value.sumOf { convertToBase(it.monto, it.moneda) } }
 
         gastos.forEach { (catId, gastado) ->
             var target = out.firstOrNull { it.categoriaId == catId }
@@ -459,7 +507,7 @@ class LocalRepository private constructor(
     suspend fun processImport(id: Int): JSONObject = withContext(Dispatchers.IO) {
         val userId = currentUserId()
         val job = db.importJobDao().findById(id, userId) ?: throw IllegalArgumentException("Importacion no encontrada")
-        val categorias = db.categoriaDao().listAll()
+        val categorias = db.categoriaDao().listForUser(userId)
         val rules = db.importRuleDao().listAll(userId)
         val rows = parseImportRows(job.lineas)
         var procesados = 0
@@ -490,6 +538,7 @@ class LocalRepository private constructor(
                         categoriaId = categoriaId,
                         esIngreso = if (esIngreso) 1 else 0,
                         monto = row.monto,
+                        moneda = baseCurrency(),
                         fecha = row.fecha,
                         nota = nota
                     )
@@ -593,7 +642,7 @@ class LocalRepository private constructor(
         summary.anio = anio
         summary.mes = mes
 
-        val trans = listTransacciones(anio, mes)
+        val trans = listTransaccionesEnMonedaBase(anio, mes)
         val ingresos = trans.filter { it.isEsIngreso }.sumOf { it.monto }
         val gastos = trans.filterNot { it.isEsIngreso }.sumOf { it.monto }
         summary.ingresos = ingresos

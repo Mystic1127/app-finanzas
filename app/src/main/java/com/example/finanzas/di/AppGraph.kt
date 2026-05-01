@@ -6,6 +6,8 @@ import com.example.finanzas.data.repository.DashboardRepository
 import com.example.finanzas.data.repository.GoalRepository
 import com.example.finanzas.data.repository.ReminderRepository
 import com.example.finanzas.data.repository.TransactionRepository
+import com.example.finanzas.domain.usecase.FinancialRecommendationEngine
+import com.example.finanzas.domain.usecase.FinancialDashboardEngine
 import com.example.finanzas.domain.usecase.SmartSpendingAlertUseCase
 
 class AppGraph(context: Context) {
@@ -18,4 +20,6 @@ class AppGraph(context: Context) {
     val reminderRepository by lazy { ReminderRepository(appContext) }
 
     val smartSpendingAlertUseCase by lazy { SmartSpendingAlertUseCase() }
+    val financialRecommendationEngine by lazy { FinancialRecommendationEngine() }
+    val financialDashboardEngine by lazy { FinancialDashboardEngine(appContext, financialRecommendationEngine) }
 }
