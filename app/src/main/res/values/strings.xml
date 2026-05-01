@@ -446,7 +446,7 @@
     <string name="welcome_beta_version">Beta v0.9.0</string>
     <string name="tester_thanks_badge">S</string>
     <string name="tester_thanks_title">Gracias por probar Spendly</string>
-    <string name="tester_thanks_message">Esta es una versi&#243;n beta creada para seguir mejorando la app con ayuda de ustedes.&#10;&#10;Gracias por tomarse el tiempo de probarla, registrar movimientos y avisarme si algo falla o se puede mejorar.&#10;&#10;Espero que les sirva para organizar mejor su dinero mientras sigo puli&#233;ndola.&#10;&#10;Muchas gracias.</string>
+    <string name="tester_thanks_message">Esta es una versi&#243;n beta creada para seguir mejorando la app con ayuda de ustedes.&#10;&#10;Gracias por tomarse el tiempo de probarla, registrar movimientos y avisarme si algo falla o se puede mejorar.&#10;&#10;Espero que les sirva para organizar mejor su dinero mientras sigo puli&#233;ndola.&#10;&#10;Muchas gracias.&#10;&#10;Alejandro C.</string>
     <string name="tester_thanks_action">Entendido</string>
     <string name="perfil_appearance">Apariencia</string>
     <string name="perfil_theme_title">Tema</string>
