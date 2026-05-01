@@ -56,15 +56,15 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:hint="@string/transactions_filter_category"
-            app:endIconMode="dropdown_menu">
+            android:hint="@string/transactions_filter_category">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/actFiltroCategoria"
+                style="@style/Widget.Finanzas.AutoCompleteTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="none" />

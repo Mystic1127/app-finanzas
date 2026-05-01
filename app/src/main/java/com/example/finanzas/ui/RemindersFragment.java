@@ -104,8 +104,8 @@ public class RemindersFragment extends Fragment {
                 getString(R.string.reminder_frequency_monthly),
                 getString(R.string.reminder_frequency_quarterly)
         };
-        ArrayAdapter<String> freqAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, freqLabels);
-        freqAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> freqAdapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, freqLabels);
+        freqAdapter.setDropDownViewResource(R.layout.item_dropdown);
         actFrecuencia.setAdapter(freqAdapter);
         actFrecuencia.setInputType(0);
         actFrecuencia.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actFrecuencia.showDropDown(); });
@@ -340,7 +340,7 @@ public class RemindersFragment extends Fragment {
     private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected) {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 requireContext(),
-                android.R.layout.simple_list_item_1,
+                R.layout.item_dropdown,
                 CurrencyConverter.supportedCurrencies()
         );
         input.setAdapter(adapter);

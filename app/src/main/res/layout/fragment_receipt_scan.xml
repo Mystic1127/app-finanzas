@@ -73,20 +73,19 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilReceiptCurrency"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:hint="@string/transaction_currency"
-            app:endIconMode="dropdown_menu"
             app:hintEnabled="true">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/actReceiptCurrency"
+                style="@style/Widget.Finanzas.AutoCompleteTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none"
-                android:minHeight="48dp" />
+                android:inputType="none" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -109,20 +108,19 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilReceiptCategory"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:hint="@string/hint_categoria"
-            app:endIconMode="dropdown_menu"
             app:hintEnabled="true">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/actReceiptCategory"
+                style="@style/Widget.Finanzas.AutoCompleteTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none"
-                android:minHeight="48dp" />
+                android:inputType="none" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout

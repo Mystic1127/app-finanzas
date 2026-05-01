@@ -110,7 +110,7 @@ public class ReceiptScanFragment extends Fragment {
     private void setupCurrencySelector() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 requireContext(),
-                android.R.layout.simple_list_item_1,
+                R.layout.item_dropdown,
                 CurrencyConverter.supportedCurrencies()
         );
         actCurrency.setAdapter(adapter);
@@ -138,7 +138,7 @@ public class ReceiptScanFragment extends Fragment {
                         names.add(category.nombre);
                     }
                 }
-                actCategory.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, names));
+                actCategory.setAdapter(new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, names));
             }
 
             @Override

@@ -44,15 +44,15 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:hint="@string/goal_field_currency"
-                    app:endIconMode="dropdown_menu">
+                    android:hint="@string/goal_field_currency">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/actReminderMoneda"
+                        style="@style/Widget.Finanzas.AutoCompleteTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="none" />
@@ -129,14 +129,14 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilReminderFrecuencia"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/reminder_field_frequency"
-                    app:endIconMode="dropdown_menu">
+                    android:hint="@string/reminder_field_frequency">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
                         android:id="@+id/actReminderFrecuencia"
+                        style="@style/Widget.Finanzas.AutoCompleteTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="none" />

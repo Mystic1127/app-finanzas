@@ -228,7 +228,7 @@ public class ListaTransaccionesFragment extends Fragment {
         UiFormUtils.bindDatePicker(requireContext(), etFin);
         UiFormUtils.clearErrorOnTextChange(etTexto, etInicio, etFin);
 
-        ArrayAdapter<String> catAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>());
+        ArrayAdapter<String> catAdapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, new ArrayList<>());
         actCategoria.setAdapter(catAdapter);
 
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {

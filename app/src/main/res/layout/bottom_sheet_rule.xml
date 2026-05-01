@@ -56,18 +56,18 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilRuleCategory"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"
+            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            app:endIconMode="dropdown_menu"
+            android:hint="@string/import_rule_field_category"
             app:hintEnabled="true">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/actRuleCategory"
+                style="@style/Widget.Finanzas.AutoCompleteTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/import_rule_field_category"
                 android:inputType="none" />
         </com.google.android.material.textfield.TextInputLayout>
 

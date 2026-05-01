@@ -117,12 +117,26 @@
         <item name="boxCornerRadiusBottomEnd">16dp</item>
     </style>
 
+    <style name="Widget.Finanzas.TextInputLayout.Dropdown" parent="Widget.Finanzas.TextInputLayout">
+        <item name="android:minHeight">64dp</item>
+        <item name="endIconMode">dropdown_menu</item>
+        <item name="endIconTint">@color/md_theme_onSurfaceVariant</item>
+        <item name="hintTextColor">@color/md_theme_onSurfaceVariant</item>
+    </style>
+
     <style name="Widget.Finanzas.AutoCompleteTextView" parent="">
-        <item name="android:minHeight">48dp</item>
+        <item name="android:minHeight">56dp</item>
         <item name="android:paddingStart">16dp</item>
         <item name="android:paddingEnd">48dp</item>
+        <item name="android:paddingTop">18dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:singleLine">true</item>
         <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="android:textColorHint">?attr/colorOnSurfaceVariant</item>
+        <item name="android:popupBackground">@drawable/bg_dropdown_popup</item>
+        <item name="simpleItemSelectedColor">@color/md_theme_primaryContainer</item>
+        <item name="simpleItemSelectedRippleColor">@color/md_theme_secondaryContainer</item>
     </style>
 
     <style name="Widget.Finanzas.Card" parent="Widget.Material3.CardView.Filled">

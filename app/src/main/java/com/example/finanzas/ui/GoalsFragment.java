@@ -392,7 +392,7 @@ public class GoalsFragment extends Fragment {
     private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected, @NonNull EditText... amountFields) {
         android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
                 requireContext(),
-                android.R.layout.simple_list_item_1,
+                R.layout.item_dropdown,
                 CurrencyConverter.supportedCurrencies()
         );
         input.setAdapter(adapter);

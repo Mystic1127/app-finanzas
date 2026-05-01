@@ -157,7 +157,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         MaterialButton btnCancel = content.findViewById(R.id.btnImportCancel);
         MaterialButton btnCreate = content.findViewById(R.id.btnImportCreate);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1,
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown,
                 getResources().getStringArray(R.array.import_type_entries));
         actTipo.setAdapter(adapter);
         actTipo.setText(getString(R.string.import_type_csv), false);
@@ -276,14 +276,14 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         MaterialButton btnSave = content.findViewById(R.id.btnRuleSave);
         tvTitle.setText(existing == null ? R.string.import_rule_new_title : R.string.import_rule_edit_title);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1,
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown,
                 buildCategoriaLabels(false));
         actCategoria.setAdapter(adapter);
         actCategoria.setOnClickListener(v -> actCategoria.showDropDown());
         actCategoria.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
 
         swTipo.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            ArrayAdapter<String> nuevo = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1,
+            ArrayAdapter<String> nuevo = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown,
                     buildCategoriaLabels(isChecked));
             actCategoria.setAdapter(nuevo);
             actCategoria.setText("", false);

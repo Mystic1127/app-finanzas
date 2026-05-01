@@ -105,7 +105,7 @@ public class NuevaTransaccionFragment extends Fragment {
         actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
         actCategoria.setOnClickListener(view -> actCategoria.showDropDown());
 
-        catAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_list_item_1, new ArrayList<>());
+        catAdapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, new ArrayList<>());
         actCategoria.setAdapter(catAdapter);
 
         swTipo.setOnCheckedChangeListener(switchListener);
@@ -145,7 +145,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private void setupCurrencySelector() {
         ArrayAdapter<String> currencyAdapter = new ArrayAdapter<>(
                 requireContext(),
-                android.R.layout.simple_list_item_1,
+                R.layout.item_dropdown,
                 CurrencyConverter.supportedCurrencies()
         );
         actMoneda.setAdapter(currencyAdapter);
@@ -165,7 +165,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private void setupAccountTypeSelector() {
         ArrayAdapter<String> accountAdapter = new ArrayAdapter<>(
                 requireContext(),
-                android.R.layout.simple_list_item_1,
+                R.layout.item_dropdown,
                 new String[]{getString(R.string.transaction_account_cash), getString(R.string.transaction_account_card)}
         );
         actAccountType.setAdapter(accountAdapter);

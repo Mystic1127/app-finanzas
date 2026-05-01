@@ -40,18 +40,18 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilImportType"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"
+            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            app:endIconMode="dropdown_menu"
+            android:hint="@string/import_field_type"
             app:hintEnabled="true">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/actImportType"
+                style="@style/Widget.Finanzas.AutoCompleteTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/import_field_type"
                 android:inputType="none" />
         </com.google.android.material.textfield.TextInputLayout>
 

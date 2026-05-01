@@ -203,7 +203,7 @@ public class PresupuestoFragment extends Fragment {
     private void setupCurrencySelector() {
         android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
                 requireContext(),
-                android.R.layout.simple_list_item_1,
+                R.layout.item_dropdown,
                 CurrencyConverter.supportedCurrencies()
         );
         actPresupuestoMoneda.setAdapter(adapter);
