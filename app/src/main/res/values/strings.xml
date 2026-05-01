@@ -88,6 +88,18 @@
     <string name="home_smart_saving_goal_empty">Crea una meta para recibir recomendaciones de ahorro</string>
     <string name="home_smart_saving_projection_value">Saldo actual real: %1$s. Gasto proyectado: %2$s. Saldo final estimado: %3$s</string>
     <string name="home_smart_saving_status_adjusted">Ajustado</string>
+    <string name="home_weekly_plan_title">Plan semanal</string>
+    <string name="home_weekly_plan_amount">Puedes gastar hasta %1$s esta semana</string>
+    <string name="home_weekly_plan_minimum">Esta semana conviene gastar lo mínimo posible</string>
+    <string name="home_weekly_plan_empty_hint">Registra algunos movimientos para mejorar tu plan semanal.</string>
+    <string name="home_weekly_plan_detail_action">Ver plan</string>
+    <string name="home_weekly_plan_state_caution">Cuidado</string>
+    <string name="home_weekly_plan_detail_available">Disponible recomendado: %1$s</string>
+    <string name="home_weekly_plan_detail_basics">Saldo actual real: %1$s\nBalance mensual: %2$s\nEstado: %3$s</string>
+    <string name="home_weekly_plan_daily">Gasto diario recomendado: %1$s</string>
+    <string name="home_weekly_plan_distribution_title">Distribución sugerida por categorías</string>
+    <string name="home_weekly_plan_category_value">%1$s: %2$s</string>
+    <string name="home_weekly_plan_confidence_default">Plan basado en tus movimientos, presupuesto y saldo actual.</string>
     <string name="home_recommendations_title">Recomendaciones inteligentes</string>
     <string name="home_pro_locked_recommendations">Disponible en Pro: activa funciones avanzadas para ver recomendaciones accionables y escaneo de recibos.</string>
     <string name="home_recommendations_empty">Aún no hay recomendaciones suficientes.</string>
@@ -446,7 +458,7 @@
     <string name="welcome_beta_version">Beta v0.9.0</string>
     <string name="tester_thanks_badge">S</string>
     <string name="tester_thanks_title">Gracias por probar Spendly</string>
-    <string name="tester_thanks_message">Esta es una versi&#243;n beta creada para seguir mejorando la app con ayuda de ustedes.&#10;&#10;Gracias por tomarse el tiempo de probarla, registrar movimientos y avisarme si algo falla o se puede mejorar.&#10;&#10;Espero que les sirva para organizar mejor su dinero mientras sigo puli&#233;ndola.&#10;&#10;Muchas gracias.</string>
+    <string name="tester_thanks_message">Esta es una versi&#243;n beta creada para seguir mejorando la app con ayuda de ustedes.&#10;&#10;Gracias por tomarse el tiempo de probarla, registrar movimientos y avisarme si algo falla o se puede mejorar.&#10;&#10;Espero que les sirva para organizar mejor su dinero mientras sigo puli&#233;ndola.&#10;&#10;Muchas gracias.&#10;&#10;Alejandro C.E.</string>
     <string name="tester_thanks_action">Entendido</string>
     <string name="perfil_appearance">Apariencia</string>
     <string name="perfil_theme_title">Tema</string>

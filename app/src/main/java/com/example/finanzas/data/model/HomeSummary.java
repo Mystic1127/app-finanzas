@@ -43,6 +43,7 @@ public class HomeSummary {
     private String ahorroSugeridoMensaje;
     private String recomendacionAhorroMeta;
     private String estadoAhorro;
+    private WeeklyPlanSummary weeklyPlan;
     private boolean proUser;
     private final List<CategoryBudgetSummary> presupuestosCategoria = new ArrayList<>();
     private final List<SavingsGoal> metas = new ArrayList<>();
@@ -177,6 +178,9 @@ public class HomeSummary {
 
     public String getEstadoAhorro() { return estadoAhorro; }
     public void setEstadoAhorro(String estadoAhorro) { this.estadoAhorro = estadoAhorro; }
+
+    public WeeklyPlanSummary getWeeklyPlan() { return weeklyPlan; }
+    public void setWeeklyPlan(WeeklyPlanSummary weeklyPlan) { this.weeklyPlan = weeklyPlan; }
 
     public boolean isProUser() { return proUser; }
     public boolean getProUser() { return proUser; }

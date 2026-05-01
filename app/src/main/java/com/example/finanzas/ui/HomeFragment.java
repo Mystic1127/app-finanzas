@@ -26,6 +26,8 @@ import com.example.finanzas.data.model.CategoryChartSlice;
 import com.example.finanzas.data.model.DashboardModulePref;
 import com.example.finanzas.data.model.HomeSummary;
 import com.example.finanzas.data.model.MonthlyTrendPoint;
+import com.example.finanzas.data.model.WeeklyPlanCategory;
+import com.example.finanzas.data.model.WeeklyPlanSummary;
 import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
@@ -47,6 +49,7 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
@@ -101,6 +104,12 @@ public class HomeFragment extends Fragment {
     private TextView tvSmartSavingGoal;
     private TextView tvSmartSavingProjection;
     private TextView tvSmartSavingStatus;
+    private TextView tvWeeklyPlanTitle;
+    private View cardWeeklyPlan;
+    private TextView tvWeeklyPlanStatus;
+    private TextView tvWeeklyPlanAmount;
+    private TextView tvWeeklyPlanMessage;
+    private MaterialButton btnWeeklyPlanDetail;
     private TextView tvRecommendationsPro;
     private ChipGroup chipRecommendations;
     private PieChart chartCategorias;
@@ -163,6 +172,12 @@ public class HomeFragment extends Fragment {
         tvSmartSavingGoal = v.findViewById(R.id.tvSmartSavingGoal);
         tvSmartSavingProjection = v.findViewById(R.id.tvSmartSavingProjection);
         tvSmartSavingStatus = v.findViewById(R.id.tvSmartSavingStatus);
+        tvWeeklyPlanTitle = v.findViewById(R.id.tvWeeklyPlanTitle);
+        cardWeeklyPlan = v.findViewById(R.id.cardWeeklyPlan);
+        tvWeeklyPlanStatus = v.findViewById(R.id.tvWeeklyPlanStatus);
+        tvWeeklyPlanAmount = v.findViewById(R.id.tvWeeklyPlanAmount);
+        tvWeeklyPlanMessage = v.findViewById(R.id.tvWeeklyPlanMessage);
+        btnWeeklyPlanDetail = v.findViewById(R.id.btnWeeklyPlanDetail);
         tvRecommendationsPro = v.findViewById(R.id.tvRecommendationsPro);
         chipRecommendations = v.findViewById(R.id.chipRecommendations);
         chartCategorias = v.findViewById(R.id.chartHomeCategorias);
@@ -177,6 +192,7 @@ public class HomeFragment extends Fragment {
         setupMenu();
         setupCharts();
         setupNavigation(v);
+        btnWeeklyPlanDetail.setOnClickListener(view -> showWeeklyPlanDialog());
         swipe.setOnRefreshListener(() -> {
             manualRefresh = true;
             cargarResumen(true);
@@ -489,6 +505,7 @@ public class HomeFragment extends Fragment {
                 lastSummary.getScoreTendencia(),
                 getString(R.string.home_comparison_no_previous)
         ));
+        renderWeeklyPlan(lastSummary.getWeeklyPlan());
         renderSmartSaving(lastSummary);
     }
 
@@ -529,6 +546,85 @@ public class HomeFragment extends Fragment {
                 getString(R.string.home_smart_saving_status_adjusted)
         ));
         renderRecommendations(summary);
+    }
+
+    private void renderWeeklyPlan(@Nullable WeeklyPlanSummary plan) {
+        if (cardWeeklyPlan == null) return;
+        if (plan == null) {
+            cardWeeklyPlan.setVisibility(View.GONE);
+            if (tvWeeklyPlanTitle != null) tvWeeklyPlanTitle.setVisibility(View.GONE);
+            return;
+        }
+        if (tvWeeklyPlanTitle != null) tvWeeklyPlanTitle.setVisibility(View.VISIBLE);
+        cardWeeklyPlan.setVisibility(View.VISIBLE);
+        tvWeeklyPlanStatus.setText(nonEmpty(plan.getEstado(), getString(R.string.home_weekly_plan_state_caution)));
+        tvWeeklyPlanStatus.setTextColor(weeklyPlanStateColor(plan.getEstado()));
+        if (plan.getMontoSemanal() > 0.0) {
+            tvWeeklyPlanAmount.setText(getString(
+                    R.string.home_weekly_plan_amount,
+                    Format.money(plan.getMontoSemanal(), currencyCode)
+            ));
+        } else {
+            tvWeeklyPlanAmount.setText(R.string.home_weekly_plan_minimum);
+        }
+        tvWeeklyPlanMessage.setText(nonEmpty(plan.getMensaje(), getString(R.string.home_weekly_plan_empty_hint)));
+    }
+
+    private int weeklyPlanStateColor(@Nullable String state) {
+        if ("Ajustado".equalsIgnoreCase(state)) {
+            return ContextCompat.getColor(requireContext(), R.color.risk_high_text);
+        }
+        if ("Cuidado".equalsIgnoreCase(state)) {
+            return ContextCompat.getColor(requireContext(), R.color.risk_medium_text);
+        }
+        return ContextCompat.getColor(requireContext(), R.color.income);
+    }
+
+    private void showWeeklyPlanDialog() {
+        if (lastSummary == null || lastSummary.getWeeklyPlan() == null || !isAdded()) return;
+        WeeklyPlanSummary plan = lastSummary.getWeeklyPlan();
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_weekly_plan, null, false);
+        TextView tvAvailable = content.findViewById(R.id.tvWeeklyPlanDetailAvailable);
+        TextView tvBasics = content.findViewById(R.id.tvWeeklyPlanDetailBasics);
+        TextView tvDaily = content.findViewById(R.id.tvWeeklyPlanDetailDaily);
+        TextView tvPreliminary = content.findViewById(R.id.tvWeeklyPlanPreliminary);
+        ChipGroup chipCategories = content.findViewById(R.id.chipWeeklyPlanCategories);
+        ChipGroup chipWarnings = content.findViewById(R.id.chipWeeklyPlanWarnings);
+
+        tvAvailable.setText(plan.getMontoSemanal() > 0.0
+                ? getString(R.string.home_weekly_plan_detail_available, Format.money(plan.getMontoSemanal(), currencyCode))
+                : getString(R.string.home_weekly_plan_minimum));
+        tvBasics.setText(getString(
+                R.string.home_weekly_plan_detail_basics,
+                Format.money(plan.getSaldoActual(), currencyCode),
+                Format.money(plan.getBalanceMensual(), currencyCode),
+                nonEmpty(plan.getEstado(), getString(R.string.home_weekly_plan_state_caution))
+        ));
+        tvDaily.setText(getString(
+                R.string.home_weekly_plan_daily,
+                Format.money(plan.getGastoDiario(), currencyCode)
+        ));
+        tvPreliminary.setText(nonEmpty(plan.getDetalleConfianza(), getString(R.string.home_weekly_plan_confidence_default)));
+
+        chipCategories.removeAllViews();
+        for (WeeklyPlanCategory category : plan.getCategorias()) {
+            if (category == null) continue;
+            String name = safeLabel(category.getNombre());
+            String label = getString(R.string.home_weekly_plan_category_value, name, Format.money(category.getMonto(), currencyCode));
+            addChip(chipCategories, label, category.isLimitadoPorPresupuesto());
+        }
+
+        chipWarnings.removeAllViews();
+        for (String warning : plan.getAdvertencias()) {
+            addChip(chipWarnings, warning, true);
+        }
+        chipWarnings.setVisibility(plan.getAdvertencias().isEmpty() ? View.GONE : View.VISIBLE);
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.home_weekly_plan_title)
+                .setView(content)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void renderRecommendations(@NonNull HomeSummary summary) {
@@ -630,7 +726,7 @@ public class HomeFragment extends Fragment {
         setVisible(moduleCategory, hasData && isModuleVisible(MODULE_CATEGORY));
         setVisible(moduleTrend, hasData && isModuleVisible(MODULE_TREND));
         setVisible(moduleAlerts, hasData && isModuleVisible(MODULE_ALERTS));
-        setVisible(moduleInsights, hasData && isModuleVisible(MODULE_INSIGHTS));
+        setVisible(moduleInsights, isModuleVisible(MODULE_INSIGHTS));
         setVisible(moduleQuick, isModuleVisible(MODULE_QUICK));
     }
 

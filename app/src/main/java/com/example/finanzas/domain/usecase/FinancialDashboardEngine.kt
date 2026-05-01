@@ -206,6 +206,7 @@ class FinancialDashboardEngine(
         summary.scoreFinanciero = analysis.score
         summary.scoreEstado = analysis.scoreState
         summary.scoreExplicacion = analysis.scoreExplanation
+        summary.weeklyPlan = WeeklyPlanRules.build(summary, currentTx)
     }
 
     private fun applySmartSavings(
