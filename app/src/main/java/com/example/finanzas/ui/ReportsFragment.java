@@ -23,6 +23,7 @@ import com.example.finanzas.data.model.MonthlyTrendPoint;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.ui.viewmodel.ReportsViewModel;
 import com.example.finanzas.util.Format;
+import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 
@@ -40,6 +41,10 @@ public class ReportsFragment extends Fragment {
     private TextView tvTrend;
     private TextView tvTransactions;
     private ReportsViewModel viewModel;
+    private boolean manualRefresh;
+    private long perfStartMs;
+    private long loadStartMs;
+    private boolean firstRenderLogged;
 
     @Nullable
     @Override
@@ -51,6 +56,8 @@ public class ReportsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        perfStartMs = PerfLogger.now();
+        firstRenderLogged = false;
         swipe = view.findViewById(R.id.swipeReports);
         progress = view.findViewById(R.id.progressReports);
         tvEmpty = view.findViewById(R.id.tvReportsEmpty);
@@ -62,23 +69,41 @@ public class ReportsFragment extends Fragment {
         tvTransactions = view.findViewById(R.id.tvReportTransactions);
         MaterialButton btnExport = view.findViewById(R.id.btnExportReportPdf);
 
-        viewModel = new ViewModelProvider(this).get(ReportsViewModel.class);
-        swipe.setOnRefreshListener(() -> viewModel.loadCurrentMonth());
+        viewModel = new ViewModelProvider(requireActivity()).get(ReportsViewModel.class);
+        viewModel.clearCacheIfUserChanged();
+        swipe.setOnRefreshListener(() -> {
+            manualRefresh = true;
+            loadStartMs = PerfLogger.now();
+            PerfLogger.log("ReportsFragment", "loadStart force=true");
+            viewModel.loadCurrentMonth(true);
+        });
         btnExport.setOnClickListener(v -> viewModel.exportPdf());
+        FinancialReport cachedReport = viewModel.getReport().getValue();
+        if (cachedReport != null) {
+            render(cachedReport);
+        }
         observeViewModel();
+        PerfLogger.logSince("ReportsFragment", "onViewCreated", perfStartMs);
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        loadStartMs = PerfLogger.now();
+        PerfLogger.log("ReportsFragment", "loadStart");
         viewModel.loadCurrentMonth();
     }
 
     private void observeViewModel() {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             boolean active = Boolean.TRUE.equals(loading);
-            if (progress != null) progress.setVisibility(active ? View.VISIBLE : View.GONE);
-            if (swipe != null) swipe.setRefreshing(active);
+            boolean hasReport = viewModel.getReport().getValue() != null;
+            if (progress != null) progress.setVisibility(active && !hasReport ? View.VISIBLE : View.GONE);
+            if (swipe != null) swipe.setRefreshing(active && manualRefresh);
+            if (!active) {
+                PerfLogger.logSince("ReportsFragment", "loadComplete", loadStartMs);
+                manualRefresh = false;
+            }
         });
         viewModel.getReport().observe(getViewLifecycleOwner(), report -> {
             if (report != null) render(report);
@@ -99,6 +124,10 @@ public class ReportsFragment extends Fragment {
     }
 
     private void render(@NonNull FinancialReport report) {
+        if (!firstRenderLogged) {
+            firstRenderLogged = true;
+            PerfLogger.logSince("ReportsFragment", "firstRender", perfStartMs);
+        }
         String currency = report.getCurrencyCode();
         tvEmpty.setVisibility(report.getHasData() ? View.GONE : View.VISIBLE);
         tvPeriod.setText(report.getMonthLabel());

@@ -6,10 +6,13 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.finanzas.data.api.SettingsService
+import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.FinancialReport
 import com.example.finanzas.di.AppGraph
 import com.example.finanzas.util.Format
 import com.example.finanzas.util.MonthlyReportPdfExporter
+import com.example.finanzas.util.PerfLogger
+import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,13 +35,29 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
 
-    fun loadCurrentMonth() {
+    private var loadedYear = 0
+    private var loadedMonth = 0
+    private var loadedVersion = -1L
+    private var loadedUserId = -1L
+
+    @JvmOverloads
+    fun loadCurrentMonth(force: Boolean = false) {
         val cal = Calendar.getInstance()
-        load(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
+        load(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, force)
     }
 
-    fun load(anio: Int, mes: Int) {
-        _loading.value = true
+    @JvmOverloads
+    fun load(anio: Int, mes: Int, force: Boolean = false) {
+        clearCacheIfUserChanged()
+        val loadStart = PerfLogger.now()
+        PerfLogger.log("ReportsFragment", "loadStart year=$anio month=$mes force=$force")
+        val version = LocalRepository.getDataVersion()
+        val userId = Prefs.getCurrentUserId(getApplication())
+        if (!force && loadedVersion >= 0 && loadedUserId == userId && loadedYear == anio && loadedMonth == mes && loadedVersion == version) {
+            PerfLogger.logSince("ReportsFragment", "loadCacheHit", loadStart)
+            return
+        }
+        _loading.value = loadedVersion < 0 || force
         viewModelScope.launch {
             runCatching {
                 val previousCal = Calendar.getInstance().apply {
@@ -105,8 +124,15 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                     monthLabel = Format.monthYear(anio, mes)
                 )
             }
-                .onSuccess { _report.value = it }
+                .onSuccess {
+                    loadedUserId = userId
+                    loadedYear = anio
+                    loadedMonth = mes
+                    loadedVersion = LocalRepository.getDataVersion()
+                    _report.value = it
+                }
                 .onFailure { _error.value = it.message }
+            PerfLogger.logSince("ReportsFragment", "loadComplete", loadStart)
             _loading.value = false
         }
     }
@@ -125,5 +151,23 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 .onFailure { _error.value = it.message ?: "No se pudo generar el PDF" }
             _loading.value = false
         }
+    }
+
+    fun clearCacheIfUserChanged() {
+        val currentUserId = Prefs.getCurrentUserId(getApplication())
+        if (loadedUserId > 0 && loadedUserId != currentUserId) {
+            clearCache()
+        }
+    }
+
+    fun clearCache() {
+        loadedUserId = -1L
+        loadedYear = 0
+        loadedMonth = 0
+        loadedVersion = -1L
+        graph.dashboardRepository.clearCache()
+        _report.value = null
+        _pdfPath.value = null
+        _loading.value = false
     }
 }

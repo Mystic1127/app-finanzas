@@ -20,6 +20,7 @@ import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 import com.example.finanzas.util.CurrencyConverter;
+import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.snackbar.Snackbar;
@@ -43,6 +44,10 @@ public class PresupuestoFragment extends Fragment {
     private int anio;
     private int mes;
     private BudgetViewModel viewModel;
+    private boolean manualRefresh;
+    private long perfStartMs;
+    private long loadStartMs;
+    private boolean firstRenderLogged;
 
     @Nullable
     @Override
@@ -54,6 +59,8 @@ public class PresupuestoFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        perfStartMs = PerfLogger.now();
+        firstRenderLogged = false;
 
         etPresupuesto = v.findViewById(R.id.etPresupuesto);
         etNuevaCategoria = v.findViewById(R.id.etNuevaCategoria);
@@ -69,7 +76,8 @@ public class PresupuestoFragment extends Fragment {
         rvCategory.setLayoutManager(new LinearLayoutManager(requireContext()));
         categoryAdapter = new CategoryBudgetEditAdapter();
         rvCategory.setAdapter(categoryAdapter);
-        viewModel = new ViewModelProvider(this).get(BudgetViewModel.class);
+        viewModel = new ViewModelProvider(requireActivity()).get(BudgetViewModel.class);
+        viewModel.clearCacheIfUserChanged();
 
         Calendar cal = Calendar.getInstance();
         anio = cal.get(Calendar.YEAR);
@@ -83,15 +91,21 @@ public class PresupuestoFragment extends Fragment {
         setupCurrencySelector();
 
         if (swipeRefreshLayout != null) {
-            swipeRefreshLayout.setOnRefreshListener(this::recargarDatos);
+            swipeRefreshLayout.setOnRefreshListener(() -> {
+                manualRefresh = true;
+                recargarDatos();
+            });
         }
         observeViewModel();
 
         recargarDatos();
+        PerfLogger.logSince("PresupuestoFragment", "onViewCreated", perfStartMs);
     }
 
     private void recargarDatos() {
-        viewModel.load(anio, mes);
+        loadStartMs = PerfLogger.now();
+        PerfLogger.log("PresupuestoFragment", "loadStart");
+        viewModel.load(anio, mes, manualRefresh);
     }
 
     private void guardarPresupuesto() {
@@ -135,15 +149,23 @@ public class PresupuestoFragment extends Fragment {
     private void observeViewModel() {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             boolean isLoading = Boolean.TRUE.equals(loading);
-            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(isLoading);
+            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(isLoading && manualRefresh);
             UiFormUtils.setActionLoading(btnGuardarPresupuesto, isLoading);
             UiFormUtils.setActionLoading(btnGuardarCategorias, isLoading);
             UiFormUtils.setActionLoading(btnAgregarCategoria, isLoading);
+            if (!isLoading) {
+                PerfLogger.logSince("PresupuestoFragment", "loadComplete", loadStartMs);
+                manualRefresh = false;
+            }
         });
         viewModel.getBudget().observe(getViewLifecycleOwner(), monto -> {
             if (monto != null) etPresupuesto.setText(String.valueOf(monto));
         });
         viewModel.getCategoryBudgets().observe(getViewLifecycleOwner(), items -> {
+            if (!firstRenderLogged) {
+                firstRenderLogged = true;
+                PerfLogger.logSince("PresupuestoFragment", "firstRender", perfStartMs);
+            }
             if (items != null) {
                 categoryAdapter.setItems(items);
                 etNuevaCategoria.setText("");

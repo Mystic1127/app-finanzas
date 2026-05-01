@@ -59,4 +59,5 @@
     <color name="alert_surface">#FFF6F7</color>
     <color name="forecast_gradient_start">#E7F4ED</color>
     <color name="forecast_gradient_end">#F3FAF5</color>
+    <color name="drawer_scrim">#33000000</color>
 </resources>

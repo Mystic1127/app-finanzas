@@ -30,7 +30,7 @@
         <!-- Fondo global -->
         <item name="android:colorBackground">@color/md_theme_background</item>
         <item name="colorOnBackground">@color/md_theme_onBackground</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@color/md_theme_background</item>
         <item name="android:navigationBarColor">@color/md_theme_background</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
@@ -43,6 +43,8 @@
         <item name="materialButtonStyle">@style/Widget.Finanzas.Button</item>
         <item name="materialCardViewStyle">@style/Widget.Finanzas.Card</item>
         <item name="textInputStyle">@style/Widget.Finanzas.TextInputLayout</item>
+        <item name="autoCompleteTextViewStyle">@style/Widget.Finanzas.AutoCompleteTextView</item>
+        <item name="android:autoCompleteTextViewStyle">@style/Widget.Finanzas.AutoCompleteTextView</item>
         <item name="chipStyle">@style/Widget.Finanzas.Chip</item>
         <item name="android:textViewStyle">@style/Widget.Finanzas.TextView</item>
         <item name="toolbarStyle">@style/Widget.Finanzas.Toolbar</item>
@@ -113,6 +115,14 @@
         <item name="boxCornerRadiusTopEnd">16dp</item>
         <item name="boxCornerRadiusBottomStart">16dp</item>
         <item name="boxCornerRadiusBottomEnd">16dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.AutoCompleteTextView" parent="">
+        <item name="android:minHeight">48dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">48dp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textColorHint">?attr/colorOnSurfaceVariant</item>
     </style>
 
     <style name="Widget.Finanzas.Card" parent="Widget.Material3.CardView.Filled">

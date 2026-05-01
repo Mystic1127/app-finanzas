@@ -30,6 +30,7 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -243,22 +244,7 @@ public class NuevaTransaccionFragment extends Fragment {
                 if (!isAdded()) return;
                 btnSugerir.setEnabled(true);
                 btnSugerir.setText(R.string.suggest_category);
-                currentSuggestion = suggestion;
-                if (suggestion != null && suggestion.hasSuggestion()) {
-                    int porcentaje = calcularPorcentaje(suggestion.getConfidence());
-                    String nombre = suggestion.getCategoriaNombre() == null ? "" : suggestion.getCategoriaNombre();
-                    chipSugerencia.setText(getString(R.string.suggest_chip_with_confidence, nombre, porcentaje));
-                    chipSugerencia.setVisibility(View.VISIBLE);
-                    pendingSuggestedCategoryId = suggestion.getCategoriaId();
-                    tryApplyPendingSuggestion();
-                } else if (suggestion != null && !TextUtils.isEmpty(suggestion.getMotivo())) {
-                    chipSugerencia.setText(getString(R.string.suggest_chip_message, suggestion.getMotivo()));
-                    chipSugerencia.setVisibility(View.VISIBLE);
-                    pendingSuggestedCategoryId = null;
-                } else {
-                    chipSugerencia.setVisibility(View.GONE);
-                    pendingSuggestedCategoryId = null;
-                }
+                showSuggestionResult(completeSuggestion(suggestion, nota));
             }
 
             @Override
@@ -266,7 +252,7 @@ public class NuevaTransaccionFragment extends Fragment {
                 if (!isAdded()) return;
                 btnSugerir.setEnabled(true);
                 btnSugerir.setText(R.string.suggest_category);
-                UiFormUtils.showMessage(requireView(), R.string.suggest_error);
+                showSuggestionResult(buildLocalSuggestion(nota));
             }
         });
     }
@@ -306,6 +292,103 @@ public class NuevaTransaccionFragment extends Fragment {
             return (int) Math.round(confidence);
         }
         return (int) Math.round(confidence * 100);
+    }
+
+    private void showSuggestionResult(@Nullable CategorySuggestion suggestion) {
+        currentSuggestion = suggestion;
+        if (suggestion != null && suggestion.hasSuggestion()) {
+            Categoria categoria = findCategoriaById(suggestion.getCategoriaId());
+            String nombre = suggestion.getCategoriaNombre();
+            if (TextUtils.isEmpty(nombre) && categoria != null) nombre = categoria.nombre;
+            if (TextUtils.isEmpty(nombre)) nombre = getString(R.string.hint_categoria);
+
+            int porcentaje = calcularPorcentaje(suggestion.getConfidence());
+            chipSugerencia.setText(getString(R.string.suggest_chip_with_confidence, nombre, porcentaje));
+            chipSugerencia.setVisibility(View.VISIBLE);
+            pendingSuggestedCategoryId = suggestion.getCategoriaId();
+            tryApplyPendingSuggestion();
+            UiFormUtils.showMessage(requireView(), getString(R.string.suggest_applied, nombre));
+            return;
+        }
+
+        chipSugerencia.setVisibility(View.GONE);
+        pendingSuggestedCategoryId = null;
+        UiFormUtils.showMessage(requireView(), R.string.suggest_not_found);
+    }
+
+    @Nullable
+    private CategorySuggestion completeSuggestion(@Nullable CategorySuggestion suggestion, @NonNull String nota) {
+        if (suggestion != null && suggestion.hasSuggestion()) {
+            Categoria categoria = findCategoriaById(suggestion.getCategoriaId());
+            if (categoria != null) {
+                suggestion.setCategoriaNombre(categoria.nombre);
+                return suggestion;
+            }
+        }
+        return buildLocalSuggestion(nota);
+    }
+
+    @Nullable
+    private CategorySuggestion buildLocalSuggestion(@Nullable String nota) {
+        if (categorias == null || categorias.isEmpty()) return null;
+        String text = normalize(nota);
+        if (text.isEmpty()) return null;
+
+        Categoria match = null;
+        if (containsAny(text, "comida", "restaurante", "mercado", "supermercado", "almuerzo", "cena", "desayuno")) {
+            match = findCategoriaByKeywords(false, "alimentacion", "comida", "mercado", "restaurante");
+        } else if (containsAny(text, "taxi", "bus", "gasolina", "combustible", "uber", "transporte", "pasaje")) {
+            match = findCategoriaByKeywords(false, "transporte", "taxi", "bus", "gasolina", "combustible");
+        } else if (containsAny(text, "netflix", "cine", "juego", "spotify", "entretenimiento", "ocio")) {
+            match = findCategoriaByKeywords(false, "entretenimiento", "cine", "juego", "netflix", "ocio");
+        } else if (containsAny(text, "luz", "agua", "internet", "telefono", "servicio", "servicios", "electricidad")) {
+            match = findCategoriaByKeywords(false, "servicios", "luz", "agua", "internet", "electricidad", "telefono");
+        } else if (containsAny(text, "salario", "sueldo", "pago", "nomina", "ingreso", "quincena")) {
+            match = findCategoriaByKeywords(true, "salario", "sueldo", "ingreso", "pago");
+        }
+
+        if (match == null) return null;
+        CategorySuggestion local = new CategorySuggestion();
+        local.setCategoriaId(match.id);
+        local.setCategoriaNombre(match.nombre);
+        local.setConfidence(0.7);
+        return local;
+    }
+
+    @Nullable
+    private Categoria findCategoriaById(@Nullable Integer id) {
+        if (id == null || categorias == null) return null;
+        for (Categoria categoria : categorias) {
+            if (categoria != null && categoria.id == id) return categoria;
+        }
+        return null;
+    }
+
+    @Nullable
+    private Categoria findCategoriaByKeywords(boolean esIngreso, @NonNull String... keywords) {
+        if (categorias == null) return null;
+        for (Categoria categoria : categorias) {
+            if (categoria == null || categoria.esIngreso != esIngreso) continue;
+            String name = normalize(categoria.nombre);
+            for (String keyword : keywords) {
+                if (name.contains(keyword)) return categoria;
+            }
+        }
+        return null;
+    }
+
+    private boolean containsAny(@NonNull String text, @NonNull String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) return true;
+        }
+        return false;
+    }
+
+    @NonNull
+    private String normalize(@Nullable String raw) {
+        if (raw == null) return "";
+        String clean = Normalizer.normalize(raw.toLowerCase(Locale.ROOT), Normalizer.Form.NFD);
+        return clean.replaceAll("\\p{InCombiningDiacriticalMarks}+", "").trim();
     }
 
     private double parseMontoActual() {
@@ -486,14 +569,8 @@ public class NuevaTransaccionFragment extends Fragment {
 
     private void finishAfterCreate() {
         NavController controller = NavHostFragment.findNavController(this);
-        int previousId = controller.getPreviousBackStackEntry() == null
-                ? 0
-                : controller.getPreviousBackStackEntry().getDestination().getId();
-        if (previousId == R.id.nav_home) {
-            controller.popBackStack();
-            controller.navigate(R.id.nav_list);
-        } else {
-            controller.popBackStack();
+        if (!controller.popBackStack(R.id.nav_home, false)) {
+            controller.navigate(R.id.nav_home);
         }
     }
 

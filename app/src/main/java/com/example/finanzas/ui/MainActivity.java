@@ -1,7 +1,6 @@
 package com.example.finanzas.ui;
 
 import android.Manifest;
-import android.graphics.Color;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Build;
@@ -15,9 +14,11 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDestination;
 import androidx.navigation.NavOptions;
@@ -26,6 +27,11 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.local.LocalRepository;
+import com.example.finanzas.ui.viewmodel.BudgetViewModel;
+import com.example.finanzas.ui.viewmodel.HomeViewModel;
+import com.example.finanzas.ui.viewmodel.ReportsViewModel;
+import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.PinSession;
 import com.google.android.material.appbar.MaterialToolbar;
@@ -44,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private View navHostView;
     private int contentTopMargin;
+    private int pendingDrawerDestination = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
         configureSystemBars();
 
         drawerLayout = findViewById(R.id.drawer_layout);
+        drawerLayout.setScrimColor(ContextCompat.getColor(this, R.color.drawer_scrim));
         navView = findViewById(R.id.nav_view);
         navHostView = findViewById(R.id.nav_host_fragment);
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
@@ -143,15 +151,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean onDrawerItemSelected(@NonNull MenuItem item) {
-        drawerLayout.closeDrawers();
-
         int destId = item.getItemId();
-        NavOptions opts = new NavOptions.Builder()
-                .setLaunchSingleTop(true)
-                .setRestoreState(true)
-                .setPopUpTo(navController.getGraph().getId(), true)
-                .build();
-
         if (destId == R.id.nav_home
                 || destId == R.id.nav_list
                 || destId == R.id.nav_budget
@@ -160,13 +160,17 @@ public class MainActivity extends AppCompatActivity {
                 || destId == R.id.nav_reminders
                 || destId == R.id.nav_imports
                 || destId == R.id.nav_perfil) {
-            navController.navigate(destId, null, opts);
+            navigateAfterDrawerCloses(destId);
             return true;
         }
 
         if (destId == R.id.nav_logout) {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            navView.postDelayed(() -> {
 
-            Prefs.clearAuth(this);
+                Prefs.clearAuth(this);
+                clearScopedViewModelCaches();
+                LocalRepository.invalidateDataVersion();
 
             PinSession.lock();
 
@@ -176,10 +180,40 @@ public class MainActivity extends AppCompatActivity {
                     .setPopUpTo(navController.getGraph().getId(), true)
                     .build();
             navController.navigate(R.id.nav_welcome, null, out);
+            }, 160L);
             return true;
         }
 
         return false;
+    }
+
+    private void clearScopedViewModelCaches() {
+        ViewModelProvider provider = new ViewModelProvider(this);
+        provider.get(HomeViewModel.class).clearCache();
+        provider.get(TransactionsViewModel.class).clearCache();
+        provider.get(ReportsViewModel.class).clearCache();
+        provider.get(BudgetViewModel.class).clearCache();
+    }
+
+    private void navigateAfterDrawerCloses(int destId) {
+        NavDestination current = navController.getCurrentDestination();
+        if (current != null && current.getId() == destId) {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            return;
+        }
+
+        pendingDrawerDestination = destId;
+        drawerLayout.closeDrawer(GravityCompat.START);
+        navView.postDelayed(() -> {
+            if (pendingDrawerDestination != destId) return;
+            pendingDrawerDestination = 0;
+            NavOptions opts = new NavOptions.Builder()
+                    .setLaunchSingleTop(true)
+                    .setRestoreState(true)
+                    .setPopUpTo(R.id.nav_home, false, true)
+                    .build();
+            navController.navigate(destId, null, opts);
+        }, 160L);
     }
 
     @Override
@@ -204,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void configureSystemBars() {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.md_theme_background));
         getWindow().setNavigationBarColor(ContextCompat.getColor(this, R.color.md_theme_background));
         WindowInsetsControllerCompat controller = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)

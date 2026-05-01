@@ -26,6 +26,7 @@ import com.example.finanzas.data.model.TransaccionFiltro;
 import com.example.finanzas.ui.adapter.TransaccionAdapter;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
+import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
@@ -52,6 +53,10 @@ public class ListaTransaccionesFragment extends Fragment {
     private int selectedMonth = 0;
     private boolean announcePeriod = false;
     private boolean pendingPrefClear = false;
+    private boolean manualRefresh = false;
+    private long perfStartMs;
+    private long loadStartMs;
+    private boolean firstRenderLogged;
     private MaterialButton btnExportar;
     private MaterialButton btnFiltros;
     private TransaccionFiltro filtroActual;
@@ -69,6 +74,8 @@ public class ListaTransaccionesFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        perfStartMs = PerfLogger.now();
+        firstRenderLogged = false;
 
         ListView listView = v.findViewById(R.id.listView);
         tvPeriodo = v.findViewById(R.id.tvPeriodo);
@@ -77,7 +84,8 @@ public class ListaTransaccionesFragment extends Fragment {
         swipeRefreshLayout = v.findViewById(R.id.swipeTransacciones);
         btnExportar = v.findViewById(R.id.btnExportar);
         btnFiltros = v.findViewById(R.id.btnFiltros);
-        viewModel = new ViewModelProvider(this).get(TransactionsViewModel.class);
+        viewModel = new ViewModelProvider(requireActivity()).get(TransactionsViewModel.class);
+        viewModel.clearCacheIfUserChanged();
         adapter = new TransaccionAdapter(requireContext(), new ArrayList<>());
         listView.setAdapter(adapter);
 
@@ -117,7 +125,10 @@ public class ListaTransaccionesFragment extends Fragment {
         });
 
         if (swipeRefreshLayout != null) {
-            swipeRefreshLayout.setOnRefreshListener(this::cargarTransacciones);
+            swipeRefreshLayout.setOnRefreshListener(() -> {
+                manualRefresh = true;
+                cargarTransacciones();
+            });
         }
 
         if (btnExportar != null) {
@@ -128,6 +139,7 @@ public class ListaTransaccionesFragment extends Fragment {
             btnFiltros.setOnClickListener(v12 -> mostrarDialogoFiltros());
         }
         observeViewModel();
+        PerfLogger.logSince("ListaTransaccionesFragment", "onViewCreated", perfStartMs);
     }
 
     @Override
@@ -141,7 +153,9 @@ public class ListaTransaccionesFragment extends Fragment {
         final int anio = periodo[0];
         final int mes = periodo[1];
         actualizarPeriodoLabel(anio, mes);
-        viewModel.load(anio, mes, filtroActual);
+        loadStartMs = PerfLogger.now();
+        PerfLogger.log("ListaTransaccionesFragment", "loadStart");
+        viewModel.load(anio, mes, filtroActual, manualRefresh);
     }
 
     private int[] resolvePeriodo() {
@@ -342,10 +356,19 @@ public class ListaTransaccionesFragment extends Fragment {
 
     private void observeViewModel() {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
-            showLoading(Boolean.TRUE.equals(loading));
-            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(Boolean.TRUE.equals(loading));
+            boolean active = Boolean.TRUE.equals(loading);
+            showLoading(active && adapter.getCount() == 0);
+            if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(active && manualRefresh);
+            if (!active) {
+                PerfLogger.logSince("ListaTransaccionesFragment", "loadComplete", loadStartMs);
+                manualRefresh = false;
+            }
         });
         viewModel.getItems().observe(getViewLifecycleOwner(), items -> {
+            if (!firstRenderLogged) {
+                firstRenderLogged = true;
+                PerfLogger.logSince("ListaTransaccionesFragment", "firstRender", perfStartMs);
+            }
             List<Transaccion> safe = items == null ? new ArrayList<>() : items;
             adapter.clear();
             adapter.addAll(safe);

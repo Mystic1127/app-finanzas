@@ -29,6 +29,7 @@ import com.example.finanzas.data.model.MonthlyTrendPoint;
 import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
+import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.UiFormUtils;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.charts.PieChart;
@@ -112,6 +113,9 @@ public class HomeFragment extends Fragment {
     private final Map<String, Boolean> moduleVisibility = new HashMap<>();
     private HomeSummary lastSummary;
     private boolean manualRefresh;
+    private long perfStartMs;
+    private long loadStartMs;
+    private boolean firstRenderLogged;
 
     @Nullable
     @Override
@@ -124,6 +128,8 @@ public class HomeFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        perfStartMs = PerfLogger.now();
+        firstRenderLogged = false;
 
         swipe = v.findViewById(R.id.swipeHome);
         progress = v.findViewById(R.id.progressHome);
@@ -163,7 +169,8 @@ public class HomeFragment extends Fragment {
         chipAlerts = v.findViewById(R.id.chipHomeAlerts);
         chipInsights = v.findViewById(R.id.chipHomeInsights);
 
-        viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
+        viewModel = new ViewModelProvider(requireActivity()).get(HomeViewModel.class);
+        viewModel.clearCacheIfUserChanged();
         currencyCode = SettingsService.getCurrencyCode(requireContext());
 
         setupMenu();
@@ -173,7 +180,12 @@ public class HomeFragment extends Fragment {
             manualRefresh = true;
             cargarResumen(true);
         });
+        HomeSummary cachedSummary = viewModel.getSummary().getValue();
+        if (cachedSummary != null) {
+            render(cachedSummary);
+        }
         observeViewModel();
+        PerfLogger.logSince("HomeFragment", "onViewCreated", perfStartMs);
     }
 
     @Override
@@ -209,6 +221,8 @@ public class HomeFragment extends Fragment {
 
     private void cargarResumen(boolean force) {
         Calendar cal = Calendar.getInstance();
+        loadStartMs = PerfLogger.now();
+        PerfLogger.log("HomeFragment", "loadStart force=" + force);
         viewModel.loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, force);
     }
 
@@ -218,7 +232,10 @@ public class HomeFragment extends Fragment {
             boolean hasContent = lastSummary != null;
             if (progress != null) progress.setVisibility(isLoading && !hasContent ? View.VISIBLE : View.GONE);
             if (swipe != null) swipe.setRefreshing(isLoading && manualRefresh);
-            if (!isLoading) manualRefresh = false;
+            if (!isLoading) {
+                PerfLogger.logSince("HomeFragment", "loadComplete", loadStartMs);
+                manualRefresh = false;
+            }
         });
 
         viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
@@ -252,6 +269,10 @@ public class HomeFragment extends Fragment {
 
     private void render(@NonNull HomeSummary summary) {
         lastSummary = summary;
+        if (!firstRenderLogged) {
+            firstRenderLogged = true;
+            PerfLogger.logSince("HomeFragment", "firstRender", perfStartMs);
+        }
         applyModulePreferences(summary);
         tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
         tvIngresos.setText(Format.money(summary.getIngresos(), currencyCode));

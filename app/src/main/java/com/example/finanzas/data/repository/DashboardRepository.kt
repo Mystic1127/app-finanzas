@@ -5,25 +5,32 @@ import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.HomeSummary
 import com.example.finanzas.data.model.MonthlyTrendPoint
 import com.example.finanzas.data.model.Transaccion
+import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
 
 class DashboardRepository(context: Context) {
-    private val local = LocalRepository.getInstance(context.applicationContext)
-    private data class SummaryCacheKey(val anio: Int, val mes: Int, val version: Long)
+    private val appContext = context.applicationContext
+    private val local = LocalRepository.getInstance(appContext)
+    private data class SummaryCacheKey(val userId: Long, val anio: Int, val mes: Int, val version: Long)
     @Volatile
     private var cachedSummaryKey: SummaryCacheKey? = null
     @Volatile
     private var cachedSummary: HomeSummary? = null
 
     suspend fun getSummary(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {
-        val key = SummaryCacheKey(anio, mes, LocalRepository.getDataVersion())
+        val key = SummaryCacheKey(Prefs.getCurrentUserId(appContext), anio, mes, LocalRepository.getDataVersion())
         cachedSummary?.takeIf { cachedSummaryKey == key } ?: local.buildHomeSummary(anio, mes).also {
             cachedSummaryKey = key
             cachedSummary = it
         }
+    }
+
+    fun clearCache() {
+        cachedSummaryKey = null
+        cachedSummary = null
     }
 
     suspend fun listTransactions(anio: Int, mes: Int): List<Transaccion> = withContext(Dispatchers.IO) {

@@ -127,6 +127,8 @@
     <string name="suggest_chip_with_confidence">Sugerencia: %1$s (%2$d%%)</string>
     <string name="suggest_chip_message">Consejo: %1$s</string>
     <string name="suggest_chip_placeholder">Sugerencia disponible</string>
+    <string name="suggest_not_found">No encontré una categoría sugerida</string>
+    <string name="suggest_applied">Categoría sugerida: %1$s</string>
     <string name="suggest_error">No se pudo obtener una sugerencia.</string>
     <string name="home_predict_title">Pronóstico del mes</string>
     <string name="home_predict_projected">Proyectado</string>

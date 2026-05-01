@@ -1,5 +1,6 @@
 package com.example.finanzas.ui;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,6 +18,7 @@ import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.api.UserService;
 import com.example.finanzas.util.CurrencyConverter;
+import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
@@ -28,6 +30,8 @@ import com.google.android.material.textfield.TextInputLayout;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class PerfilFragment extends Fragment {
 
@@ -45,6 +49,9 @@ public class PerfilFragment extends Fragment {
     private TextInputLayout tilManualRate;
     private TextInputLayout tilInitialCash;
     private TextInputLayout tilInitialCard;
+    private long perfStartMs;
+    private long loadStartMs;
+    private boolean firstRenderLogged;
 
     @Nullable
     @Override
@@ -56,6 +63,9 @@ public class PerfilFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        perfStartMs = PerfLogger.now();
+        loadStartMs = PerfLogger.now();
+        firstRenderLogged = false;
 
         TextView tvNombre = v.findViewById(R.id.tvPerfilNombre);
         TextView tvEmail  = v.findViewById(R.id.tvPerfilEmail);
@@ -80,21 +90,41 @@ public class PerfilFragment extends Fragment {
         if (cachedEmail == null || cachedEmail.isEmpty()) cachedEmail = "—";
         tvNombre.setText(cachedNombre);
         tvEmail.setText(cachedEmail);
+        logFirstRender();
 
         if (getContext() != null && cachedEmail != null && !"—".equals(cachedEmail)) {
-            UserService.getMe(requireContext(), cachedEmail, new UserService.MeCb() {
+            Context appContext = requireContext().getApplicationContext();
+            String emailForLookup = cachedEmail;
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            executor.execute(() -> UserService.getMe(appContext, emailForLookup, new UserService.MeCb() {
                 @Override public void onOk(int id, String nom, String em) {
-                    if (!isAdded()) return;
-                    tvNombre.setText(nom);
-                    tvEmail.setText(em);
-                    Prefs.setUserSession(requireContext(), id, em, nom);
+                    if (!isAdded()) {
+                        executor.shutdown();
+                        return;
+                    }
+                    requireActivity().runOnUiThread(() -> {
+                        if (!isAdded()) return;
+                        tvNombre.setText(nom);
+                        tvEmail.setText(em);
+                        Prefs.setUserSession(requireContext(), id, em, nom);
+                    });
+                    executor.shutdown();
                 }
-                @Override public void onFail() { }
-            });
+                @Override public void onFail() {
+                    executor.shutdown();
+                }
+            }));
         }
 
         setupCurrencyControls();
         setupInitialBalanceControls();
+        v.post(() -> {
+            if (!isAdded()) return;
+            PerfLogger.log("PerfilFragment", "loadStart");
+            loadCurrency();
+            loadInitialBalances();
+            PerfLogger.logSince("PerfilFragment", "loadComplete", loadStartMs);
+        });
         btnSaveCurrency.setOnClickListener(view -> saveCurrency());
         btnSaveInitialBalances.setOnClickListener(view -> saveInitialBalances());
 
@@ -126,8 +156,6 @@ public class PerfilFragment extends Fragment {
     public void onResume() {
         super.onResume();
         updatePinButtons();
-        loadCurrency();
-        loadInitialBalances();
     }
 
     private void setupCurrencyControls() {
@@ -136,7 +164,6 @@ public class PerfilFragment extends Fragment {
         actCurrency.setAdapter(adapter);
         actCurrency.setOnClickListener(v -> actCurrency.showDropDown());
         actCurrency.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) actCurrency.showDropDown(); });
-        loadCurrency();
     }
 
     private void loadCurrency() {
@@ -158,7 +185,6 @@ public class PerfilFragment extends Fragment {
         actInitialBalancesCurrency.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) actInitialBalancesCurrency.showDropDown(); });
         actInitialBalancesCurrency.setOnItemClickListener((parent, view, position, id) -> updateInitialBalancePrefixes());
         UiFormUtils.clearErrorOnTextChange(etInitialCash, etInitialCard);
-        loadInitialBalances();
     }
 
     private void loadInitialBalances() {
@@ -201,6 +227,14 @@ public class PerfilFragment extends Fragment {
                 if (isAdded()) Toast.makeText(requireContext(), R.string.perfil_initial_balances_error, Toast.LENGTH_SHORT).show();
             }
         });
+        PerfLogger.logSince("PerfilFragment", "onViewCreated", perfStartMs);
+    }
+
+    private void logFirstRender() {
+        if (!firstRenderLogged) {
+            firstRenderLogged = true;
+            PerfLogger.logSince("PerfilFragment", "firstRender", perfStartMs);
+        }
     }
 
     private void saveCurrency() {

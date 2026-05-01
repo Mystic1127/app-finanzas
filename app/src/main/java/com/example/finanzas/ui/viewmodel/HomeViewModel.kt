@@ -11,6 +11,8 @@ import com.example.finanzas.data.model.DashboardModulePref
 import com.example.finanzas.data.model.HomeSummary
 import com.example.finanzas.data.model.TravelPreference
 import com.example.finanzas.di.AppGraph
+import com.example.finanzas.util.PerfLogger
+import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,6 +44,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var loadedYear = 0
     private var loadedMonth = 0
     private var loadedVersion = -1L
+    private var loadedUserId = -1L
 
     private fun hydrateUiPreferences(summary: HomeSummary): HomeSummary {
         runCatching {
@@ -81,10 +84,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     @JvmOverloads
     fun loadSummary(anio: Int, mes: Int, force: Boolean = false) {
+        clearCacheIfUserChanged()
+        val loadStart = PerfLogger.now()
+        PerfLogger.log("HomeFragment", "loadStart year=$anio month=$mes force=$force")
         val version = LocalRepository.getDataVersion()
+        val userId = Prefs.getCurrentUserId(getApplication())
         val current = _summary.value
-        if (!force && current != null && loadedYear == anio && loadedMonth == mes && loadedVersion == version) {
+        if (!force && current != null && loadedUserId == userId && loadedYear == anio && loadedMonth == mes && loadedVersion == version) {
             _currencyCode.value = SettingsService.getCurrencyCode(getApplication())
+            PerfLogger.logSince("HomeFragment", "loadCacheHit", loadStart)
             return
         }
         _loading.value = current == null || force
@@ -141,6 +149,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
                 .onSuccess {
+                    loadedUserId = userId
                     loadedYear = anio
                     loadedMonth = mes
                     loadedVersion = LocalRepository.getDataVersion()
@@ -149,7 +158,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     _insights.value = it.third
                 }
                 .onFailure { _error.value = Unit }
+            PerfLogger.logSince("HomeFragment", "loadComplete", loadStart)
             _loading.value = false
         }
+    }
+
+    fun clearCacheIfUserChanged() {
+        val currentUserId = Prefs.getCurrentUserId(getApplication())
+        if (loadedUserId > 0 && loadedUserId != currentUserId) {
+            clearCache()
+        }
+    }
+
+    fun clearCache() {
+        loadedUserId = -1L
+        loadedYear = 0
+        loadedMonth = 0
+        loadedVersion = -1L
+        graph.dashboardRepository.clearCache()
+        _summary.value = null
+        _smartAlert.value = null
+        _insights.value = emptyList()
+        _loading.value = false
     }
 }
