@@ -61,7 +61,7 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
                     loadedUserId = userId
                     loadedYear = anio
                     loadedMonth = mes
-                    loadedVersion = LocalRepository.getDataVersion()
+                    loadedVersion = version
                     loadedFilterKey = filterKey
                     _items.value = it
                 }

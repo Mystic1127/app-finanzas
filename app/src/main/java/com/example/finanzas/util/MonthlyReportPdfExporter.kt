@@ -107,6 +107,9 @@ class MonthlyReportPdfExporter(private val context: Context) {
             "Saldo actual efectivo" to Format.money(summary.efectivo, report.currencyCode),
             "Saldo actual tarjeta/cuenta" to Format.money(summary.tarjetaCuenta, report.currencyCode),
             "Saldo total actual" to Format.money(summary.saldoActualTotal, report.currencyCode),
+            "Gasto proyectado" to Format.money(summary.gastoProyectado, report.currencyCode),
+            "Saldo estimado fin de mes" to Format.money(summary.proyeccionFinMes, report.currencyCode),
+            "Confianza de proyeccion" to (summary.confianzaProyeccion ?: "Sin datos"),
             "Ahorro estimado" to Format.money(summary.ahorroSugerido, report.currencyCode),
             "Score financiero" to "${summary.scoreFinanciero}/100 - ${summary.scoreEstado ?: "Sin estado"}",
             "Estado general" to report.status
@@ -119,6 +122,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
         writer.move(12f)
 
         drawSection(writer, "Ingresos vs gastos", section)
+        drawWrapped(writer, "El balance mensual es ingresos menos gastos del mes; no incluye saldos iniciales.", muted)
         val maxSummary = maxOf(summary.ingresos, summary.gastos)
         drawHorizontalBar(writer, "Ingresos", summary.ingresos, maxSummary, report.currencyCode, incomeBar, barBg, body)
         drawHorizontalBar(writer, "Gastos", summary.gastos, maxSummary, report.currencyCode, expenseBar, barBg, body)

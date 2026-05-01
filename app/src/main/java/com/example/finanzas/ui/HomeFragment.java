@@ -30,6 +30,7 @@ import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.PerfLogger;
+import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.UiFormUtils;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.charts.PieChart;
@@ -114,8 +115,8 @@ public class HomeFragment extends Fragment {
     private HomeSummary lastSummary;
     private boolean manualRefresh;
     private long perfStartMs;
-    private long loadStartMs;
     private boolean firstRenderLogged;
+    private boolean testerThanksDialogShowing;
 
     @Nullable
     @Override
@@ -181,7 +182,8 @@ public class HomeFragment extends Fragment {
             cargarResumen(true);
         });
         HomeSummary cachedSummary = viewModel.getSummary().getValue();
-        if (cachedSummary != null) {
+        Calendar cal = Calendar.getInstance();
+        if (cachedSummary != null && viewModel.hasFreshSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)) {
             render(cachedSummary);
         }
         observeViewModel();
@@ -222,8 +224,6 @@ public class HomeFragment extends Fragment {
 
     private void cargarResumen(boolean force) {
         Calendar cal = Calendar.getInstance();
-        loadStartMs = PerfLogger.now();
-        PerfLogger.log("HomeFragment", "loadStart force=" + force);
         viewModel.loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, force);
     }
 
@@ -234,7 +234,6 @@ public class HomeFragment extends Fragment {
             if (progress != null) progress.setVisibility(isLoading && !hasContent ? View.VISIBLE : View.GONE);
             if (swipe != null) swipe.setRefreshing(isLoading && manualRefresh);
             if (!isLoading) {
-                PerfLogger.logSince("HomeFragment", "loadComplete", loadStartMs);
                 manualRefresh = false;
             }
         });
@@ -473,7 +472,8 @@ public class HomeFragment extends Fragment {
         tvFinancialProjection.setText(getString(
                 R.string.home_financial_projection_value,
                 Format.money(lastSummary.getProyeccionFinMes(), currencyCode),
-                Format.money(lastSummary.getGastoPromedioDiario(), currencyCode)
+                Format.money(lastSummary.getGastoPromedioDiario(), currencyCode),
+                nonEmpty(lastSummary.getConfianzaProyeccion(), getString(R.string.home_projection_confidence_low))
         ));
         tvFinancialAlert.setText(nonEmpty(lastSummary.getAlertaPrincipal(), getString(R.string.home_alerts_empty)));
         tvFinancialScore.setText(getString(
@@ -520,7 +520,7 @@ public class HomeFragment extends Fragment {
         ));
         tvSmartSavingProjection.setText(getString(
                 R.string.home_smart_saving_projection_value,
-                Format.money(summary.getSaldo(), currencyCode),
+                Format.money(summary.getSaldoActualTotal(), currencyCode),
                 Format.money(summary.getGastoProyectado(), currencyCode),
                 Format.money(summary.getProyeccionFinMes(), currencyCode)
         ));
@@ -716,6 +716,7 @@ public class HomeFragment extends Fragment {
 
     private void maybeShowInitialCurrencyDialog() {
         if (!isAdded() || SettingsService.hasCurrencyConfigured(requireContext())) {
+            maybeShowTesterThanksDialog();
             return;
         }
 
@@ -758,6 +759,7 @@ public class HomeFragment extends Fragment {
                     viewModel.clearCache();
                     cargarResumen(true);
                 }
+                maybeShowTesterThanksDialog();
             }
 
             @Override
@@ -767,8 +769,32 @@ public class HomeFragment extends Fragment {
                     @Override public void onSuccess() { }
                     @Override public void onFail() { }
                 });
+                maybeShowTesterThanksDialog();
             }
         });
+    }
+
+    private void maybeShowTesterThanksDialog() {
+        if (!isAdded() || testerThanksDialogShowing || Prefs.hasSeenTesterThanks(requireContext())) {
+            return;
+        }
+        testerThanksDialogShowing = true;
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_tester_thanks, null, false);
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(content)
+                .setPositiveButton(R.string.tester_thanks_action, (d, which) -> {
+                    if (isAdded()) {
+                        Prefs.markTesterThanksSeen(requireContext());
+                    }
+                })
+                .create();
+        dialog.setOnCancelListener(d -> {
+            if (isAdded()) {
+                Prefs.markTesterThanksSeen(requireContext());
+            }
+        });
+        dialog.setOnDismissListener(d -> testerThanksDialogShowing = false);
+        dialog.show();
     }
 
     private String nonEmpty(@Nullable String value, @NonNull String fallback) {

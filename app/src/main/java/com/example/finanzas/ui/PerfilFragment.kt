@@ -27,6 +27,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -50,6 +52,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.api.UserService
+import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.util.CurrencyConverter
 import com.example.finanzas.util.PerfLogger
@@ -71,6 +74,8 @@ class PerfilFragment : Fragment() {
     private var initialCardText by mutableStateOf("0")
     private var themeMode by mutableStateOf(SettingsService.THEME_SYSTEM)
     private var hasPin by mutableStateOf(false)
+    private var currentUserId by mutableStateOf(-1L)
+    private var accounts by mutableStateOf<List<AccountUi>>(emptyList())
 
     private var currencyError by mutableStateOf<String?>(null)
     private var manualRateError by mutableStateOf<String?>(null)
@@ -125,6 +130,9 @@ class PerfilFragment : Fragment() {
                     themeMode = themeMode,
                     onThemeModeChange = { saveThemeMode(it) },
                     hasPin = hasPin,
+                    currentUserId = currentUserId,
+                    accounts = accounts,
+                    onSwitchAccount = { switchAccount(it) },
                     onChangePassword = { findNavController().navigate(R.id.nav_change_password) },
                     onConfigurePin = { findNavController().navigate(R.id.nav_pin_setup) },
                     onRemovePin = { confirmRemovePin() }
@@ -141,6 +149,7 @@ class PerfilFragment : Fragment() {
 
         profileName = Prefs.getCurrentUserName(requireContext()).takeUnless { it.isNullOrEmpty() } ?: "—"
         profileEmail = Prefs.getCurrentUserEmail(requireContext()).takeUnless { it.isNullOrEmpty() } ?: "—"
+        currentUserId = Prefs.getCurrentUserId(requireContext())
         hasPin = Prefs.hasPin(requireContext())
 
         v.post {
@@ -148,12 +157,37 @@ class PerfilFragment : Fragment() {
             logFirstRender()
             loadProfileDetails()
             loadSettings()
+            loadAccounts()
         }
     }
 
     override fun onResume() {
         super.onResume()
         if (isAdded) hasPin = Prefs.hasPin(requireContext())
+    }
+
+    private fun loadAccounts() {
+        val appContext = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val users = LocalRepository.getInstance(appContext).listUsers()
+            val mapped = users.map {
+                AccountUi(
+                    id = it.id.toLong(),
+                    name = it.nombre ?: "",
+                    email = it.email ?: ""
+                )
+            }
+            withContext(Dispatchers.Main) {
+                if (!isAdded) return@withContext
+                currentUserId = Prefs.getCurrentUserId(requireContext())
+                accounts = mapped
+            }
+        }
+    }
+
+    private fun switchAccount(account: AccountUi) {
+        if (account.id <= 0 || account.id == Prefs.getCurrentUserId(requireContext())) return
+        (activity as? MainActivity)?.switchToUser(account.id, account.email, account.name)
     }
 
     private fun loadProfileDetails() {
@@ -197,6 +231,7 @@ class PerfilFragment : Fragment() {
                 initialCashText = if (cash > 0) String.format(Locale.US, "%.2f", cash) else "0"
                 initialCardText = if (card > 0) String.format(Locale.US, "%.2f", card) else "0"
                 themeMode = mode
+                currentUserId = Prefs.getCurrentUserId(appContext)
                 PerfLogger.logSince("PerfilFragment", "loadComplete", loadStartMs)
             }
         }
@@ -344,6 +379,12 @@ class PerfilFragment : Fragment() {
     }
 }
 
+private data class AccountUi(
+    val id: Long,
+    val name: String,
+    val email: String
+)
+
 @Composable
 private fun ProfileScreen(
     name: String,
@@ -369,6 +410,9 @@ private fun ProfileScreen(
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
     hasPin: Boolean,
+    currentUserId: Long,
+    accounts: List<AccountUi>,
+    onSwitchAccount: (AccountUi) -> Unit,
     onChangePassword: () -> Unit,
     onConfigurePin: () -> Unit,
     onRemovePin: () -> Unit
@@ -400,6 +444,54 @@ private fun ProfileScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+
+            ProfileSection(title = stringResource(R.string.profile_accounts_title)) {
+                val otherAccounts = accounts.filter { it.id != currentUserId }
+                if (otherAccounts.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.profile_accounts_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                accounts.forEachIndexed { index, account ->
+                    if (index > 0) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = account.name.ifBlank { stringResource(R.string.profile_account_without_name) },
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = account.email,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            if (account.id == currentUserId) {
+                                Text(
+                                    text = stringResource(R.string.profile_account_current),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                        if (account.id != currentUserId) {
+                            OutlinedButton(onClick = { onSwitchAccount(account) }) {
+                                Text(stringResource(R.string.profile_account_switch))
+                            }
+                        }
+                    }
+                }
             }
 
             ProfileSection(title = stringResource(R.string.perfil_preferences)) {

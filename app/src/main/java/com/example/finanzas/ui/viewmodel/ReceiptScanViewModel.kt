@@ -73,7 +73,13 @@ class ReceiptScanViewModel(application: Application) : AndroidViewModel(applicat
                 )
             }
                 .onSuccess { _saved.value = true }
-                .onFailure { _error.value = "No se pudo crear la transacción" }
+                .onFailure {
+                    _error.value = if (it is LocalRepository.InsufficientBalanceException) {
+                        it.message
+                    } else {
+                        "No se pudo crear la transacción"
+                    }
+                }
         }
     }
 }

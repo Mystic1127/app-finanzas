@@ -207,6 +207,21 @@ public class MainActivity extends AppCompatActivity {
         provider.get(BudgetViewModel.class).clearCache();
     }
 
+    public void switchToUser(long userId, String email, String name) {
+        if (userId <= 0) return;
+        Prefs.setToken(this, "local-token");
+        Prefs.setUserSession(this, userId, email, name);
+        LocalRepository.invalidateDataVersion();
+        clearScopedViewModelCaches();
+        PinSession.lock();
+
+        Toast.makeText(this, getString(R.string.account_switch_success), Toast.LENGTH_SHORT).show();
+        NavOptions opts = new NavOptions.Builder()
+                .setPopUpTo(navController.getGraph().getId(), true)
+                .build();
+        navController.navigate(R.id.nav_home, null, opts);
+    }
+
     private void navigateAfterDrawerCloses(int destId) {
         NavDestination current = navController.getCurrentDestination();
         if (current != null && current.getId() == destId) {

@@ -5,9 +5,9 @@ import java.util.Locale
 object CurrencyConverter {
     private val penPerUnit = mapOf(
         "PEN" to 1.0,
-        "USD" to 3.75,
-        "EUR" to 4.05,
-        "CLP" to 0.0040
+        "USD" to 3.5075,
+        "EUR" to 4.113404479887416,
+        "CLP" to 0.003897222222222222
     )
 
     @JvmStatic

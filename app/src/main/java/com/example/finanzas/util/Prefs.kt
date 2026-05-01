@@ -9,6 +9,9 @@ import java.security.MessageDigest
 import java.util.Base64
 
 object Prefs {
+    @Volatile
+    private var cachedPrefs: SharedPreferences? = null
+
     private const val PREFS_NAME = "finanzas_secure_prefs"
     private const val KEY_PRES = "presupuesto_mensual"
     private const val KEY_TOKEN = "auth_token"
@@ -20,6 +23,7 @@ object Prefs {
     private const val KEY_PIN_ENABLED_PREFIX = "pin_enabled_"
     private const val KEY_TRANS_YEAR_PREFIX = "trans_period_year_"
     private const val KEY_TRANS_MONTH_PREFIX = "trans_period_month_"
+    private const val KEY_TESTER_THANKS_PREFIX = "tester_thanks_seen_"
 
     private const val TOKEN_MAX_AGE_MS = 30L * 24 * 60 * 60 * 1000 // 30 días
 
@@ -188,6 +192,22 @@ object Prefs {
             .apply()
     }
 
+    @JvmStatic
+    fun hasSeenTesterThanks(ctx: Context): Boolean {
+        val userId = getCurrentUserId(ctx)
+        if (userId <= 0) return true
+        return prefs(ctx).getBoolean(KEY_TESTER_THANKS_PREFIX + userId, false)
+    }
+
+    @JvmStatic
+    fun markTesterThanksSeen(ctx: Context) {
+        val userId = getCurrentUserId(ctx)
+        if (userId <= 0) return
+        prefs(ctx).edit()
+            .putBoolean(KEY_TESTER_THANKS_PREFIX + userId, true)
+            .apply()
+    }
+
     private fun hashPin(pin: String): String {
         return try {
             val md = MessageDigest.getInstance("SHA-256")
@@ -203,20 +223,26 @@ object Prefs {
     private fun pinEnabledKey(userId: Long): String = KEY_PIN_ENABLED_PREFIX + userId
 
     private fun prefs(ctx: Context): SharedPreferences {
-        return try {
-            val masterKey = MasterKey.Builder(ctx)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
+        cachedPrefs?.let { return it }
+        return synchronized(this) {
+            cachedPrefs ?: run {
+                val appContext = ctx.applicationContext
+                try {
+                    val masterKey = MasterKey.Builder(appContext)
+                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                        .build()
 
-            EncryptedSharedPreferences.create(
-                ctx,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (_: Exception) {
-            ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    EncryptedSharedPreferences.create(
+                        appContext,
+                        PREFS_NAME,
+                        masterKey,
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                } catch (_: Exception) {
+                    appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                }.also { cachedPrefs = it }
+            }
         }
     }
 }

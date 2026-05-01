@@ -42,13 +42,19 @@ class FinancialRecommendationEngine {
 
     private fun addCategoryRecommendation(summary: HomeSummary, out: MutableList<String>) {
         val category = summary.categoriaMayorGasto?.takeIf { it.isNotBlank() } ?: return
-        if (summary.categoriaMayorGastoMonto > 0.0 && summary.scoreFinanciero < 70) {
+        if (summary.categoriaMayorGastoMonto > 0.0 && summary.scoreFinanciero < 70 && !summary.isProyeccionPreliminar) {
             out.add("Reduce gastos en $category para mejorar tu score")
+        } else if (summary.categoriaMayorGastoMonto > 0.0) {
+            out.add("Observa $category: es tu mayor gasto del mes")
         }
     }
 
     private fun addSavingRecommendation(summary: HomeSummary, out: MutableList<String>) {
         when {
+            summary.ahorroSugerido > 0.0 && summary.isProyeccionPreliminar ->
+                out.add("Puedes separar un ahorro pequeno, pero confirma con mas movimientos")
+            summary.ahorroSugerido <= 0.0 && summary.saldoActualTotal > 0.0 ->
+                out.add("Conserva tu saldo disponible antes de separar mas ahorro")
             summary.ahorroSugerido > 0.0 && summary.scoreFinanciero >= 70 ->
                 out.add("Puedes aumentar tu ahorro si mantienes este ritmo")
             summary.ahorroSugerido <= 0.0 && summary.ingresos > 0.0 ->
@@ -87,6 +93,10 @@ class FinancialRecommendationEngine {
     }
 
     private fun addScoreRecommendation(summary: HomeSummary, out: MutableList<String>) {
+        if (summary.isProyeccionPreliminar) {
+            out.add("Tu analisis es preliminar; registra mas movimientos para mejorar recomendaciones")
+            return
+        }
         if (summary.scoreFinanciero < 40) {
             out.add("Revisa presupuesto y gastos variables para salir de estado crítico")
         } else if (summary.scoreFinanciero in 40..69) {

@@ -19,6 +19,10 @@ class DashboardRepository(context: Context) {
     private var cachedSummaryKey: SummaryCacheKey? = null
     @Volatile
     private var cachedSummary: HomeSummary? = null
+    @Volatile
+    private var cachedFastSummaryKey: SummaryCacheKey? = null
+    @Volatile
+    private var cachedFastSummary: HomeSummary? = null
 
     suspend fun getSummary(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {
         val key = SummaryCacheKey(Prefs.getCurrentUserId(appContext), anio, mes, LocalRepository.getDataVersion())
@@ -28,9 +32,19 @@ class DashboardRepository(context: Context) {
         }
     }
 
+    suspend fun getFastSummary(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {
+        val key = SummaryCacheKey(Prefs.getCurrentUserId(appContext), anio, mes, LocalRepository.getDataVersion())
+        cachedFastSummary?.takeIf { cachedFastSummaryKey == key } ?: local.buildHomeSummaryFast(anio, mes).also {
+            cachedFastSummaryKey = key
+            cachedFastSummary = it
+        }
+    }
+
     fun clearCache() {
         cachedSummaryKey = null
         cachedSummary = null
+        cachedFastSummaryKey = null
+        cachedFastSummary = null
     }
 
     suspend fun listTransactions(anio: Int, mes: Int): List<Transaccion> = withContext(Dispatchers.IO) {

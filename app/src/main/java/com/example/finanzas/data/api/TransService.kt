@@ -125,7 +125,7 @@ object TransService {
         scope.launch {
             runCatching { create(ctx, categoriaId, esIngreso, monto, nota, fecha, moneda, accountType) }
                 .onSuccess(cb::onOk)
-                .onFailure { cb.onError("No se pudo crear") }
+                .onFailure { cb.onError(transactionErrorMessage(it, "No se pudo crear")) }
         }
     }
 
@@ -144,7 +144,7 @@ object TransService {
         scope.launch {
             runCatching { update(ctx, id, categoriaId, esIngreso, monto, nota, fecha, moneda, accountType) }
                 .onSuccess { if (it) cb.onOk() else cb.onError("No se pudo actualizar") }
-                .onFailure { cb.onError("No se pudo actualizar") }
+                .onFailure { cb.onError(transactionErrorMessage(it, "No se pudo actualizar")) }
         }
     }
 
@@ -163,6 +163,14 @@ object TransService {
             runCatching { exportToTxt(ctx) }
                 .onSuccess(cb::onOk)
                 .onFailure { cb.onError("No se pudo exportar") }
+        }
+    }
+
+    private fun transactionErrorMessage(error: Throwable, fallback: String): String {
+        return if (error is LocalRepository.InsufficientBalanceException) {
+            error.message ?: fallback
+        } else {
+            fallback
         }
     }
 }

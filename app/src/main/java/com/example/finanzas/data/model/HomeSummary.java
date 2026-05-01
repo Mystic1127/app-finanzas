@@ -21,6 +21,11 @@ public class HomeSummary {
     private double gastoProyectado;
     private double gastoPromedioDiario;
     private int diasRestantes;
+    private int cantidadGastosMes;
+    private int diasConMovimientoMes;
+    private boolean proyeccionPreliminar;
+    private String confianzaProyeccion;
+    private String mensajeConfianzaProyeccion;
     private String riesgoPresupuesto;
     private double gastosMesAnterior;
     private double variacionGastosPorcentaje;
@@ -105,6 +110,22 @@ public class HomeSummary {
 
     public int getDiasRestantes() { return diasRestantes; }
     public void setDiasRestantes(int diasRestantes) { this.diasRestantes = diasRestantes; }
+
+    public int getCantidadGastosMes() { return cantidadGastosMes; }
+    public void setCantidadGastosMes(int cantidadGastosMes) { this.cantidadGastosMes = cantidadGastosMes; }
+
+    public int getDiasConMovimientoMes() { return diasConMovimientoMes; }
+    public void setDiasConMovimientoMes(int diasConMovimientoMes) { this.diasConMovimientoMes = diasConMovimientoMes; }
+
+    public boolean isProyeccionPreliminar() { return proyeccionPreliminar; }
+    public boolean getProyeccionPreliminar() { return proyeccionPreliminar; }
+    public void setProyeccionPreliminar(boolean proyeccionPreliminar) { this.proyeccionPreliminar = proyeccionPreliminar; }
+
+    public String getConfianzaProyeccion() { return confianzaProyeccion; }
+    public void setConfianzaProyeccion(String confianzaProyeccion) { this.confianzaProyeccion = confianzaProyeccion; }
+
+    public String getMensajeConfianzaProyeccion() { return mensajeConfianzaProyeccion; }
+    public void setMensajeConfianzaProyeccion(String mensajeConfianzaProyeccion) { this.mensajeConfianzaProyeccion = mensajeConfianzaProyeccion; }
 
     public String getRiesgoPresupuesto() { return riesgoPresupuesto; }
     public void setRiesgoPresupuesto(String riesgoPresupuesto) { this.riesgoPresupuesto = riesgoPresupuesto; }

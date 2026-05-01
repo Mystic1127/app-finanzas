@@ -14,6 +14,9 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     fun findByEmail(email: String): UserEntity?
 
+    @Query("SELECT * FROM users ORDER BY nombre COLLATE NOCASE, email COLLATE NOCASE")
+    fun listAll(): List<UserEntity>
+
     @Update
     fun update(entity: UserEntity)
 }

@@ -32,8 +32,6 @@ class FinancialDashboardEngine(
         summary.tendenciaMensual.clear()
         summary.tendenciaMensual.addAll(trend)
         applyProductMetrics(summary, currentTx, previousTx)
-        summary.alertas.clear()
-        summary.alertas.addAll(buildAlerts(summary, currentTx, previousTx))
         applyFinancialIntelligence(summary, currentTx, previousTx)
         applyProRecommendations(summary, currentTx, previousTx)
         return summary
@@ -50,29 +48,14 @@ class FinancialDashboardEngine(
             return
         }
 
-        val previousExpenses = previousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
-        val previousPreviousExpenses = previousPreviousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
-        val daysInPreviousMonth = daysInMonth(previousSummary.anio, previousSummary.mes)
-        val elapsedPreviousDays = elapsedDaysForMonth(previousSummary.anio, previousSummary.mes, daysInPreviousMonth)
-        val previousDailyAverage = previousExpenses / elapsedPreviousDays.coerceAtLeast(1)
-        val previousProjectedExpenses = previousDailyAverage * daysInPreviousMonth
-        val previousProjectedBalance = previousSummary.ingresos - previousProjectedExpenses
-
-        previousSummary.gastoPromedioDiario = previousDailyAverage
-        previousSummary.gastoProyectado = previousProjectedExpenses
-        previousSummary.proyeccionFinMes = previousProjectedBalance
-        previousSummary.diasRestantes = (daysInPreviousMonth - elapsedPreviousDays).coerceAtLeast(0)
-        applySmartSavings(previousSummary, previousProjectedExpenses, previousProjectedBalance, elapsedPreviousDays)
-
-        val previousScore = calculateFinancialScore(
+        val previousAnalysis = FinancialAnalysisRules.analyze(
             previousSummary,
-            previousExpenses,
-            previousPreviousExpenses,
-            previousProjectedBalance,
+            previousTx,
+            previousPreviousTx,
             findUnusualExpense(previousTx, previousPreviousTx) != null
-        ).value
+        )
 
-        val diff = summary.scoreFinanciero - previousScore
+        val diff = summary.scoreFinanciero - previousAnalysis.score
         summary.scoreTendencia = when {
             diff >= 3 -> "Mejoró"
             diff <= -3 -> "Bajó"
@@ -89,6 +72,13 @@ class FinancialDashboardEngine(
         if (summary.gastos <= 0 && summary.ingresos <= 0) {
             insights.add("Aún no tienes datos este mes")
             return insights
+        }
+
+        if (!summary.mensajeConfianzaProyeccion.isNullOrBlank()) {
+            insights.add(summary.mensajeConfianzaProyeccion)
+        }
+        if (!summary.insightPrincipal.isNullOrBlank()) {
+            insights.add(summary.insightPrincipal)
         }
 
         if (summary.presupuestoMonto > 0) {
@@ -115,14 +105,16 @@ class FinancialDashboardEngine(
             }
         }
 
-        if (summary.gastos > summary.ingresos) {
+        if (summary.saldo < 0.0 && summary.saldoActualTotal > 0.0) {
+            insights.add("Tu balance del mes es negativo, pero tu saldo actual sigue positivo")
+        } else if (summary.gastos > summary.ingresos) {
             insights.add("Tus gastos superan tus ingresos este mes")
         }
         if (summary.presupuestoMonto > 0 && summary.presupuestoPorcentaje >= 80 && !summary.presupuestoExcedido) {
             insights.add("Ya consumiste ${summary.presupuestoPorcentaje.toInt()}% del presupuesto mensual")
         }
 
-        return insights
+        return insights.distinct().take(5)
     }
 
     private fun applyProRecommendations(
@@ -192,6 +184,28 @@ class FinancialDashboardEngine(
             else -> "Crítico"
         }
         summary.scoreExplicacion = scoreResult.explanation
+
+        val analysis = FinancialAnalysisRules.analyze(summary, currentTx, previousTx, unusualExpense != null)
+        summary.gastoPromedioDiario = analysis.dailyAverage
+        summary.gastoProyectado = analysis.projectedExpenses
+        summary.diasRestantes = analysis.remainingDays
+        summary.proyeccionFinMes = analysis.projectedEndBalance
+        summary.cantidadGastosMes = analysis.expenseCount
+        summary.diasConMovimientoMes = analysis.movementDays
+        summary.proyeccionPreliminar = analysis.confidence == ProjectionConfidence.LOW
+        summary.confianzaProyeccion = analysis.confidence.label
+        summary.mensajeConfianzaProyeccion = analysis.confidenceMessage
+        summary.insightPrincipal = analysis.primaryInsight
+        summary.alertas.clear()
+        summary.alertas.addAll(analysis.alerts)
+        summary.alertaPrincipal = analysis.alerts.firstOrNull() ?: analysis.confidenceMessage
+        summary.ahorroSugerido = analysis.suggestedSaving
+        summary.ahorroSugeridoMensaje = analysis.savingMessage
+        summary.recomendacionAhorroMeta = buildGoalSavingRecommendation(summary, analysis.suggestedSaving)
+        summary.estadoAhorro = analysis.savingStatus
+        summary.scoreFinanciero = analysis.score
+        summary.scoreEstado = analysis.scoreState
+        summary.scoreExplicacion = analysis.scoreExplanation
     }
 
     private fun applySmartSavings(

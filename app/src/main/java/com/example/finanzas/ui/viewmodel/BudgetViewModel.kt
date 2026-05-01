@@ -77,7 +77,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 loadedUserId = userId
                 loadedYear = anio
                 loadedMonth = mes
-                loadedVersion = LocalRepository.getDataVersion()
+                loadedVersion = version
                 _budget.value = it.first
                 _categoryBudgets.value = it.second
             }.onFailure {

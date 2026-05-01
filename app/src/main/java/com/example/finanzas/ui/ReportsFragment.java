@@ -141,7 +141,12 @@ public class ReportsFragment extends Fragment {
                 report.getSummary().getScoreFinanciero(),
                 Format.money(report.getSummary().getEfectivo(), currency),
                 Format.money(report.getSummary().getTarjetaCuenta(), currency),
-                Format.money(report.getSummary().getSaldoActualTotal(), currency)
+                Format.money(report.getSummary().getSaldoActualTotal(), currency),
+                Format.money(report.getSummary().getGastoProyectado(), currency),
+                Format.money(report.getSummary().getProyeccionFinMes(), currency),
+                report.getSummary().getConfianzaProyeccion() == null
+                        ? getString(R.string.home_projection_confidence_low)
+                        : report.getSummary().getConfianzaProyeccion()
         ));
         tvCategories.setText(buildCategories(report.getTopCategories(), currency));
         tvTrend.setText(buildTrend(report.getTrend(), currency));
@@ -168,7 +173,7 @@ public class ReportsFragment extends Fragment {
 
     private String buildTrend(@Nullable List<MonthlyTrendPoint> points, @NonNull String currency) {
         if (points == null || points.size() < 2) return getString(R.string.reports_no_trend);
-        StringBuilder out = new StringBuilder();
+        StringBuilder out = new StringBuilder("Balance mensual (no incluye saldos iniciales)\n");
         for (MonthlyTrendPoint point : points) {
             if (point == null) continue;
             out.append(point.getEtiqueta())

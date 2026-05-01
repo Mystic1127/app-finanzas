@@ -50,7 +50,7 @@
     <string name="home_dashboard_subtitle">Resumen claro del mes, tendencias y señales importantes.</string>
     <string name="home_ingresos">Ingresos</string>
     <string name="home_gastos">Gastos</string>
-    <string name="home_balance">Balance</string>
+    <string name="home_balance">Balance mensual</string>
     <string name="home_total_current">Total actual</string>
     <string name="home_cash">Efectivo</string>
     <string name="home_card_account">Tarjeta/Cuenta</string>
@@ -71,7 +71,8 @@
     <string name="home_financial_projection_label">Proyeccion mensual</string>
     <string name="home_financial_alert_label">Alerta principal</string>
     <string name="home_financial_score_label">Score financiero</string>
-    <string name="home_financial_projection_value">Saldo estimado fin de mes: %1$s (prom. diario: %2$s)</string>
+    <string name="home_financial_projection_value">Saldo estimado fin de mes: %1$s (%3$s, prom. diario: %2$s)</string>
+    <string name="home_projection_confidence_low">Confianza baja</string>
     <string name="home_financial_score_value">%1$d/100 - %2$s</string>
     <string name="home_financial_score_explanation_label">Explicacion</string>
     <string name="home_financial_score_trend_label">Tendencia</string>
@@ -85,7 +86,7 @@
     <string name="home_smart_saving_suggested_value">Podrias ahorrar %1$s este mes</string>
     <string name="home_smart_saving_not_recommended">No se recomienda ahorrar mas por ahora</string>
     <string name="home_smart_saving_goal_empty">Crea una meta para recibir recomendaciones de ahorro</string>
-    <string name="home_smart_saving_projection_value">Saldo actual: %1$s. Gasto proyectado: %2$s. Saldo final estimado: %3$s</string>
+    <string name="home_smart_saving_projection_value">Saldo actual real: %1$s. Gasto proyectado: %2$s. Saldo final estimado: %3$s</string>
     <string name="home_smart_saving_status_adjusted">Ajustado</string>
     <string name="home_recommendations_title">Recomendaciones inteligentes</string>
     <string name="home_pro_locked_recommendations">Disponible en Pro: activa funciones avanzadas para ver recomendaciones accionables y escaneo de recibos.</string>
@@ -103,7 +104,7 @@
     <string name="home_empty_goals">Crea metas de ahorro para visualizar tu progreso.</string>
     <string name="home_empty_reminders">Agrega recordatorios para no olvidar tus pagos.</string>
     <string name="home_chart_budget_title">Gasto vs presupuesto</string>
-    <string name="home_chart_balance_title">Ingresos, gastos y saldo</string>
+    <string name="home_chart_balance_title">Ingresos, gastos y balance mensual</string>
     <string name="home_chart_balance_label">Resumen mensual</string>
     <string name="home_chart_goals_title">Progreso de metas de ahorro</string>
     <string name="home_chart_goals_label">Porcentaje completado</string>
@@ -118,7 +119,7 @@
     <string name="chart_label_budget">Presupuesto</string>
     <string name="chart_label_income">Ingresos</string>
     <string name="chart_label_expense">Gastos</string>
-    <string name="chart_label_balance">Saldo</string>
+    <string name="chart_label_balance">Balance mensual</string>
     <string name="chart_label_income_short">Ingresos</string>
     <string name="chart_label_expense_short">Gastos</string>
     <string name="chart_no_data">Sin datos suficientes para graficar todavía.</string>
@@ -237,7 +238,7 @@
     <string name="reports_pdf_ready">PDF generado: %1$s</string>
     <string name="reports_pdf_error">No se pudo generar el PDF.</string>
     <string name="reports_share_title">Compartir reporte financiero</string>
-    <string name="reports_summary_format">Ingresos del mes: %1$s\nGastos del mes: %2$s\nBalance mensual: %3$s\nAhorro estimado: %4$s\nScore: %5$d/100\nEfectivo actual: %6$s\nTarjeta/Cuenta actual: %7$s\nSaldo total actual: %8$s</string>
+    <string name="reports_summary_format">Ingresos del mes: %1$s\nGastos del mes: %2$s\nBalance mensual: %3$s\nAhorro estimado: %4$s\nScore: %5$d/100\nEfectivo actual: %6$s\nTarjeta/Cuenta actual: %7$s\nSaldo total actual: %8$s\nGasto proyectado: %9$s\nSaldo estimado fin de mes: %10$s\nConfianza de proyección: %11$s</string>
     <string name="reports_status_format">Estado: %1$s · Moneda base: %2$s</string>
 
     <string name="imports_rules_title">Reglas de importación</string>
@@ -434,8 +435,19 @@
     <string name="perfil_initial_balances_error">No se pudieron guardar los saldos iniciales</string>
     <string name="perfil_currency_saved">Moneda actualizada.</string>
     <string name="perfil_currency_error">No se pudo guardar la moneda.</string>
+    <string name="profile_accounts_title">Cuentas</string>
+    <string name="profile_accounts_empty">No hay otras cuentas registradas</string>
+    <string name="profile_account_without_name">Cuenta sin nombre</string>
+    <string name="profile_account_current">Cuenta actual</string>
+    <string name="profile_account_switch">Cambiar</string>
+    <string name="account_switch_success">Cuenta cambiada</string>
     <string name="initial_currency_title">&#191;Que moneda quieres usar?</string>
     <string name="initial_currency_default">Usar PEN</string>
+    <string name="welcome_beta_version">Beta v0.9.0</string>
+    <string name="tester_thanks_badge">S</string>
+    <string name="tester_thanks_title">Gracias por probar Spendly</string>
+    <string name="tester_thanks_message">Esta es una versi&#243;n beta creada para seguir mejorando la app con ayuda de ustedes.&#10;&#10;Gracias por tomarse el tiempo de probarla, registrar movimientos y avisarme si algo falla o se puede mejorar.&#10;&#10;Espero que les sirva para organizar mejor su dinero mientras sigo puli&#233;ndola.&#10;&#10;Muchas gracias.</string>
+    <string name="tester_thanks_action">Entendido</string>
     <string name="perfil_appearance">Apariencia</string>
     <string name="perfil_theme_title">Tema</string>
     <string name="perfil_theme_system">Seguir sistema</string>

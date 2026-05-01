@@ -14,7 +14,9 @@ import com.example.finanzas.di.AppGraph
 import com.example.finanzas.util.PerfLogger
 import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -45,6 +47,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var loadedMonth = 0
     private var loadedVersion = -1L
     private var loadedUserId = -1L
+    private var loadGeneration = 0L
+    private var currentLoadJob: Job? = null
 
     private fun hydrateUiPreferences(summary: HomeSummary): HomeSummary {
         runCatching {
@@ -95,11 +99,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             PerfLogger.logSince("HomeFragment", "loadCacheHit", loadStart)
             return
         }
+        currentLoadJob?.cancel()
+        val generation = ++loadGeneration
         _loading.value = current == null || force
-        viewModelScope.launch {
-            runCatching {
+        currentLoadJob = viewModelScope.launch {
+            try {
                 _currencyCode.value = SettingsService.getCurrencyCode(getApplication())
-                val summaryDeferred = async { graph.dashboardRepository.getSummary(anio, mes) }
+                val summary = hydrateUiPreferences(graph.dashboardRepository.getFastSummary(anio, mes))
+                if (!isCurrentLoad(generation)) return@launch
+                if (isStaleVersion(version)) {
+                    retryStaleLoad(generation, anio, mes, force, version, loadStart)
+                    return@launch
+                }
+                publishSummary(summary, userId, anio, mes, version, clearDerived = true)
+                PerfLogger.logSince("HomeFragment", "summaryReady", loadStart)
+
                 val previousCal = Calendar.getInstance().apply {
                     set(anio, mes - 1, 1)
                     add(Calendar.MONTH, -1)
@@ -107,6 +121,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val previousPreviousCal = (previousCal.clone() as Calendar).apply {
                     add(Calendar.MONTH, -1)
                 }
+                val fullSummaryDeferred = async { graph.dashboardRepository.getSummary(anio, mes) }
                 val currentTxDeferred = async { graph.dashboardRepository.listTransactions(anio, mes) }
                 val prevTxDeferred = async {
                     graph.dashboardRepository.listTransactions(
@@ -128,39 +143,91 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val trendDeferred = async { graph.dashboardRepository.buildMonthlyTrend(anio, mes) }
 
-                val summary = hydrateUiPreferences(summaryDeferred.await())
+                val fullSummary = hydrateUiPreferences(fullSummaryDeferred.await())
+                if (!isCurrentLoad(generation)) return@launch
+                if (isStaleVersion(version)) {
+                    retryStaleLoad(generation, anio, mes, force, version, loadStart)
+                    return@launch
+                }
+
                 val currentTx = currentTxDeferred.await()
                 val previousTx = prevTxDeferred.await()
                 val trend = trendDeferred.await()
                 val previousSummary = previousSummaryDeferred.await()
                 val previousPreviousTx = prevPrevTxDeferred.await()
-                withContext(Dispatchers.Default) {
-                    graph.financialDashboardEngine.enrichDashboard(summary, currentTx, previousTx, trend)
-                    graph.financialDashboardEngine.applyScoreTrend(summary, previousSummary, previousTx, previousPreviousTx)
+                val enriched = withContext(Dispatchers.Default) {
+                    graph.financialDashboardEngine.enrichDashboard(fullSummary, currentTx, previousTx, trend)
+                    graph.financialDashboardEngine.applyScoreTrend(fullSummary, previousSummary, previousTx, previousPreviousTx)
                     val smart = graph.smartSpendingAlertUseCase.execute(currentTx, previousTx)
-                    if (summary.alertaPrincipal == "Sin alertas relevantes por ahora" && !smart?.message.isNullOrBlank()) {
-                        summary.alertaPrincipal = smart?.message
+                    if (fullSummary.alertaPrincipal == "Sin alertas relevantes por ahora" && !smart?.message.isNullOrBlank()) {
+                        fullSummary.alertaPrincipal = smart?.message
                     }
                     Triple(
-                        summary,
+                        fullSummary,
                         smart?.message,
-                        graph.financialDashboardEngine.buildInsights(summary, currentTx, previousTx)
+                        graph.financialDashboardEngine.buildInsights(fullSummary, currentTx, previousTx)
                     )
                 }
-            }
-                .onSuccess {
-                    loadedUserId = userId
-                    loadedYear = anio
-                    loadedMonth = mes
-                    loadedVersion = LocalRepository.getDataVersion()
-                    _summary.value = it.first
-                    _smartAlert.value = it.second
-                    _insights.value = it.third
+                if (!isCurrentLoad(generation)) return@launch
+                if (isStaleVersion(version)) {
+                    retryStaleLoad(generation, anio, mes, force, version, loadStart)
+                    return@launch
                 }
-                .onFailure { _error.value = Unit }
-            PerfLogger.logSince("HomeFragment", "loadComplete", loadStart)
-            _loading.value = false
+                publishSummary(enriched.first, userId, anio, mes, version, clearDerived = false)
+                _smartAlert.value = enriched.second
+                _insights.value = enriched.third
+                PerfLogger.logSince("HomeFragment", "enrichmentReady", loadStart)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                if (isCurrentLoad(generation)) _error.value = Unit
+            } finally {
+                if (isCurrentLoad(generation)) {
+                    PerfLogger.logSince("HomeFragment", "loadComplete", loadStart)
+                    _loading.value = false
+                    currentLoadJob = null
+                }
+            }
         }
+    }
+
+    private fun publishSummary(
+        summary: HomeSummary,
+        userId: Long,
+        anio: Int,
+        mes: Int,
+        version: Long,
+        clearDerived: Boolean
+    ) {
+        loadedUserId = userId
+        loadedYear = anio
+        loadedMonth = mes
+        loadedVersion = version
+        if (clearDerived) {
+            _smartAlert.value = null
+            _insights.value = emptyList()
+        }
+        _summary.value = summary
+    }
+
+    private fun isCurrentLoad(generation: Long): Boolean = generation == loadGeneration
+
+    private fun isStaleVersion(version: Long): Boolean = LocalRepository.getDataVersion() != version
+
+    private fun retryStaleLoad(generation: Long, anio: Int, mes: Int, force: Boolean, version: Long, loadStart: Long) {
+        if (!isCurrentLoad(generation)) return
+        PerfLogger.log("HomeFragment", "staleLoadDiscarded requestedVersion=$version currentVersion=${LocalRepository.getDataVersion()}")
+        PerfLogger.logSince("HomeFragment", "staleDiscarded", loadStart)
+        loadGeneration++
+        viewModelScope.launch { loadSummary(anio, mes, force) }
+    }
+
+    fun hasFreshSummary(anio: Int, mes: Int): Boolean {
+        return _summary.value != null &&
+            loadedUserId == Prefs.getCurrentUserId(getApplication()) &&
+            loadedYear == anio &&
+            loadedMonth == mes &&
+            loadedVersion == LocalRepository.getDataVersion()
     }
 
     fun clearCacheIfUserChanged() {
@@ -171,6 +238,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearCache() {
+        loadGeneration++
+        currentLoadJob?.cancel()
+        currentLoadJob = null
         loadedUserId = -1L
         loadedYear = 0
         loadedMonth = 0

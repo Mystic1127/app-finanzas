@@ -18,6 +18,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 
 class LocalRepository private constructor(
     private val db: AppRoomDatabase,
@@ -33,19 +34,20 @@ class LocalRepository private constructor(
 
     private fun manualRate(): Double = SettingsService.getManualRate(appContext)
 
-    private fun convertToBase(amount: Double, currency: String?): Double {
-        val base = baseCurrency()
-        return CurrencyConverter.convert(amount, currency, base, base, manualRate())
+    private fun convertToBase(amount: Double, currency: String?): Double =
+        convertToBase(amount, currency, baseCurrency(), manualRate())
+
+    private fun convertToBase(amount: Double, currency: String?, base: String, manualRate: Double): Double {
+        return CurrencyConverter.convert(amount, currency, base, base, manualRate)
     }
 
-    private fun Transaccion.toBaseCurrencyCopy(): Transaccion {
-        val base = baseCurrency()
+    private fun Transaccion.toBaseCurrencyCopy(base: String, manualRate: Double): Transaccion {
         return Transaccion(
             id,
             categoriaId,
             categoriaNombre,
             isEsIngreso,
-            convertToBase(monto, moneda),
+            convertToBase(monto, moneda, base, manualRate),
             base,
             fecha,
             accountType,
@@ -53,11 +55,15 @@ class LocalRepository private constructor(
         )
     }
     companion object {
+        private const val BALANCE_EPSILON = 0.005
         private val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        @Volatile
-        private var dataVersion: Long = 0L
+        private val dataVersion = AtomicLong(0L)
         @Volatile
         private var instance: LocalRepository? = null
+
+        private fun normalizeAccountTypeForMessage(value: String?): String {
+            return if ("CASH".equals(value, ignoreCase = true)) "CASH" else "CARD"
+        }
 
         @JvmStatic
         fun getInstance(context: Context): LocalRepository {
@@ -70,7 +76,7 @@ class LocalRepository private constructor(
         }
 
         @JvmStatic
-        fun getDataVersion(): Long = dataVersion
+        fun getDataVersion(): Long = dataVersion.get()
 
         @JvmStatic
         fun invalidateDataVersion() {
@@ -78,7 +84,7 @@ class LocalRepository private constructor(
         }
 
         private fun bumpDataVersion() {
-            dataVersion++
+            dataVersion.incrementAndGet()
         }
     }
 
@@ -87,6 +93,14 @@ class LocalRepository private constructor(
         var nombre: String? = null
         var email: String? = null
     }
+
+    class InsufficientBalanceException(accountType: String) : IllegalStateException(
+        if (normalizeAccountTypeForMessage(accountType) == "CASH") {
+            "Saldo insuficiente en Efectivo"
+        } else {
+            "Saldo insuficiente en Tarjeta/Cuenta"
+        }
+    )
 
     private data class ImportRow(
         val fecha: Long,
@@ -116,6 +130,10 @@ class LocalRepository private constructor(
 
     suspend fun getUserByEmail(email: String): User? = withContext(Dispatchers.IO) {
         db.userDao().findByEmail(email)?.let { User(it.id, it.nombre, it.email) }
+    }
+
+    suspend fun listUsers(): List<User> = withContext(Dispatchers.IO) {
+        db.userDao().listAll().map { User(it.id, it.nombre, it.email) }
     }
 
     suspend fun changePassword(email: String, oldPassword: String, newPassword: String): Boolean = withContext(Dispatchers.IO) {
@@ -193,37 +211,119 @@ class LocalRepository private constructor(
     }
 
     suspend fun listTransaccionesEnMonedaBase(anio: Int, mes: Int, filtro: TransaccionFiltro? = null): List<Transaccion> = withContext(Dispatchers.IO) {
-        listTransacciones(anio, mes, filtro).map { it.toBaseCurrencyCopy() }
+        val base = baseCurrency()
+        val rate = manualRate()
+        listTransacciones(anio, mes, filtro).map { it.toBaseCurrencyCopy(base, rate) }
+    }
+
+    private fun validateSufficientBalance(
+        userId: Int,
+        isIncome: Boolean,
+        amount: Double,
+        currency: String,
+        accountType: String,
+        excludingTransactionId: Int?
+    ) {
+        if (isIncome) return
+        val base = baseCurrency()
+        val rate = manualRate()
+        val expenseInBase = convertToBase(amount, currency, base, rate)
+        val available = accountBalanceInBase(userId, normalizeAccountType(accountType), base, rate, excludingTransactionId)
+        if (expenseInBase - available > BALANCE_EPSILON) {
+            throw InsufficientBalanceException(accountType)
+        }
+    }
+
+    private fun accountBalanceInBase(
+        userId: Int,
+        accountType: String,
+        base: String,
+        manualRate: Double,
+        excludingTransactionId: Int?
+    ): Double {
+        val initialCurrency = SettingsService.getInitialBalancesCurrency(appContext)
+        val initial = if (accountType == "CASH") {
+            CurrencyConverter.convert(
+                SettingsService.getInitialCashBalance(appContext),
+                initialCurrency,
+                base,
+                base,
+                manualRate
+            )
+        } else {
+            CurrencyConverter.convert(
+                SettingsService.getInitialCardBalance(appContext),
+                initialCurrency,
+                base,
+                base,
+                manualRate
+            )
+        }
+        val movement = db.transaccionDao().listAll(userId)
+            .asSequence()
+            .filter { excludingTransactionId == null || it.id != excludingTransactionId }
+            .filter { normalizeAccountType(it.accountType) == accountType }
+            .sumOf {
+                val amountInBase = convertToBase(it.monto, it.moneda, base, manualRate)
+                if (it.esIngreso == 1) amountInBase else -amountInBase
+            }
+        return initial + movement
     }
 
     suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency(), accountType: String = "CARD"): Int = withContext(Dispatchers.IO) {
         require(categoriaId > 0) { "Categoria invalida" }
         require(monto > 0.0) { "Monto invalido" }
         require(fecha > 0L) { "Fecha invalida" }
+        val userId = currentUserId()
+        val normalizedAccountType = normalizeAccountType(accountType)
+        val normalizedCurrency = CurrencyConverter.normalize(moneda)
+        validateSufficientBalance(
+            userId = userId,
+            isIncome = esIngreso,
+            amount = monto,
+            currency = normalizedCurrency,
+            accountType = normalizedAccountType,
+            excludingTransactionId = null
+        )
         db.transaccionDao().insert(
             TransaccionEntity(
-                userId = currentUserId(),
+                userId = userId,
                 categoriaId = categoriaId,
                 esIngreso = if (esIngreso) 1 else 0,
                 monto = monto,
-                moneda = CurrencyConverter.normalize(moneda),
+                moneda = normalizedCurrency,
                 fecha = fecha,
-                accountType = normalizeAccountType(accountType),
+                accountType = normalizedAccountType,
                 nota = nota
             )
         ).toInt().also { bumpDataVersion() }
     }
 
     suspend fun updateTransaccion(id: Int, categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long, moneda: String = baseCurrency(), accountType: String = "CARD"): Boolean = withContext(Dispatchers.IO) {
+        require(id > 0) { "Transaccion invalida" }
+        require(categoriaId > 0) { "Categoria invalida" }
+        require(monto > 0.0) { "Monto invalido" }
+        require(fecha > 0L) { "Fecha invalida" }
+        val userId = currentUserId()
+        val normalizedAccountType = normalizeAccountType(accountType)
+        val normalizedCurrency = CurrencyConverter.normalize(moneda)
+        validateSufficientBalance(
+            userId = userId,
+            isIncome = esIngreso,
+            amount = monto,
+            currency = normalizedCurrency,
+            accountType = normalizedAccountType,
+            excludingTransactionId = id
+        )
         val updated = db.transaccionDao().updateById(
             id = id,
-            userId = currentUserId(),
+            userId = userId,
             categoriaId = categoriaId,
             esIngreso = if (esIngreso) 1 else 0,
             monto = monto,
-            moneda = CurrencyConverter.normalize(moneda),
+            moneda = normalizedCurrency,
             fecha = fecha,
-            accountType = normalizeAccountType(accountType),
+            accountType = normalizedAccountType,
             nota = nota
         )
         if (updated > 0) bumpDataVersion()
@@ -278,14 +378,16 @@ class LocalRepository private constructor(
     }
 
     suspend fun listPresupuestosCategoria(anio: Int, mes: Int): List<CategoryBudgetSummary> = withContext(Dispatchers.IO) {
+        val base = baseCurrency()
+        val rate = manualRate()
         val catNames = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
         val budgets = db.presupuestoCategoriaDao().listByMonth(currentUserId(), anio, mes)
         val out = budgets.map {
             CategoryBudgetSummary().apply {
                 categoriaId = it.categoriaId
                 categoriaNombre = catNames[it.categoriaId]?.nombre ?: ""
-                limite = convertToBase(it.monto, it.moneda)
-                moneda = baseCurrency()
+                limite = convertToBase(it.monto, it.moneda, base, rate)
+                moneda = base
             }
         }.toMutableList()
 
@@ -300,7 +402,7 @@ class LocalRepository private constructor(
         val gastos = db.transaccionDao().listAll(currentUserId())
             .filter { it.esIngreso == 0 && it.fecha >= start && it.fecha < end }
             .groupBy { it.categoriaId }
-            .mapValues { e -> e.value.sumOf { convertToBase(it.monto, it.moneda) } }
+            .mapValues { e -> e.value.sumOf { convertToBase(it.monto, it.moneda, base, rate) } }
 
         gastos.forEach { (catId, gastado) ->
             var target = out.firstOrNull { it.categoriaId == catId }
@@ -309,7 +411,7 @@ class LocalRepository private constructor(
                     categoriaId = catId
                     categoriaNombre = catNames[catId]?.nombre ?: ""
                     limite = 0.0
-                    moneda = baseCurrency()
+                    moneda = base
                 }
                 out.add(target)
             }
@@ -570,6 +672,7 @@ class LocalRepository private constructor(
         val rows = parseImportRows(job.lineas)
         var procesados = 0
         var errores = 0
+        var omitidosSaldo = 0
         var suggestedYear = 0
         var suggestedMonth = 0
 
@@ -590,6 +693,19 @@ class LocalRepository private constructor(
                 }
 
                 val nota = rule?.nota?.takeIf { it.isNotBlank() } ?: row.descripcion
+                try {
+                    validateSufficientBalance(
+                        userId = userId,
+                        isIncome = esIngreso,
+                        amount = row.monto,
+                        currency = baseCurrency(),
+                        accountType = "CARD",
+                        excludingTransactionId = null
+                    )
+                } catch (e: InsufficientBalanceException) {
+                    omitidosSaldo++
+                    return@forEach
+                }
                 db.transaccionDao().insert(
                     TransaccionEntity(
                         userId = userId,
@@ -620,7 +736,7 @@ class LocalRepository private constructor(
         JSONObject().apply {
             put("procesados", procesados)
             put("errores", errores)
-            put("omitidos_saldo", 0)
+            put("omitidos_saldo", omitidosSaldo)
             if (suggestedYear > 0 && suggestedMonth > 0) {
                 put("anio_sugerido", suggestedYear)
                 put("mes_sugerido", suggestedMonth)
@@ -702,30 +818,31 @@ class LocalRepository private constructor(
         summary.anio = anio
         summary.mes = mes
 
-        val trans = listTransaccionesEnMonedaBase(anio, mes)
+        val base = baseCurrency()
+        val rate = manualRate()
+        val trans = listTransacciones(anio, mes).map { it.toBaseCurrencyCopy(base, rate) }
         val ingresos = trans.filter { it.isEsIngreso }.sumOf { it.monto }
         val gastos = trans.filterNot { it.isEsIngreso }.sumOf { it.monto }
         summary.ingresos = ingresos
         summary.gastos = gastos
         summary.saldo = ingresos - gastos
 
-        val base = baseCurrency()
         val initialCurrency = SettingsService.getInitialBalancesCurrency(appContext)
         val initialCash = CurrencyConverter.convert(
             SettingsService.getInitialCashBalance(appContext),
             initialCurrency,
             base,
             base,
-            manualRate()
+            rate
         )
         val initialCard = CurrencyConverter.convert(
             SettingsService.getInitialCardBalance(appContext),
             initialCurrency,
             base,
             base,
-            manualRate()
+            rate
         )
-        val allTrans = listTodasTransacciones().map { it.toBaseCurrencyCopy() }
+        val allTrans = listTodasTransacciones().map { it.toBaseCurrencyCopy(base, rate) }
         val cashMovement = allTrans.sumOf { if (it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
         val cardMovement = allTrans.sumOf { if (!it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
         summary.initialCashBalance = initialCash
@@ -747,6 +864,83 @@ class LocalRepository private constructor(
         summary.metas.addAll(listGoals())
         summary.recordatorios.addAll(listReminders(false))
         summary.importacionesPendientes = listImports().size
+
+        summary
+    }
+
+    suspend fun buildHomeSummaryFast(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {
+        val summary = HomeSummary()
+        summary.anio = anio
+        summary.mes = mes
+
+        val userId = currentUserId()
+        val base = baseCurrency()
+        val rate = manualRate()
+        val cal = Calendar.getInstance().apply {
+            set(anio, mes - 1, 1, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val start = cal.timeInMillis
+        cal.add(Calendar.MONTH, 1)
+        val end = cal.timeInMillis
+
+        val monthTrans = db.transaccionDao().listBetween(userId, start, end)
+        val ingresos = monthTrans
+            .filter { it.esIngreso == 1 }
+            .sumOf { convertToBase(it.monto, it.moneda, base, rate) }
+        val gastos = monthTrans
+            .filter { it.esIngreso == 0 }
+            .sumOf { convertToBase(it.monto, it.moneda, base, rate) }
+        summary.ingresos = ingresos
+        summary.gastos = gastos
+        summary.saldo = ingresos - gastos
+
+        val initialCurrency = SettingsService.getInitialBalancesCurrency(appContext)
+        val initialCash = CurrencyConverter.convert(
+            SettingsService.getInitialCashBalance(appContext),
+            initialCurrency,
+            base,
+            base,
+            rate
+        )
+        val initialCard = CurrencyConverter.convert(
+            SettingsService.getInitialCardBalance(appContext),
+            initialCurrency,
+            base,
+            base,
+            rate
+        )
+        val allTrans = db.transaccionDao().listAll(userId)
+        val cashMovement = allTrans.sumOf {
+            if ("CASH".equals(it.accountType, ignoreCase = true)) {
+                if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
+            } else {
+                0.0
+            }
+        }
+        val cardMovement = allTrans.sumOf {
+            if (!"CASH".equals(it.accountType, ignoreCase = true)) {
+                if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
+            } else {
+                0.0
+            }
+        }
+        summary.initialCashBalance = initialCash
+        summary.initialCardBalance = initialCard
+        summary.efectivo = initialCash + cashMovement
+        summary.tarjetaCuenta = initialCard + cardMovement
+        summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
+
+        val presMonto = db.presupuestoDao().find(userId, anio, mes)
+            ?.let { convertToBase(it.monto, it.moneda, base, rate) }
+            ?: 0.0
+        summary.presupuestoMonto = presMonto
+        summary.presupuestoRestante = presMonto - gastos
+        summary.presupuestoPorcentaje = if (presMonto > 0) (gastos / presMonto) * 100.0 else 0.0
+        summary.presupuestoExcedido = summary.presupuestoRestante < 0
+        summary.gastoProyectado = gastos
+        summary.gastoPromedioDiario = gastos / maxOf(1, Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH))
+        summary.diasRestantes = maxOf(0, Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH) - Calendar.getInstance().get(Calendar.DAY_OF_MONTH))
 
         summary
     }

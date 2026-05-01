@@ -136,6 +136,15 @@ private fun WelcomeScreen(
                     Text(text = stringResource(R.string.welcome_register))
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.welcome_beta_version),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
