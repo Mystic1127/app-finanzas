@@ -7,9 +7,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
@@ -21,10 +24,12 @@ import com.example.finanzas.data.api.SuggestionService;
 import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.Categoria;
+import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
@@ -55,6 +60,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private MaterialAutoCompleteTextView actCategoria, actMoneda, actAccountType;
     private MaterialButton btnGuardar;
     private MaterialButton btnSugerir;
+    private MaterialButton btnManageCategories;
     private Chip chipSugerencia;
 
     private Integer editingId = null;
@@ -93,6 +99,7 @@ public class NuevaTransaccionFragment extends Fragment {
         actAccountType = v.findViewById(R.id.actAccountType);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
         btnSugerir    = v.findViewById(R.id.btnSugerir);
+        btnManageCategories = v.findViewById(R.id.btnManageCategories);
         chipSugerencia = v.findViewById(R.id.chipSugerencia);
         setupCurrencySelector();
         setupAccountTypeSelector();
@@ -111,6 +118,7 @@ public class NuevaTransaccionFragment extends Fragment {
         swTipo.setOnCheckedChangeListener(switchListener);
 
         btnSugerir.setOnClickListener(v1 -> solicitarSugerencia());
+        btnManageCategories.setOnClickListener(v14 -> showCategoryManagerDialog());
         chipSugerencia.setOnClickListener(v12 -> aplicarSugerenciaActual());
         chipSugerencia.setOnCloseIconClickListener(v13 -> {
             chipSugerencia.setVisibility(View.GONE);
@@ -208,7 +216,9 @@ public class NuevaTransaccionFragment extends Fragment {
         if (categorias == null) return;
 
         visibles = new ArrayList<>();
-        for (Categoria c : categorias) if (c != null && c.esIngreso == esIngreso) visibles.add(c);
+        for (Categoria c : categorias) {
+            if (c != null && c.esIngreso == esIngreso && !isSpecialCategory(c)) visibles.add(c);
+        }
 
         List<String> nombres = new ArrayList<>();
         for (Categoria c : visibles) nombres.add(c.nombre);
@@ -364,6 +374,11 @@ public class NuevaTransaccionFragment extends Fragment {
         return null;
     }
 
+    private boolean isSpecialCategory(@NonNull Categoria categoria) {
+        return categoria.nombre != null
+                && categoria.nombre.equalsIgnoreCase(Transaccion.INITIAL_BALANCE_CATEGORY);
+    }
+
     @Nullable
     private Categoria findCategoriaByKeywords(boolean esIngreso, @NonNull String... keywords) {
         if (categorias == null) return null;
@@ -432,6 +447,219 @@ public class NuevaTransaccionFragment extends Fragment {
             if (etFecha != null) etFecha.setText(UiFormUtils.formatUiDate(new Date()));
             if (etHora != null) etHora.setText(formatTime(new Date()));
         }
+    }
+
+    private void showCategoryManagerDialog() {
+        final boolean incomeFlow = swTipo.isChecked();
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(12), dp(20), dp(8));
+
+        TextInputEditText etName = new TextInputEditText(requireContext());
+        etName.setHint(getString(incomeFlow ? R.string.category_new_income : R.string.category_new_expense));
+        etName.setSingleLine(true);
+        root.addView(etName, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        MaterialButton btnCreate = new MaterialButton(requireContext());
+        btnCreate.setText(R.string.pres_btn_agregar_categoria);
+        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        createParams.topMargin = dp(10);
+        root.addView(btnCreate, createParams);
+
+        LinearLayout list = new LinearLayout(requireContext());
+        list.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        listParams.topMargin = dp(12);
+        root.addView(list, listParams);
+
+        Runnable render = () -> renderCategoryRows(list, incomeFlow);
+        render.run();
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(incomeFlow ? R.string.category_manage_income : R.string.category_manage_expense)
+                .setView(root)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+
+        btnCreate.setOnClickListener(v -> {
+            String name = etName.getText() == null ? "" : etName.getText().toString().trim();
+            if (name.isEmpty()) {
+                etName.setError(getString(incomeFlow ? R.string.category_new_income : R.string.category_new_expense));
+                return;
+            }
+            btnCreate.setEnabled(false);
+            CategoryStore.createCategoria(requireContext(), name, incomeFlow, new CategoryStore.CreateCallback() {
+                @Override
+                public void onReady(@NonNull Categoria categoria) {
+                    if (!isAdded()) return;
+                    btnCreate.setEnabled(true);
+                    etName.setText("");
+                    CategoryStore.clearCache();
+                    cargarCategoriasYRefrescar();
+                    UiFormUtils.showMessage(requireView(), R.string.category_saved);
+                    CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
+                        @Override
+                        public void onReady(List<? extends Categoria> cats) {
+                            categorias = new ArrayList<>(cats);
+                            aplicarFiltroYRefrescar(incomeFlow, true, categoria.nombre);
+                            render.run();
+                        }
+
+                        @Override
+                        public void onError() { }
+                    });
+                }
+
+                @Override
+                public void onError() {
+                    if (!isAdded()) return;
+                    btnCreate.setEnabled(true);
+                    UiFormUtils.showMessage(requireView(), R.string.category_save_error);
+                }
+            });
+        });
+
+        dialog.show();
+    }
+
+    private void renderCategoryRows(@NonNull LinearLayout list, boolean incomeFlow) {
+        list.removeAllViews();
+        if (categorias == null) return;
+        for (Categoria categoria : categorias) {
+            if (categoria == null || categoria.esIngreso != incomeFlow || isSpecialCategory(categoria)) continue;
+
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(0, dp(6), 0, dp(6));
+
+            TextView name = new TextView(requireContext());
+            name.setText(categoria.nombre);
+            name.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+            name.setTextSize(15f);
+            row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+            if (categoria.editable) {
+                MaterialButton edit = new MaterialButton(requireContext());
+                edit.setText(R.string.category_edit);
+                edit.setMinHeight(dp(40));
+                edit.setOnClickListener(v -> showEditCategoryDialog(categoria, incomeFlow, () ->
+                        reloadCategoriesForManager(list, incomeFlow, categoria.nombre)));
+                row.addView(edit, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                ));
+
+                MaterialButton delete = new MaterialButton(requireContext());
+                delete.setText(R.string.btn_eliminar);
+                delete.setMinHeight(dp(40));
+                delete.setOnClickListener(v -> confirmDeleteCategory(categoria, incomeFlow, () ->
+                        reloadCategoriesForManager(list, incomeFlow, null)));
+                LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                deleteParams.leftMargin = dp(6);
+                row.addView(delete, deleteParams);
+            } else {
+                TextView protectedLabel = new TextView(requireContext());
+                protectedLabel.setText(R.string.category_protected);
+                protectedLabel.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+                protectedLabel.setTextSize(12f);
+                row.addView(protectedLabel);
+            }
+
+            list.addView(row, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+        }
+    }
+
+    private void reloadCategoriesForManager(@NonNull LinearLayout list, boolean incomeFlow, @Nullable String preferred) {
+        CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
+            @Override
+            public void onReady(List<? extends Categoria> cats) {
+                categorias = new ArrayList<>(cats);
+                aplicarFiltroYRefrescar(incomeFlow, true, preferred);
+                renderCategoryRows(list, incomeFlow);
+            }
+
+            @Override
+            public void onError() { }
+        });
+    }
+
+    private void showEditCategoryDialog(@NonNull Categoria categoria, boolean incomeFlow, @Nullable Runnable afterChange) {
+        TextInputEditText input = new TextInputEditText(requireContext());
+        input.setSingleLine(true);
+        input.setText(categoria.nombre);
+        input.setSelectAllOnFocus(true);
+        input.setPadding(dp(20), dp(8), dp(20), dp(8));
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.category_edit)
+                .setView(input)
+                .setPositiveButton(R.string.btn_guardar, null)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String name = input.getText() == null ? "" : input.getText().toString().trim();
+            if (name.isEmpty()) {
+                input.setError(getString(R.string.category_save_error));
+                return;
+            }
+            Categoria updated = new Categoria(categoria.id, categoria.userId, name, incomeFlow, categoria.editable);
+            CategoryStore.updateCategoria(requireContext(), updated, new CategoryStore.SimpleCallback() {
+                @Override
+                public void onSuccess() {
+                    if (!isAdded()) return;
+                    dialog.dismiss();
+                    UiFormUtils.showMessage(requireView(), R.string.category_saved);
+                    CategoryStore.clearCache();
+                    cargarCategoriasYRefrescar();
+                    if (afterChange != null) afterChange.run();
+                }
+
+                @Override
+                public void onError() {
+                    if (isAdded()) UiFormUtils.showMessage(requireView(), R.string.category_save_error);
+                }
+            });
+        }));
+        dialog.show();
+    }
+
+    private void confirmDeleteCategory(@NonNull Categoria categoria, boolean incomeFlow, @Nullable Runnable afterChange) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setMessage(R.string.category_delete_confirm)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.btn_eliminar, (dialog, which) ->
+                        CategoryStore.deleteCategoria(requireContext(), categoria.id, new CategoryStore.SimpleCallback() {
+                            @Override
+                            public void onSuccess() {
+                                if (!isAdded()) return;
+                                UiFormUtils.showMessage(requireView(), R.string.category_deleted);
+                                CategoryStore.clearCache();
+                                cargarCategoriasYRefrescar();
+                                if (afterChange != null) afterChange.run();
+                            }
+
+                            @Override
+                            public void onError() {
+                                if (isAdded()) UiFormUtils.showMessage(requireView(), R.string.category_in_use_error);
+                            }
+                        }))
+                .show();
     }
 
     private void onGuardar(View view) {
@@ -589,6 +817,10 @@ public class NuevaTransaccionFragment extends Fragment {
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
         return String.format(Locale.US, "%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE));
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
 }

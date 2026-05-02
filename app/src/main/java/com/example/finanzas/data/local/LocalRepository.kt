@@ -108,7 +108,11 @@ class LocalRepository private constructor(
         val fecha: Long,
         val descripcion: String,
         val monto: Double,
-        val esIngreso: Boolean
+        val esIngreso: Boolean,
+        val moneda: String?,
+        val categoriaId: Int?,
+        val categoriaNombre: String?,
+        val nota: String?
     )
 
     suspend fun registerUser(nombre: String, email: String, password: String, outId: IntArray?): Boolean = withContext(Dispatchers.IO) {
@@ -159,7 +163,50 @@ class LocalRepository private constructor(
     }
 
     suspend fun listCategorias(): List<Categoria> = withContext(Dispatchers.IO) {
-        db.categoriaDao().listForUser(currentUserId()).map { Categoria(it.id, it.nombre, it.esIngreso == 1) }
+        val userId = currentUserId()
+        db.categoriaDao().listForUser(userId).map {
+            Categoria(
+                it.id,
+                it.userId,
+                it.nombre,
+                it.esIngreso == 1,
+                it.userId == userId && !it.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true)
+            )
+        }
+    }
+
+    suspend fun updateCategoria(id: Int, nombre: String, esIngreso: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        val cleanName = nombre.trim()
+        if (id <= 0 || cleanName.isBlank()) return@withContext false
+        val category = db.categoriaDao().listForUser(userId).firstOrNull { it.id == id } ?: return@withContext false
+        if (category.userId != userId || category.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true)) {
+            return@withContext false
+        }
+        if ((category.esIngreso == 1) != esIngreso) {
+            val inUse = db.categoriaDao().countTransactions(userId, id) > 0 ||
+                db.categoriaDao().countBudgets(userId, id) > 0 ||
+                db.categoriaDao().countImportRules(userId, id) > 0
+            if (inUse) return@withContext false
+        }
+        val updated = db.categoriaDao().updateById(id, userId, cleanName, if (esIngreso) 1 else 0)
+        if (updated > 0) bumpDataVersion()
+        updated > 0
+    }
+
+    suspend fun deleteCategoria(id: Int): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        val category = db.categoriaDao().listForUser(userId).firstOrNull { it.id == id } ?: return@withContext false
+        if (category.userId != userId || category.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true)) {
+            return@withContext false
+        }
+        val inUse = db.categoriaDao().countTransactions(userId, id) > 0 ||
+            db.categoriaDao().countBudgets(userId, id) > 0 ||
+            db.categoriaDao().countImportRules(userId, id) > 0
+        if (inUse) return@withContext false
+        val deleted = db.categoriaDao().deleteById(id, userId)
+        if (deleted > 0) bumpDataVersion()
+        deleted > 0
     }
 
     suspend fun hasInitialBalanceConfigured(): Boolean = withContext(Dispatchers.IO) {
@@ -741,8 +788,10 @@ class LocalRepository private constructor(
         val categorias = db.categoriaDao().listForUser(userId)
         val rules = db.importRuleDao().listAll(userId)
         val rows = parseImportRows(job.lineas)
+        val existing = db.transaccionDao().listAll(userId).toMutableList()
         var procesados = 0
         var errores = 0
+        var duplicados = 0
         var omitidosSaldo = 0
         var suggestedYear = 0
         var suggestedMonth = 0
@@ -755,6 +804,8 @@ class LocalRepository private constructor(
                 }
                 val esIngreso = rule?.let { it.esIngreso == 1 } ?: row.esIngreso
                 val categoriaId = rule?.categoriaId
+                    ?: row.categoriaId
+                    ?: categoryIdFromImportRow(row, categorias, esIngreso)
                     ?: categorias.firstOrNull { it.esIngreso == if (esIngreso) 1 else 0 }?.id
                     ?: 0
 
@@ -763,13 +814,18 @@ class LocalRepository private constructor(
                     return@forEach
                 }
 
-                val nota = rule?.nota?.takeIf { it.isNotBlank() } ?: row.descripcion
+                val nota = rule?.nota?.takeIf { it.isNotBlank() } ?: row.nota?.takeIf { it.isNotBlank() } ?: row.descripcion
+                val currency = CurrencyConverter.normalize(row.moneda ?: baseCurrency())
+                if (isDuplicateImport(existing, row, categoriaId, esIngreso, currency, nota)) {
+                    duplicados++
+                    return@forEach
+                }
                 try {
                     validateSufficientBalance(
                         userId = userId,
                         isIncome = esIngreso,
                         amount = row.monto,
-                        currency = baseCurrency(),
+                        currency = currency,
                         accountType = "CARD",
                         excludingTransactionId = null
                     )
@@ -777,18 +833,18 @@ class LocalRepository private constructor(
                     omitidosSaldo++
                     return@forEach
                 }
-                db.transaccionDao().insert(
-                    TransaccionEntity(
-                        userId = userId,
-                        categoriaId = categoriaId,
-                        esIngreso = if (esIngreso) 1 else 0,
-                        monto = row.monto,
-                        moneda = baseCurrency(),
-                        fecha = row.fecha,
-                        accountType = "CARD",
-                        nota = nota
-                    )
+                val entity = TransaccionEntity(
+                    userId = userId,
+                    categoriaId = categoriaId,
+                    esIngreso = if (esIngreso) 1 else 0,
+                    monto = row.monto,
+                    moneda = currency,
+                    fecha = row.fecha,
+                    accountType = "CARD",
+                    nota = nota
                 )
+                db.transaccionDao().insert(entity)
+                existing.add(entity)
                 if (suggestedYear == 0 || suggestedMonth == 0) {
                     Calendar.getInstance().apply {
                         timeInMillis = row.fecha
@@ -807,6 +863,7 @@ class LocalRepository private constructor(
         JSONObject().apply {
             put("procesados", procesados)
             put("errores", errores)
+            put("duplicados", duplicados)
             put("omitidos_saldo", omitidosSaldo)
             if (suggestedYear > 0 && suggestedMonth > 0) {
                 put("anio_sugerido", suggestedYear)
@@ -830,8 +887,12 @@ class LocalRepository private constructor(
             val descripcion = item.optString("descripcion", item.optString("nota", "")).trim()
             val monto = kotlin.math.abs(item.optDouble("monto", 0.0))
             val esIngreso = item.optInt("es_ingreso", if (item.optBoolean("es_ingreso", false)) 1 else 0) == 1
+            val moneda = item.optString("moneda", "").takeIf { it.isNotBlank() }
+            val categoriaId = if (item.has("categoria_id")) item.optInt("categoria_id", 0).takeIf { it > 0 } else null
+            val categoriaNombre = item.optString("categoria", "").takeIf { it.isNotBlank() }
+            val nota = item.optString("nota", "").takeIf { it.isNotBlank() }
             if (fecha > 0L && monto > 0.0) {
-                rows.add(ImportRow(fecha, descripcion, monto, esIngreso))
+                rows.add(ImportRow(fecha, descripcion, monto, esIngreso, moneda, categoriaId, categoriaNombre, nota))
             }
         }
         return rows
@@ -854,9 +915,36 @@ class LocalRepository private constructor(
                     else -> signedAmount >= 0.0
                 }
                 val monto = kotlin.math.abs(signedAmount)
-                if (fecha <= 0L || monto <= 0.0) null else ImportRow(fecha, descripcion, monto, esIngreso)
+                val moneda = parts.getOrNull(4)?.takeIf { it.isNotBlank() }
+                val categoria = parts.getOrNull(5)?.takeIf { it.isNotBlank() }
+                if (fecha <= 0L || monto <= 0.0) null else ImportRow(fecha, descripcion, monto, esIngreso, moneda, null, categoria, null)
             }
             .toList()
+    }
+
+    private fun categoryIdFromImportRow(row: ImportRow, categorias: List<CategoriaEntity>, esIngreso: Boolean): Int? {
+        val name = row.categoriaNombre?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return categorias.firstOrNull {
+            it.esIngreso == (if (esIngreso) 1 else 0) && it.nombre.equals(name, ignoreCase = true)
+        }?.id
+    }
+
+    private fun isDuplicateImport(
+        existing: List<TransaccionEntity>,
+        row: ImportRow,
+        categoriaId: Int,
+        esIngreso: Boolean,
+        moneda: String,
+        nota: String
+    ): Boolean {
+        return existing.any {
+            it.fecha == row.fecha &&
+                it.categoriaId == categoriaId &&
+                it.esIngreso == (if (esIngreso) 1 else 0) &&
+                kotlin.math.abs(it.monto - row.monto) < BALANCE_EPSILON &&
+                CurrencyConverter.normalize(it.moneda).equals(moneda, ignoreCase = true) &&
+                (it.nota ?: "").trim().equals(nota.trim(), ignoreCase = true)
+        }
     }
 
     private fun parseImportDate(raw: String): Long {

@@ -1,10 +1,13 @@
 package com.example.finanzas.ui;
 
 import android.os.Bundle;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -13,6 +16,7 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
@@ -28,7 +32,10 @@ import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
+import com.example.finanzas.util.TransactionLabelStore;
 import com.example.finanzas.util.UiFormUtils;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -40,7 +47,9 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ListaTransaccionesFragment extends Fragment {
 
@@ -59,8 +68,15 @@ public class ListaTransaccionesFragment extends Fragment {
     private boolean firstRenderLogged;
     private MaterialButton btnExportar;
     private MaterialButton btnFiltros;
+    private MaterialButton btnAddTransactionColor;
+    private View scrollTransactionLabels;
+    private ChipGroup chipTransactionLabels;
     private TransaccionFiltro filtroActual;
     private List<Categoria> categorias;
+    private final List<Transaccion> masterTransactions = new ArrayList<>();
+    private List<TransactionLabelStore.Label> transactionLabels = new ArrayList<>();
+    private Map<Integer, String> labelAssignments = new HashMap<>();
+    private String selectedLabelId = null;
     private TransactionsViewModel viewModel;
 
     @Nullable
@@ -84,6 +100,9 @@ public class ListaTransaccionesFragment extends Fragment {
         swipeRefreshLayout = v.findViewById(R.id.swipeTransacciones);
         btnExportar = v.findViewById(R.id.btnExportar);
         btnFiltros = v.findViewById(R.id.btnFiltros);
+        btnAddTransactionColor = v.findViewById(R.id.btnAddTransactionColor);
+        scrollTransactionLabels = v.findViewById(R.id.scrollTransactionLabels);
+        chipTransactionLabels = v.findViewById(R.id.chipTransactionLabels);
         viewModel = new ViewModelProvider(requireActivity()).get(TransactionsViewModel.class);
         viewModel.clearCacheIfUserChanged();
         adapter = new TransaccionAdapter(requireContext(), new ArrayList<>());
@@ -146,6 +165,10 @@ public class ListaTransaccionesFragment extends Fragment {
         if (btnFiltros != null) {
             btnFiltros.setOnClickListener(v12 -> mostrarDialogoFiltros());
         }
+        if (btnAddTransactionColor != null) {
+            btnAddTransactionColor.setOnClickListener(v13 -> showLabelPickerDialog());
+        }
+        loadTransactionLabels();
         observeViewModel();
         PerfLogger.logSince("ListaTransaccionesFragment", "onViewCreated", perfStartMs);
     }
@@ -153,6 +176,7 @@ public class ListaTransaccionesFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        loadTransactionLabels();
         cargarTransacciones();
     }
 
@@ -221,6 +245,203 @@ public class ListaTransaccionesFragment extends Fragment {
 
     private void exportarTransacciones() {
         viewModel.export();
+    }
+
+    private void loadTransactionLabels() {
+        if (!isAdded()) return;
+        transactionLabels = TransactionLabelStore.listLabels(requireContext());
+        labelAssignments = TransactionLabelStore.listAssignments(requireContext());
+        adapter.setLabels(TransactionLabelStore.assignedLabelDetails(requireContext()));
+        renderLabelChips();
+        renderTransactionList();
+    }
+
+    private void renderLabelChips() {
+        if (chipTransactionLabels == null || scrollTransactionLabels == null) return;
+        chipTransactionLabels.removeAllViews();
+        if (transactionLabels.isEmpty()) {
+            scrollTransactionLabels.setVisibility(View.GONE);
+            selectedLabelId = null;
+            return;
+        }
+        scrollTransactionLabels.setVisibility(View.VISIBLE);
+
+        Chip all = new Chip(requireContext());
+        all.setText(R.string.transactions_labels_all);
+        all.setCheckable(true);
+        all.setChecked(selectedLabelId == null);
+        all.setOnClickListener(v -> {
+            selectedLabelId = null;
+            renderLabelChips();
+            renderTransactionList();
+        });
+        chipTransactionLabels.addView(all);
+
+        boolean selectedStillExists = false;
+        for (TransactionLabelStore.Label label : transactionLabels) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(label.name);
+            chip.setCheckable(true);
+            chip.setChipIcon(new ColorDrawable(label.colorInt()));
+            chip.setChipIconSize(dp(10));
+            chip.setChipIconTint(null);
+            chip.setChecked(label.id.equals(selectedLabelId));
+            if (label.id.equals(selectedLabelId)) selectedStillExists = true;
+            chip.setOnClickListener(v -> {
+                selectedLabelId = label.id;
+                renderLabelChips();
+                renderTransactionList();
+            });
+            chipTransactionLabels.addView(chip);
+        }
+        if (selectedLabelId != null && !selectedStillExists) {
+            selectedLabelId = null;
+            renderLabelChips();
+        }
+    }
+
+    private void renderTransactionList() {
+        if (adapter == null) return;
+        List<Transaccion> visible = new ArrayList<>();
+        for (Transaccion tx : masterTransactions) {
+            if (tx == null) continue;
+            if (selectedLabelId == null || selectedLabelId.equals(labelAssignments.get(tx.getId()))) {
+                visible.add(tx);
+            }
+        }
+        adapter.clear();
+        adapter.addAll(visible);
+        adapter.notifyDataSetChanged();
+        if (tvEmpty != null) tvEmpty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    private void showLabelPickerDialog() {
+        loadTransactionLabels();
+        if (transactionLabels.isEmpty()) {
+            new MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.transactions_add_color)
+                    .setMessage(R.string.transaction_label_empty)
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(R.string.transaction_label_create, (dialog, which) ->
+                            showCreateLabelDialog(() -> showLabelPickerDialog()))
+                    .show();
+            return;
+        }
+
+        String[] names = new String[transactionLabels.size()];
+        for (int i = 0; i < transactionLabels.size(); i++) names[i] = transactionLabels.get(i).name;
+        final int[] selected = {0};
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transactions_add_color)
+                .setSingleChoiceItems(names, 0, (dialog, which) -> selected[0] = which)
+                .setNeutralButton(R.string.transaction_label_create, (dialog, which) ->
+                        showCreateLabelDialog(() -> showLabelPickerDialog()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.transaction_label_next, (dialog, which) ->
+                        showTransactionSelectionDialog(transactionLabels.get(selected[0])))
+                .show();
+    }
+
+    private void showCreateLabelDialog(@Nullable Runnable onSaved) {
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
+        TextInputEditText input = content.findViewById(R.id.etSimple);
+        input.setHint(R.string.transaction_label_name);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(8), dp(20), dp(8));
+        root.addView(content);
+
+        TextInputEditText hex = new TextInputEditText(requireContext());
+        hex.setHint(R.string.transaction_label_hex);
+        hex.setSingleLine(true);
+        hex.setText("#4FA37A");
+        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        hexParams.topMargin = dp(10);
+        root.addView(hex, hexParams);
+
+        LinearLayout palette = new LinearLayout(requireContext());
+        palette.setOrientation(LinearLayout.HORIZONTAL);
+        int[] colors = new int[]{0xFFE53935, 0xFF43A047, 0xFF1E88E5, 0xFFF9A825, 0xFF8E24AA};
+        for (int color : colors) {
+            View swatch = new View(requireContext());
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(color);
+            bg.setCornerRadius(dp(6));
+            swatch.setBackground(bg);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(34), dp(34));
+            params.setMargins(0, dp(12), dp(8), 0);
+            palette.addView(swatch, params);
+            swatch.setOnClickListener(v -> hex.setText(String.format("#%06X", (0xFFFFFF & color))));
+        }
+        root.addView(palette);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transaction_label_create)
+                .setView(root)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.btn_guardar, null)
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String name = input.getText() == null ? "" : input.getText().toString().trim();
+            String color = hex.getText() == null ? "" : hex.getText().toString().trim();
+            if (name.isEmpty()) {
+                input.setError(getString(R.string.transaction_label_name_error));
+                return;
+            }
+            if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
+                hex.setError(getString(R.string.transaction_label_hex_error));
+                return;
+            }
+            TransactionLabelStore.createLabel(requireContext(), name, color);
+            dialog.dismiss();
+            loadTransactionLabels();
+            if (onSaved != null) onSaved.run();
+        }));
+        dialog.show();
+    }
+
+    private void showTransactionSelectionDialog(@NonNull TransactionLabelStore.Label label) {
+        List<Transaccion> candidates = new ArrayList<>();
+        for (Transaccion tx : masterTransactions) {
+            if (tx != null && !tx.isInitialBalance()) candidates.add(tx);
+        }
+        if (candidates.isEmpty()) {
+            UiFormUtils.showMessage(requireView(), R.string.transactions_empty_filtered);
+            return;
+        }
+        String[] rows = new String[candidates.size()];
+        boolean[] checked = new boolean[candidates.size()];
+        for (int i = 0; i < candidates.size(); i++) {
+            Transaccion tx = candidates.get(i);
+            rows[i] = tx.getCategoriaNombre() + " - " + Format.money(tx.isEsIngreso() ? tx.getMonto() : -tx.getMonto(), tx.getMoneda())
+                    + " - " + Format.date(tx.getFecha());
+        }
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transaction_label_select_transaction)
+                .setMultiChoiceItems(rows, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.transaction_label_confirm, (dialog, which) -> {
+                    List<Integer> selected = new ArrayList<>();
+                    for (int i = 0; i < checked.length; i++) {
+                        if (checked[i]) selected.add(candidates.get(i).getId());
+                    }
+                    if (selected.isEmpty()) {
+                        UiFormUtils.showMessage(requireView(), R.string.transaction_label_select_required);
+                        return;
+                    }
+                    TransactionLabelStore.assignLabel(requireContext(), label.id, selected);
+                    UiFormUtils.showMessage(requireView(), R.string.transaction_label_assigned);
+                    loadTransactionLabels();
+                })
+                .show();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void mostrarDialogoFiltros() {
@@ -378,10 +599,9 @@ public class ListaTransaccionesFragment extends Fragment {
                 PerfLogger.logSince("ListaTransaccionesFragment", "firstRender", perfStartMs);
             }
             List<Transaccion> safe = items == null ? new ArrayList<>() : items;
-            adapter.clear();
-            adapter.addAll(safe);
-            adapter.notifyDataSetChanged();
-            if (tvEmpty != null) tvEmpty.setVisibility(safe.isEmpty() ? View.VISIBLE : View.GONE);
+            masterTransactions.clear();
+            masterTransactions.addAll(safe);
+            renderTransactionList();
             int[] periodo = resolvePeriodo();
             if (pendingPrefClear) Prefs.clearLastTransactionsPeriod(requireContext());
             if (announcePeriod) {

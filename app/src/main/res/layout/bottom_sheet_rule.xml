@@ -29,6 +29,17 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/tvRuleHelp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_alert_info"
+            android:padding="14dp"
+            android:text="@string/import_rule_help"
+            android:textColor="@color/md_theme_onSecondaryContainer"
+            android:textSize="13sp" />
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilRulePattern"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"

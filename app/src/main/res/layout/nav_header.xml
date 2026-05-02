@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="200dp"
-    android:padding="24dp"
+    android:background="@drawable/bg_toolbar_gradient"
     android:gravity="bottom"
-    android:background="@drawable/bg_toolbar_gradient">
+    android:orientation="vertical"
+    android:padding="24dp">
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
         <ImageView
             android:layout_width="48dp"
@@ -22,29 +22,28 @@
             android:tint="@color/md_theme_primary" />
 
         <LinearLayout
-            android:orientation="vertical"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp">
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
 
             <TextView
                 android:id="@+id/tvUser"
-                android:text="Finanzas"
-                android:textStyle="bold"
-                android:textSize="20sp"
-                android:textColor="@color/md_theme_onPrimary"
-                android:fontFamily="sans-serif-medium"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/nav_header_title"
+                android:textColor="@color/nav_header_text"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvSubtitle"
-                android:text="Gestión financiera premium"
-                android:textSize="13sp"
-                android:textColor="@color/md_theme_onPrimary"
-                android:alpha="0.85"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:text="@string/nav_header_subtitle"
+                android:textColor="@color/nav_header_text_secondary"
+                android:textSize="13sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -52,8 +51,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="Tu dinero, siempre contigo"
-        android:textSize="14sp"
-        android:textColor="@color/md_theme_onPrimary"
-        android:alpha="0.8" />
+        android:text="@string/nav_header_tagline"
+        android:textColor="@color/nav_header_text_secondary"
+        android:textSize="14sp" />
 </LinearLayout>

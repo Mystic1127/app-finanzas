@@ -79,20 +79,103 @@
 
                         <TextView
                             android:id="@+id/tvReportStatus"
-                            android:layout_width="match_parent"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:textColor="@color/md_theme_onSurfaceVariant" />
+                            android:background="@drawable/bg_status_chip"
+                            android:paddingStart="12dp"
+                            android:paddingTop="6dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="6dp"
+                            android:textColor="@color/risk_low_text"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
 
-                        <TextView
-                            android:id="@+id/tvReportSummary"
+                        <GridLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
-                            android:lineSpacingExtra="4dp"
-                            android:textColor="@color/md_theme_onSurface" />
+                            android:columnCount="2"
+                            android:useDefaultMargins="true">
+
+                            <TextView
+                                android:id="@+id/tvReportIncome"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:background="@drawable/bg_alert_info"
+                                android:padding="12dp"
+                                android:textColor="@color/income"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvReportExpense"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:background="@drawable/bg_alert_info"
+                                android:padding="12dp"
+                                android:textColor="@color/expense"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvReportBalance"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:background="@drawable/bg_alert_info"
+                                android:padding="12dp"
+                                android:textColor="@color/chartBalance"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvReportCurrent"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:background="@drawable/bg_alert_info"
+                                android:padding="12dp"
+                                android:textColor="@color/md_theme_onSurface"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvReportScore"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:background="@drawable/bg_alert_info"
+                                android:padding="12dp"
+                                android:textColor="@color/md_theme_primary"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvReportProjection"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:background="@drawable/bg_alert_info"
+                                android:padding="12dp"
+                                android:textColor="@color/md_theme_onSurface"
+                                android:textStyle="bold" />
+                        </GridLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnReportToggleDetails"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:minHeight="40dp"
+                            android:text="@string/reports_view_more" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:id="@+id/reportDetailsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
 
                 <com.google.android.material.card.MaterialCardView
                     style="@style/Widget.Finanzas.Card.HomeMetric"
@@ -181,6 +264,8 @@
                             android:textColor="@color/md_theme_onSurface" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
             </LinearLayout>
         </ScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

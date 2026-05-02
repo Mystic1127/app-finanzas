@@ -58,6 +58,8 @@
         <item name="chipStyle">@style/Widget.Finanzas.Chip</item>
         <item name="android:textViewStyle">@style/Widget.Finanzas.TextView</item>
         <item name="toolbarStyle">@style/Widget.Finanzas.Toolbar</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Finanzas.MaterialAlertDialog</item>
+        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Finanzas.BottomSheetDialog</item>
 
         <item name="android:fontFamily">sans-serif-light</item>
     </style>
@@ -65,7 +67,7 @@
     <style name="Theme.Finanzas" parent="Base.Theme.Finanzas" />
 
     <style name="Widget.Finanzas.Toolbar" parent="Widget.Material3.Toolbar">
-        <item name="android:background">?attr/colorSurface</item>
+        <item name="android:background">@color/md_theme_background</item>
         <item name="titleTextColor">@color/md_theme_onSurface</item>
         <item name="subtitleTextColor">@color/md_theme_onSurfaceVariant</item>
         <item name="navigationIconTint">@color/md_theme_onSurface</item>
@@ -163,6 +165,52 @@
         <item name="strokeWidth">1dp</item>
         <item name="cardCornerRadius">8dp</item>
         <item name="cardElevation">1dp</item>
+    </style>
+
+    <style name="ThemeOverlay.Finanzas.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/dialog_surface</item>
+        <item name="colorOnSurface">@color/md_theme_onSurface</item>
+        <item name="android:colorBackground">@color/dialog_surface</item>
+        <item name="backgroundTint">@color/dialog_surface</item>
+        <item name="shapeAppearanceOverlay">@style/Shape.Rounded.Large</item>
+        <item name="materialAlertDialogTitlePanelStyle">@style/Widget.Finanzas.MaterialAlertDialog.Title.Panel</item>
+        <item name="materialAlertDialogTitleIconStyle">@style/Widget.Finanzas.MaterialAlertDialog.Title.Icon</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Finanzas.DialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Finanzas.DialogBody</item>
+    </style>
+
+    <style name="ThemeOverlay.Finanzas.BottomSheetDialog" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="colorSurface">@color/dialog_surface</item>
+        <item name="android:colorBackground">@color/dialog_surface</item>
+        <item name="bottomSheetStyle">@style/Widget.Finanzas.BottomSheet</item>
+    </style>
+
+    <style name="Widget.Finanzas.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/dialog_surface</item>
+        <item name="shapeAppearanceOverlay">@style/Shape.Rounded.Large</item>
+    </style>
+
+    <style name="Widget.Finanzas.MaterialAlertDialog.Title.Panel" parent="MaterialAlertDialog.Material3.Title.Panel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="Widget.Finanzas.MaterialAlertDialog.Title.Icon" parent="MaterialAlertDialog.Material3.Title.Icon">
+        <item name="android:layout_width">24dp</item>
+        <item name="android:layout_height">24dp</item>
+    </style>
+
+    <style name="TextAppearance.Finanzas.DialogTitle" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/md_theme_onSurface</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Finanzas.DialogBody" parent="MaterialAlertDialog.Material3.Body.Text">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/md_theme_onSurfaceVariant</item>
     </style>
 
 

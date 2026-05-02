@@ -1,7 +1,10 @@
 package com.example.finanzas.ui;
 
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -9,8 +12,10 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,7 +26,9 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
@@ -29,9 +36,12 @@ import com.example.finanzas.data.model.CategoryChartSlice;
 import com.example.finanzas.data.model.DashboardModulePref;
 import com.example.finanzas.data.model.HomeSummary;
 import com.example.finanzas.data.model.MonthlyTrendPoint;
+import com.example.finanzas.data.model.PaymentReminder;
+import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
+import com.example.finanzas.util.FinancialAlertNotifier;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.UiFormUtils;
@@ -51,6 +61,7 @@ import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
@@ -60,6 +71,8 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -73,16 +86,21 @@ public class HomeFragment extends Fragment {
     private static final String MODULE_TREND = "trend";
     private static final String MODULE_ALERTS = "alerts";
     private static final String MODULE_INSIGHTS = "insights";
+    private static final String MODULE_GOALS = "goals";
+    private static final String MODULE_REMINDERS = "reminders";
     private static final String MODULE_QUICK = "quick";
 
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
     private CircularProgressIndicator progress;
     private View emptyState;
+    private LinearLayout dashboardContainer;
     private View moduleSummary;
     private View moduleCategory;
     private View moduleTrend;
     private View moduleAlerts;
     private View moduleInsights;
+    private View moduleGoals;
+    private View moduleReminders;
     private View moduleQuick;
     private TextView tvPeriod;
     private TextView tvIngresos;
@@ -102,6 +120,12 @@ public class HomeFragment extends Fragment {
     private TextView tvSmartSavingSuggested;
     private TextView tvSmartSavingGoal;
     private TextView tvSmartSavingStatus;
+    private TextView tvGoalTitle;
+    private TextView tvGoalProgress;
+    private TextView tvGoalMessage;
+    private TextView tvReminderTitle;
+    private TextView tvReminderDate;
+    private TextView tvReminderStatus;
     private TextView tvRecommendationsPro;
     private MaterialButton btnFinancialDetail;
     private MaterialButton btnSmartSavingDetail;
@@ -115,6 +139,7 @@ public class HomeFragment extends Fragment {
     private String currencyCode = "PEN";
     private final List<String> latestInsights = new ArrayList<>();
     private final Map<String, Boolean> moduleVisibility = new HashMap<>();
+    private final List<String> moduleOrder = new ArrayList<>();
     private HomeSummary lastSummary;
     private boolean manualRefresh;
     private long perfStartMs;
@@ -138,11 +163,14 @@ public class HomeFragment extends Fragment {
         swipe = v.findViewById(R.id.swipeHome);
         progress = v.findViewById(R.id.progressHome);
         emptyState = v.findViewById(R.id.homeEmptyState);
+        dashboardContainer = v.findViewById(R.id.homeDashboardContainer);
         moduleSummary = v.findViewById(R.id.moduleHomeSummary);
         moduleCategory = v.findViewById(R.id.moduleHomeCategory);
         moduleTrend = v.findViewById(R.id.moduleHomeTrend);
         moduleAlerts = v.findViewById(R.id.moduleHomeAlerts);
         moduleInsights = v.findViewById(R.id.moduleHomeInsights);
+        moduleGoals = v.findViewById(R.id.moduleHomeGoals);
+        moduleReminders = v.findViewById(R.id.moduleHomeReminders);
         moduleQuick = v.findViewById(R.id.moduleHomeQuick);
         tvPeriod = v.findViewById(R.id.tvHomePeriod);
         tvIngresos = v.findViewById(R.id.tvHomeIngresos);
@@ -162,6 +190,12 @@ public class HomeFragment extends Fragment {
         tvSmartSavingSuggested = v.findViewById(R.id.tvSmartSavingSuggested);
         tvSmartSavingGoal = v.findViewById(R.id.tvSmartSavingGoal);
         tvSmartSavingStatus = v.findViewById(R.id.tvSmartSavingStatus);
+        tvGoalTitle = v.findViewById(R.id.tvHomeGoalTitle);
+        tvGoalProgress = v.findViewById(R.id.tvHomeGoalProgress);
+        tvGoalMessage = v.findViewById(R.id.tvHomeGoalMessage);
+        tvReminderTitle = v.findViewById(R.id.tvHomeReminderTitle);
+        tvReminderDate = v.findViewById(R.id.tvHomeReminderDate);
+        tvReminderStatus = v.findViewById(R.id.tvHomeReminderStatus);
         btnFinancialDetail = v.findViewById(R.id.btnFinancialDetail);
         btnSmartSavingDetail = v.findViewById(R.id.btnSmartSavingDetail);
         tvRecommendationsPro = v.findViewById(R.id.tvRecommendationsPro);
@@ -308,6 +342,9 @@ public class HomeFragment extends Fragment {
         renderTrendChart(summary.getTendenciaMensual());
         renderAlerts(summary);
         renderInsights();
+        renderGoalSummary(summary);
+        renderReminderSummary(summary);
+        FinancialAlertNotifier.maybeNotifyImportantAlert(requireContext(), summary, currencyCode);
     }
 
     private String buildComparisonText(@NonNull HomeSummary summary) {
@@ -340,6 +377,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void renderCategoryChart(@Nullable List<CategoryChartSlice> slices) {
+        applyPieChartTheme();
         List<CategoryChartSlice> safe = slices == null ? new ArrayList<>() : slices;
         boolean empty = safe.isEmpty();
         tvCategoryEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
@@ -365,7 +403,7 @@ public class HomeFragment extends Fragment {
         dataSet.setColors(chartColors());
         dataSet.setSliceSpace(2f);
         dataSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        dataSet.setValueTextSize(11f);
+        dataSet.setValueTextSize(10.5f);
 
         PieData data = new PieData(dataSet);
         data.setValueFormatter(new ValueFormatter() {
@@ -381,10 +419,12 @@ public class HomeFragment extends Fragment {
         chartCategorias.setTransparentCircleRadius(62f);
         chartCategorias.setCenterText(getString(R.string.home_category_chart_center));
         chartCategorias.setCenterTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        chartCategorias.setCenterTextSize(14f);
         chartCategorias.invalidate();
     }
 
     private void renderTrendChart(@Nullable List<MonthlyTrendPoint> points) {
+        applyTrendChartTheme();
         List<MonthlyTrendPoint> safe = points == null ? new ArrayList<>() : points;
         boolean empty = safe.isEmpty() || !hasTrendValues(safe);
         tvTrendEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
@@ -411,9 +451,9 @@ public class HomeFragment extends Fragment {
         }
 
         LineData data = new LineData(
-                lineSet(ingresos, getString(R.string.home_ingresos), R.color.income),
-                lineSet(gastos, getString(R.string.home_gastos), R.color.expense),
-                lineSet(balance, getString(R.string.home_balance), R.color.chartBalance)
+                lineSet(ingresos, getString(R.string.home_ingresos), R.color.chart_line_income),
+                lineSet(gastos, getString(R.string.home_gastos), R.color.chart_line_expense),
+                lineSet(balance, getString(R.string.home_balance), R.color.chart_line_balance)
         );
         data.setDrawValues(false);
         chartTrend.setData(data);
@@ -424,11 +464,13 @@ public class HomeFragment extends Fragment {
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
         xAxis.setDrawGridLines(false);
         xAxis.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        xAxis.setAxisLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
 
         YAxis left = chartTrend.getAxisLeft();
         left.setAxisMinimum(min < 0f ? min * 1.1f : 0f);
         left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         left.setGridColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        left.setAxisLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
         left.setValueFormatter(new ValueFormatter() {
             @Override
             public String getFormattedValue(float value) {
@@ -456,13 +498,23 @@ public class HomeFragment extends Fragment {
             alertSet.add(smartAlertMessage.trim());
         }
         ArrayList<String> alerts = new ArrayList<>(alertSet);
-        ArrayList<String> notes = new ArrayList<>(summary.getNotasInformativas());
 
-        boolean empty = alerts.isEmpty() && notes.isEmpty();
-        tvAlertsEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
-        chipAlerts.setVisibility(empty ? View.GONE : View.VISIBLE);
-        for (String alert : alerts) addAlertRow(chipAlerts, alert, alertTone(alert));
-        for (String note : notes) addAlertRow(chipAlerts, note, AlertTone.INFO);
+        int count = 0;
+        for (String alert : alerts) {
+            if (!isActionableNotice(alert)) continue;
+            addAlertRow(chipAlerts, alert, alertTone(alert));
+            count++;
+        }
+        for (String predictive : summary.getAlertasPredictivas()) {
+            if (!isActionableNotice(predictive)) continue;
+            addAlertRow(chipAlerts, predictive, AlertTone.WARNING);
+            count++;
+        }
+
+        boolean show = count > 0 && isModuleVisible(MODULE_ALERTS);
+        tvAlertsEmpty.setVisibility(View.GONE);
+        chipAlerts.setVisibility(show ? View.VISIBLE : View.GONE);
+        setVisible(moduleAlerts, show);
     }
 
     private void renderInsights() {
@@ -569,88 +621,455 @@ public class HomeFragment extends Fragment {
         return false;
     }
 
+    private boolean isActionableNotice(@Nullable String text) {
+        String clean = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        if (clean.trim().isEmpty()) return false;
+        if (clean.contains("preliminar") || clean.contains("saldo inicial") || clean.contains("registra mas")
+                || clean.contains("registra más") || clean.contains("balance operativo")) {
+            return false;
+        }
+        return clean.contains("presupuesto")
+                || clean.contains("saldo bajo")
+                || clean.contains("sin saldo suficiente")
+                || clean.contains("vencid")
+                || clean.contains("inusual")
+                || clean.contains("subieron")
+                || clean.contains("superad")
+                || clean.contains("ritmo de gasto")
+                || clean.contains("efectivo")
+                || clean.contains("tarjeta")
+                || clean.contains("cuenta");
+    }
+
     private void showFinancialDetail() {
         if (lastSummary == null || !isAdded()) return;
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.home_financial_detail_title)
-                .setMessage(buildFinancialDetail(lastSummary))
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
+        showDetailSheet(getString(R.string.home_financial_detail_title), buildFinancialDetailView(lastSummary));
     }
 
     private void showSmartSavingDetail() {
         if (lastSummary == null || !isAdded()) return;
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.home_smart_saving_detail_title)
-                .setMessage(buildSmartSavingDetail(lastSummary))
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
+        showDetailSheet(getString(R.string.home_smart_saving_detail_title), buildSmartSavingDetailView(lastSummary));
     }
 
-    private String buildFinancialDetail(@NonNull HomeSummary summary) {
-        StringBuilder out = new StringBuilder();
-        appendDetail(out, "Score financiero", getString(
+    private void showDetailSheet(@NonNull String title, @NonNull View content) {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(22), dp(12), dp(22), dp(22));
+        root.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_surface));
+
+        View handle = new View(requireContext());
+        GradientDrawable handleBg = new GradientDrawable();
+        handleBg.setColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        handleBg.setCornerRadius(dp(3));
+        handle.setBackground(handleBg);
+        LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dp(42), dp(4));
+        handleParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        handleParams.bottomMargin = dp(18);
+        root.addView(handle, handleParams);
+
+        TextView titleView = new TextView(requireContext());
+        titleView.setText(title);
+        titleView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        titleView.setTextSize(20);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(titleView, matchWrapParams());
+
+        ScrollView scroll = new ScrollView(requireContext());
+        scroll.setFillViewport(false);
+        scroll.setClipToPadding(false);
+        scroll.setPadding(0, dp(10), 0, dp(4));
+        scroll.addView(content);
+        LinearLayout.LayoutParams scrollParams = matchWrapParams();
+        scrollParams.topMargin = dp(6);
+        root.addView(scroll, scrollParams);
+
+        MaterialButton close = new MaterialButton(requireContext());
+        close.setText(android.R.string.ok);
+        close.setMinHeight(dp(44));
+        close.setCornerRadius(dp(14));
+        close.setAllCaps(false);
+        close.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onPrimary));
+        close.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.md_theme_primary)));
+        close.setOnClickListener(v -> dialog.dismiss());
+        LinearLayout.LayoutParams closeParams = matchWrapParams();
+        closeParams.topMargin = dp(12);
+        root.addView(close, closeParams);
+
+        dialog.setContentView(root);
+        dialog.setOnShowListener(d -> {
+            FrameLayout bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                bottomSheet.setBackground(new ColorDrawable(Color.TRANSPARENT));
+                bottomSheet.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
+            }
+        });
+        dialog.show();
+    }
+
+    private View buildFinancialDetailView(@NonNull HomeSummary summary) {
+        LinearLayout root = detailRoot();
+        String status = financialStatusLabel(summary);
+        String insight = nonEmpty(summary.getInsightPrincipal(), getString(R.string.home_financial_missing));
+        AlertTone tone = statusTone(status, summary.isProyeccionPreliminar());
+        addDetailHeader(root, status, shortText(insight, 145), tone);
+        addMetricGrid(root,
+                metric("Score", getString(
                 R.string.home_financial_score_value,
                 summary.getScoreFinanciero(),
                 nonEmpty(summary.getScoreEstado(), getString(R.string.home_financial_score_risk))
-        ));
-        appendDetail(out, "Saldo estimado fin de mes", Format.money(summary.getProyeccionFinMes(), currencyCode));
-        appendDetail(out, "Confianza", nonEmpty(summary.getConfianzaProyeccion(), getString(R.string.home_projection_confidence_low)));
-        appendDetail(out, "Balance visible", Format.money(summary.getBalanceVisibleMes(), currencyCode));
-        appendDetail(out, "Balance operativo", Format.money(summary.getBalanceOperativoMes(), currencyCode));
-        appendDetail(out, "Ingresos recurrentes", Format.money(summary.getIngresosRecurrentes(), currencyCode));
-        appendDetail(out, "Explicacion", nonEmpty(summary.getScoreExplicacion(), getString(R.string.home_financial_missing)));
-        appendDetail(out, "Tendencia", nonEmpty(summary.getScoreTendencia(), getString(R.string.home_comparison_no_previous)));
-        appendList(out, "Alertas", summary.getAlertas());
-        appendList(out, "Notas", summary.getNotasInformativas());
-        return out.toString().trim();
+        )),
+                metric("Saldo estimado", Format.money(summary.getProyeccionFinMes(), currencyCode)),
+                metric("Confianza", nonEmpty(summary.getConfianzaProyeccion(), getString(R.string.home_projection_confidence_low)))
+        );
+        addRecommendationBlock(root, "Recomendacion principal", shortText(financialSummaryAction(summary), 150), tone);
+        String explanation = shortText(nonEmpty(summary.getScoreExplicacion(), ""), 150);
+        if (shouldShowSecondaryText(explanation, insight, financialSummaryAction(summary))) {
+            addQuietNote(root, "Lectura breve", explanation);
+        }
+        List<String> notices = actionableItems(summary.getAlertas());
+        if (!notices.isEmpty()) {
+            String notice = shortText(notices.get(0), 150);
+            addRecommendationBlock(root, "Aviso accionable", notice, alertTone(notice));
+        }
+        return root;
     }
 
-    private String buildSmartSavingDetail(@NonNull HomeSummary summary) {
-        StringBuilder out = new StringBuilder();
-        appendDetail(out, "Saldo actual real", Format.money(summary.getSaldoActualTotal(), currencyCode));
-        appendDetail(out, "Gasto proyectado", Format.money(summary.getGastoProyectado(), currencyCode));
-        appendDetail(out, "Saldo final estimado", Format.money(summary.getProyeccionFinMes(), currencyCode));
-        appendDetail(out, "Ahorro sugerido", Format.money(summary.getAhorroSugerido(), currencyCode));
-        appendDetail(out, "Estado de ahorro", nonEmpty(summary.getEstadoAhorro(), getString(R.string.home_smart_saving_status_adjusted)));
-        appendDetail(out, "Mensaje", nonEmpty(summary.getAhorroSugeridoMensaje(), getString(R.string.home_smart_saving_not_recommended)));
-        appendDetail(out, "Meta", nonEmpty(summary.getRecomendacionAhorroMeta(), getString(R.string.home_smart_saving_goal_empty)));
-        return out.toString().trim();
+    private View buildSmartSavingDetailView(@NonNull HomeSummary summary) {
+        LinearLayout root = detailRoot();
+        String status = nonEmpty(summary.getEstadoAhorro(), getString(R.string.home_smart_saving_status_adjusted));
+        String conclusion = savingSummaryAction(summary);
+        AlertTone tone = statusTone(status, summary.isProyeccionPreliminar());
+        addDetailHeader(root, status, shortText(conclusion, 145), tone);
+        addMetricGrid(root,
+                metric("Ahorro sugerido", Format.money(summary.getAhorroSugerido(), currencyCode)),
+                metric("Saldo actual", Format.money(summary.getSaldoActualTotal(), currencyCode)),
+                metric("Saldo final", Format.money(summary.getProyeccionFinMes(), currencyCode))
+        );
+        String recommendation = nonEmpty(summary.getAhorroSugeridoMensaje(), getString(R.string.home_smart_saving_not_recommended));
+        if (shouldShowSecondaryText(recommendation, conclusion)) {
+            addRecommendationBlock(root, "Recomendacion principal", shortText(recommendation, 150), tone);
+        }
+        String goal = summary.getRecomendacionAhorroMeta();
+        if (goal != null && !goal.trim().isEmpty()) {
+            addQuietNote(root, "Meta vinculada", shortText(goal.trim(), 160));
+        }
+        return root;
     }
 
-    private void appendDetail(@NonNull StringBuilder out, @NonNull String label, @NonNull String value) {
-        if (out.length() > 0) out.append("\n\n");
-        out.append(label).append(": ").append(value);
+    private List<String> actionableItems(@NonNull List<String> values) {
+        ArrayList<String> out = new ArrayList<>();
+        for (String value : values) {
+            if (isActionableNotice(value)) out.add(value);
+        }
+        return out;
     }
 
-    private void appendList(@NonNull StringBuilder out, @NonNull String label, @NonNull List<String> values) {
-        if (values.isEmpty()) return;
-        if (out.length() > 0) out.append("\n\n");
-        out.append(label).append(":");
+    private LinearLayout detailRoot() {
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = 0;
+        root.setPadding(pad, dp(8), pad, 0);
+        return root;
+    }
+
+    private String[] metric(@NonNull String label, @NonNull String value) {
+        return new String[]{ label, value };
+    }
+
+    private void addDetailHeader(@NonNull LinearLayout root, @NonNull String chip, @NonNull String message, @NonNull AlertTone tone) {
+        LinearLayout hero = new LinearLayout(requireContext());
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(dp(16), dp(16), dp(16), dp(16));
+        setRoundedBackground(hero, alertBackgroundColor(tone), R.color.md_theme_outlineVariant, 20);
+
+        TextView status = new TextView(requireContext());
+        status.setText(chip);
+        status.setTextSize(12);
+        status.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        status.setTextColor(ContextCompat.getColor(requireContext(), alertTextColor(tone)));
+        status.setBackgroundResource(statusBackground(tone));
+        status.setPadding(dp(12), dp(7), dp(12), dp(7));
+        hero.addView(status, compactWrapParams());
+
+        TextView body = new TextView(requireContext());
+        body.setText(message);
+        body.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        body.setTextSize(17);
+        body.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        body.setPadding(0, dp(12), 0, dp(8));
+        body.setSingleLine(false);
+        hero.addView(body, matchWrapParams());
+
+        TextView caption = new TextView(requireContext());
+        String captionText;
+        if (tone == AlertTone.POSITIVE) {
+            captionText = "Estado positivo";
+        } else if (tone == AlertTone.CRITICAL) {
+            captionText = "Requiere atencion";
+        } else if (tone == AlertTone.WARNING) {
+            captionText = "Analisis preliminar";
+        } else {
+            captionText = "Lectura rapida";
+        }
+        caption.setText(captionText);
+        caption.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        caption.setTextSize(12);
+        hero.addView(caption, matchWrapParams());
+
+        root.addView(hero, matchWrapParams());
+    }
+
+    private void addMetricGrid(@NonNull LinearLayout root, String[]... metrics) {
+        LinearLayout container = new LinearLayout(requireContext());
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(0, dp(6), 0, dp(2));
+        for (int i = 0; i < metrics.length; i += 2) {
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setBaselineAligned(false);
+            addMetricCard(row, metrics[i]);
+            if (i + 1 < metrics.length) {
+                addMetricCard(row, metrics[i + 1]);
+            } else {
+                View spacer = new View(requireContext());
+                row.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
+            }
+            LinearLayout.LayoutParams rowParams = matchWrapParams();
+            rowParams.topMargin = dp(8);
+            container.addView(row, rowParams);
+        }
+        root.addView(container, matchWrapParams());
+    }
+
+    private void addMetricCard(@NonNull LinearLayout row, @Nullable String[] item) {
+        LinearLayout card = new LinearLayout(requireContext());
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        setRoundedBackground(card, R.color.md_theme_surface, R.color.md_theme_outlineVariant, 16);
+
+        String label = item == null || item.length < 1 ? "" : item[0];
+        String value = item == null || item.length < 2 ? "" : item[1];
+
+        TextView left = new TextView(requireContext());
+        left.setText(label);
+        left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        left.setTextSize(12);
+        card.addView(left, matchWrapParams());
+
+        TextView right = new TextView(requireContext());
+        right.setText(value);
+        right.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        right.setTextSize(15);
+        right.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        right.setSingleLine(false);
+        right.setPadding(0, dp(5), 0, 0);
+        card.addView(right, matchWrapParams());
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        params.setMarginEnd(dp(8));
+        row.addView(card, params);
+    }
+
+    private void addDetailSection(@NonNull LinearLayout root, @NonNull String title, @NonNull String body, @NonNull AlertTone tone) {
+        TextView titleView = new TextView(requireContext());
+        titleView.setText(title);
+        titleView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        titleView.setTextSize(14);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        LinearLayout.LayoutParams titleParams = matchWrapParams();
+        titleParams.topMargin = dp(14);
+        root.addView(titleView, titleParams);
+        addAlertRow(root, body, tone);
+    }
+
+    private void addRecommendationBlock(@NonNull LinearLayout root, @NonNull String title, @NonNull String body, @NonNull AlertTone tone) {
+        if (body == null || body.trim().isEmpty()) return;
+        LinearLayout box = new LinearLayout(requireContext());
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(15), dp(13), dp(15), dp(14));
+        setRoundedBackground(box, alertBackgroundColor(tone), R.color.md_theme_outlineVariant, 18);
+
+        TextView titleView = new TextView(requireContext());
+        titleView.setText(title);
+        titleView.setTextColor(ContextCompat.getColor(requireContext(), alertTextColor(tone)));
+        titleView.setTextSize(12);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        box.addView(titleView, matchWrapParams());
+
+        TextView bodyView = new TextView(requireContext());
+        bodyView.setText(body.trim());
+        bodyView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        bodyView.setTextSize(15);
+        bodyView.setSingleLine(false);
+        bodyView.setMaxLines(Integer.MAX_VALUE);
+        bodyView.setPadding(0, dp(6), 0, 0);
+        box.addView(bodyView, matchWrapParams());
+
+        LinearLayout.LayoutParams params = matchWrapParams();
+        params.topMargin = dp(12);
+        root.addView(box, params);
+    }
+
+    private void addQuietNote(@NonNull LinearLayout root, @NonNull String title, @NonNull String body) {
+        if (body == null || body.trim().isEmpty()) return;
+        LinearLayout note = new LinearLayout(requireContext());
+        note.setOrientation(LinearLayout.VERTICAL);
+        note.setPadding(dp(4), dp(4), dp(4), 0);
+
+        TextView titleView = new TextView(requireContext());
+        titleView.setText(title);
+        titleView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        titleView.setTextSize(13);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        note.addView(titleView, matchWrapParams());
+
+        TextView bodyView = new TextView(requireContext());
+        bodyView.setText(body.trim());
+        bodyView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        bodyView.setTextSize(14);
+        bodyView.setSingleLine(false);
+        bodyView.setMaxLines(Integer.MAX_VALUE);
+        bodyView.setPadding(0, dp(5), 0, 0);
+        note.addView(bodyView, matchWrapParams());
+
+        LinearLayout.LayoutParams params = matchWrapParams();
+        params.topMargin = dp(12);
+        root.addView(note, params);
+    }
+
+    private boolean shouldShowSecondaryText(@Nullable String text, @Nullable String... existingValues) {
+        String clean = normalizedDetailText(text);
+        if (clean.isEmpty()) return false;
+        for (String existing : existingValues) {
+            String other = normalizedDetailText(existing);
+            if (!other.isEmpty() && (clean.equals(other) || clean.contains(other) || other.contains(clean))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @NonNull
+    private String normalizedDetailText(@Nullable String value) {
+        if (value == null) return "";
+        return value.trim().toLowerCase(Locale.ROOT).replace(".", "").replace(",", "");
+    }
+
+    private void addLimitedList(@NonNull LinearLayout root, @NonNull String title, @NonNull List<String> values, @NonNull AlertTone tone, int maxItems) {
+        if (values == null || values.isEmpty()) return;
+        int added = 0;
+        TextView titleView = new TextView(requireContext());
+        titleView.setText(title);
+        titleView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        titleView.setTextSize(14);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        LinearLayout.LayoutParams titleParams = matchWrapParams();
+        titleParams.topMargin = dp(14);
+        root.addView(titleView, titleParams);
         for (String value : values) {
             if (value == null || value.trim().isEmpty()) continue;
-            out.append("\n").append("- ").append(value.trim());
+            addAlertRow(root, value, tone);
+            added++;
+            if (added >= maxItems) break;
         }
+    }
+
+    private LinearLayout.LayoutParams compactWrapParams() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private LinearLayout.LayoutParams matchWrapParams() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private void addAlertRow(@NonNull LinearLayout group, @Nullable String text, @NonNull AlertTone tone) {
         if (text == null || text.trim().isEmpty()) return;
-        TextView view = new TextView(requireContext());
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.TOP);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
         params.topMargin = dp(8);
-        view.setLayoutParams(params);
+        row.setLayoutParams(params);
+        row.setPadding(0, 0, 0, 0);
+        setRoundedBackground(row, alertBackgroundColor(tone), R.color.md_theme_outlineVariant, 16);
+
+        View accent = new View(requireContext());
+        GradientDrawable accentBg = new GradientDrawable();
+        accentBg.setColor(ContextCompat.getColor(requireContext(), alertAccentColor(tone)));
+        accentBg.setCornerRadii(new float[] { dp(16), dp(16), 0, 0, 0, 0, dp(16), dp(16) });
+        accent.setBackground(accentBg);
+        row.addView(accent, new LinearLayout.LayoutParams(dp(5), ViewGroup.LayoutParams.MATCH_PARENT));
+
+        LinearLayout content = new LinearLayout(requireContext());
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(12), dp(11), dp(12), dp(12));
+
+        LinearLayout heading = new LinearLayout(requireContext());
+        heading.setOrientation(LinearLayout.HORIZONTAL);
+        heading.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        TextView icon = new TextView(requireContext());
+        icon.setText(alertIcon(tone));
+        icon.setGravity(android.view.Gravity.CENTER);
+        icon.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        icon.setTextSize(13);
+        icon.setTextColor(ContextCompat.getColor(requireContext(), alertTextColor(tone)));
+        GradientDrawable iconBg = new GradientDrawable();
+        iconBg.setShape(GradientDrawable.OVAL);
+        iconBg.setColor(ContextCompat.getColor(requireContext(), statusBackgroundColor(tone)));
+        icon.setBackground(iconBg);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(26), dp(26));
+        iconParams.setMarginEnd(dp(10));
+        heading.addView(icon, iconParams);
+
+        TextView label = new TextView(requireContext());
+        label.setText(alertToneLabel(tone));
+        label.setTextColor(ContextCompat.getColor(requireContext(), alertTextColor(tone)));
+        label.setTextSize(12);
+        label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        heading.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        content.addView(heading, matchWrapParams());
+
+        TextView view = new TextView(requireContext());
         view.setText(text.trim());
         view.setSingleLine(false);
         view.setMaxLines(Integer.MAX_VALUE);
-        view.setPadding(dp(14), dp(12), dp(14), dp(12));
         view.setTextSize(14);
         view.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
         view.setTextColor(ContextCompat.getColor(requireContext(), alertTextColor(tone)));
-        view.setBackgroundResource(alertBackground(tone));
-        group.addView(view);
+        view.setPadding(0, dp(7), 0, 0);
+        content.addView(view, matchWrapParams());
+        row.addView(content, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        group.addView(row);
+    }
+
+    private String alertIcon(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return "!";
+            case WARNING:
+                return "!";
+            case POSITIVE:
+                return "✓";
+            default:
+                return "i";
+        }
+    }
+
+    private String alertToneLabel(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return getString(R.string.alert_tone_critical);
+            case WARNING:
+                return getString(R.string.alert_tone_warning);
+            case POSITIVE:
+                return getString(R.string.alert_tone_positive);
+            default:
+                return getString(R.string.alert_tone_info);
+        }
     }
 
     private void applyStatusStyle(@NonNull TextView view, @NonNull AlertTone tone) {
@@ -663,6 +1082,10 @@ public class HomeFragment extends Fragment {
         if (clean.contains("riesgo") || clean.contains("crit") || clean.contains("exced") || clean.contains("negativo")) {
             return AlertTone.CRITICAL;
         }
+        if (clean.contains("estable") || clean.contains("bueno") || clean.contains("posit")
+                || clean.contains("control") || clean.contains("saludable")) {
+            return AlertTone.POSITIVE;
+        }
         if (preliminary || clean.contains("preliminar") || clean.contains("atento") || clean.contains("ajust") || clean.contains("prudente")) {
             return AlertTone.WARNING;
         }
@@ -671,10 +1094,12 @@ public class HomeFragment extends Fragment {
 
     private AlertTone alertTone(@Nullable String text) {
         String clean = text == null ? "" : text.toLowerCase(Locale.ROOT);
-        if (clean.contains("negativo") || clean.contains("superaron") || clean.contains("sin saldo suficiente")) {
+        if (clean.contains("negativo") || clean.contains("superaron") || clean.contains("superado")
+                || clean.contains("sin saldo suficiente") || clean.contains("vencido") || clean.contains("saldo bajo")) {
             return AlertTone.CRITICAL;
         }
-        if (clean.contains("cerca") || clean.contains("inusualmente") || clean.contains("subieron") || clean.contains("ritmo de gasto")) {
+        if (clean.contains("cerca") || clean.contains("inusualmente") || clean.contains("subieron")
+                || clean.contains("ritmo de gasto") || clean.contains("preliminar") || clean.contains("revisa")) {
             return AlertTone.WARNING;
         }
         return AlertTone.INFO;
@@ -686,6 +1111,21 @@ public class HomeFragment extends Fragment {
                 return R.drawable.bg_alert_critical;
             case WARNING:
                 return R.drawable.bg_alert_warning;
+            case POSITIVE:
+                return R.drawable.bg_alert_positive;
+            default:
+                return R.drawable.bg_alert_info;
+        }
+    }
+
+    private int statusBackground(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return R.drawable.bg_alert_critical;
+            case WARNING:
+                return R.drawable.bg_alert_warning;
+            case POSITIVE:
+                return R.drawable.bg_alert_positive;
             default:
                 return R.drawable.bg_alert_info;
         }
@@ -716,6 +1156,40 @@ public class HomeFragment extends Fragment {
             default:
                 return R.color.md_theme_onSecondaryContainer;
         }
+    }
+
+    private int alertAccentColor(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return R.color.risk_high_text;
+            case WARNING:
+                return R.color.risk_medium_text;
+            case POSITIVE:
+                return R.color.risk_low_text;
+            default:
+                return R.color.md_theme_primary;
+        }
+    }
+
+    private int statusBackgroundColor(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return R.color.risk_high_bg;
+            case WARNING:
+                return R.color.risk_medium_bg;
+            case POSITIVE:
+                return R.color.risk_low_bg;
+            default:
+                return R.color.md_theme_secondaryContainer;
+        }
+    }
+
+    private void setRoundedBackground(@NonNull View view, int fillColorRes, int strokeColorRes, int radiusDp) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(ContextCompat.getColor(requireContext(), fillColorRes));
+        bg.setCornerRadius(dp(radiusDp));
+        bg.setStroke(dp(1), ContextCompat.getColor(requireContext(), strokeColorRes));
+        view.setBackground(bg);
     }
 
     private String shortText(@Nullable String value, int maxLength) {
@@ -767,28 +1241,151 @@ public class HomeFragment extends Fragment {
         trendLegend.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
     }
 
+    private void applyPieChartTheme() {
+        int background = ContextCompat.getColor(requireContext(), R.color.md_theme_background);
+        int text = ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant);
+        chartCategorias.setBackgroundColor(Color.TRANSPARENT);
+        chartCategorias.setHoleColor(background);
+        chartCategorias.setTransparentCircleColor(background);
+        chartCategorias.setTransparentCircleAlpha(0);
+        chartCategorias.setEntryLabelColor(text);
+        chartCategorias.setNoDataTextColor(text);
+        Legend legend = chartCategorias.getLegend();
+        legend.setTextColor(text);
+        legend.setTextSize(12f);
+        legend.setFormSize(10f);
+        legend.setXEntrySpace(10f);
+        legend.setYEntrySpace(6f);
+    }
+
+    private void applyTrendChartTheme() {
+        int text = ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant);
+        int outline = ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant);
+        chartTrend.setBackgroundColor(Color.TRANSPARENT);
+        chartTrend.setDrawGridBackground(false);
+        chartTrend.setNoDataTextColor(text);
+        chartTrend.setBorderColor(outline);
+        Legend legend = chartTrend.getLegend();
+        legend.setTextColor(text);
+        legend.setTextSize(12f);
+        legend.setFormSize(10f);
+        legend.setXEntrySpace(10f);
+    }
+
     private LineDataSet lineSet(ArrayList<Entry> entries, String label, int colorRes) {
         int color = ContextCompat.getColor(requireContext(), colorRes);
         LineDataSet set = new LineDataSet(entries, label);
         set.setColor(color);
         set.setCircleColor(color);
-        set.setLineWidth(2.4f);
-        set.setCircleRadius(3.6f);
+        set.setCircleHoleColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
+        set.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        set.setHighLightColor(color);
+        set.setLineWidth(2.8f);
+        set.setCircleRadius(3.8f);
+        set.setCircleHoleRadius(1.6f);
         set.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        set.setCubicIntensity(0.18f);
         return set;
     }
 
     private ArrayList<Integer> chartColors() {
         ArrayList<Integer> colors = new ArrayList<>();
-        colors.add(ContextCompat.getColor(requireContext(), R.color.expense));
-        colors.add(ContextCompat.getColor(requireContext(), R.color.md_theme_primary));
-        colors.add(ContextCompat.getColor(requireContext(), R.color.chartBudget));
-        colors.add(ContextCompat.getColor(requireContext(), R.color.chartBalance));
-        colors.add(ContextCompat.getColor(requireContext(), R.color.md_theme_secondary));
-        colors.add(ContextCompat.getColor(requireContext(), R.color.risk_medium_text));
-        colors.add(ContextCompat.getColor(requireContext(), R.color.risk_high_text));
-        colors.add(ContextCompat.getColor(requireContext(), R.color.chartAccent));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_1));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_2));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_3));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_4));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_5));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_6));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_7));
+        colors.add(ContextCompat.getColor(requireContext(), R.color.chart_pie_8));
         return colors;
+    }
+
+    private void renderGoalSummary(@NonNull HomeSummary summary) {
+        SavingsGoal goal = nearestGoal(summary.getMetas());
+        if (goal == null) {
+            tvGoalTitle.setText(R.string.home_empty_goals);
+            tvGoalProgress.setText(R.string.home_goal_progress_empty);
+            tvGoalMessage.setText(R.string.home_goal_create_hint);
+            return;
+        }
+        double progress = goal.getMontoObjetivo() <= 0.0
+                ? goal.getProgreso()
+                : (goal.getMontoActual() * 100.0 / goal.getMontoObjetivo());
+        progress = Math.max(0.0, Math.min(100.0, progress));
+        double missing = Math.max(0.0, goal.getMontoObjetivo() - goal.getMontoActual());
+        tvGoalTitle.setText(nonEmpty(goal.getTitulo(), getString(R.string.home_goal_without_title)));
+        tvGoalProgress.setText(getString(R.string.home_goal_progress_value, Math.round(progress)));
+        tvGoalMessage.setText(getString(
+                R.string.home_goal_missing_value,
+                Format.money(missing, goal.getMoneda())
+        ));
+    }
+
+    @Nullable
+    private SavingsGoal nearestGoal(@NonNull List<SavingsGoal> goals) {
+        ArrayList<SavingsGoal> active = new ArrayList<>();
+        for (SavingsGoal goal : goals) {
+            if (goal == null || goal.getMontoObjetivo() <= 0.0) continue;
+            if (goal.getMontoActual() >= goal.getMontoObjetivo()) continue;
+            active.add(goal);
+        }
+        active.sort(Comparator.comparing(
+                SavingsGoal::getFechaObjetivo,
+                Comparator.nullsLast(Date::compareTo)
+        ));
+        return active.isEmpty() ? null : active.get(0);
+    }
+
+    private void renderReminderSummary(@NonNull HomeSummary summary) {
+        PaymentReminder reminder = nextReminder(summary.getRecordatorios());
+        if (reminder == null) {
+            tvReminderTitle.setText(R.string.home_empty_reminders);
+            tvReminderDate.setText(R.string.home_reminder_create_hint);
+            tvReminderStatus.setText(R.string.home_reminder_status_empty);
+            applyStatusStyle(tvReminderStatus, AlertTone.INFO);
+            return;
+        }
+        tvReminderTitle.setText(nonEmpty(reminder.getTitulo(), getString(R.string.home_reminder_without_title)));
+        String dateText = reminder.getFechaVencimiento() == null
+                ? getString(R.string.home_reminder_no_date)
+                : Format.date(reminder.getFechaVencimiento());
+        String time = reminder.getHoraRecordatorio();
+        if (time != null && !time.trim().isEmpty()) dateText = dateText + " - " + time.trim();
+        tvReminderDate.setText(getString(
+                R.string.home_reminder_due_value,
+                dateText,
+                Format.money(reminder.getMonto(), reminder.getMoneda())
+        ));
+        int days = reminder.getDiasRestantes();
+        String status;
+        AlertTone tone;
+        if (days < 0) {
+            status = getString(R.string.home_reminder_overdue);
+            tone = AlertTone.CRITICAL;
+        } else if (days == 0) {
+            status = getString(R.string.home_reminder_today);
+            tone = AlertTone.WARNING;
+        } else {
+            status = getString(R.string.home_reminder_days_left, days);
+            tone = AlertTone.INFO;
+        }
+        tvReminderStatus.setText(status);
+        applyStatusStyle(tvReminderStatus, tone);
+    }
+
+    @Nullable
+    private PaymentReminder nextReminder(@NonNull List<PaymentReminder> reminders) {
+        ArrayList<PaymentReminder> pending = new ArrayList<>();
+        for (PaymentReminder reminder : reminders) {
+            if (reminder == null || reminder.isPagado()) continue;
+            pending.add(reminder);
+        }
+        pending.sort(Comparator.comparing(
+                PaymentReminder::getFechaVencimiento,
+                Comparator.nullsLast(Date::compareTo)
+        ));
+        return pending.isEmpty() ? null : pending.get(0);
     }
 
     private void setupNavigation(@NonNull View root) {
@@ -804,13 +1401,23 @@ public class HomeFragment extends Fragment {
 
     private void applyModulePreferences(@NonNull HomeSummary summary) {
         moduleVisibility.clear();
+        moduleOrder.clear();
+        Map<String, ModuleDef> defs = moduleDefsById();
         for (ModuleDef def : defaultModules()) {
             moduleVisibility.put(def.id, true);
         }
+        LinkedHashSet<String> ordered = new LinkedHashSet<>();
         for (DashboardModulePref pref : summary.getDashboardPreferencias()) {
             if (pref == null || pref.getId() == null) continue;
+            if (!defs.containsKey(pref.getId())) continue;
             moduleVisibility.put(pref.getId(), pref.isVisible());
+            ordered.add(pref.getId());
         }
+        for (ModuleDef def : defaultModules()) {
+            ordered.add(def.id);
+        }
+        moduleOrder.addAll(ordered);
+        applyDashboardOrder();
     }
 
     private void applyModuleVisibility(boolean hasData) {
@@ -821,6 +1428,8 @@ public class HomeFragment extends Fragment {
         setVisible(moduleTrend, hasData && isModuleVisible(MODULE_TREND));
         setVisible(moduleAlerts, hasData && isModuleVisible(MODULE_ALERTS));
         setVisible(moduleInsights, hasData && isModuleVisible(MODULE_INSIGHTS));
+        setVisible(moduleGoals, isModuleVisible(MODULE_GOALS));
+        setVisible(moduleReminders, isModuleVisible(MODULE_REMINDERS));
         setVisible(moduleQuick, isModuleVisible(MODULE_QUICK));
     }
 
@@ -836,23 +1445,57 @@ public class HomeFragment extends Fragment {
     private void showDashboardModulesDialog() {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_dashboard_modules, null, false);
         androidx.recyclerview.widget.RecyclerView rv = content.findViewById(R.id.rvModules);
+        MaterialButton btnCancel = content.findViewById(R.id.btnDashboardCancel);
+        MaterialButton btnSave = content.findViewById(R.id.btnDashboardSave);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+        rv.setNestedScrollingEnabled(true);
 
         DashboardModuleAdapter adapter = new DashboardModuleAdapter();
         adapter.setItems(buildModuleItems());
         rv.setAdapter(adapter);
+        new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                adapter.moveItem(viewHolder.getAdapterPosition(), target.getAdapterPosition());
+                return true;
+            }
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.dashboard_customize_title)
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+            }
+        }).attachToRecyclerView(rv);
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(content)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.dashboard_customize_save, (dialog, which) -> saveModulePreferences(adapter.getItems()))
-                .show();
+                .create();
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnSave.setOnClickListener(v -> {
+            saveModulePreferences(adapter.getItems());
+            dialog.dismiss();
+        });
+        dialog.setOnShowListener(d -> {
+            int maxHeight = Math.min(dp(420), (int) (getResources().getDisplayMetrics().heightPixels * 0.56f));
+            int desiredHeight = Math.min(maxHeight, dp((adapter.getItemCount() * 58) + 8));
+            ViewGroup.LayoutParams params = rv.getLayoutParams();
+            params.height = desiredHeight;
+            rv.setLayoutParams(params);
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                dialog.getWindow().setDimAmount(0.46f);
+            }
+        });
+        dialog.show();
     }
 
     private List<DashboardModuleAdapter.ModuleItem> buildModuleItems() {
         List<DashboardModuleAdapter.ModuleItem> items = new ArrayList<>();
-        for (ModuleDef def : defaultModules()) {
+        Map<String, ModuleDef> defs = moduleDefsById();
+        List<String> order = moduleOrder.isEmpty() ? defaultModuleIds() : moduleOrder;
+        LinkedHashSet<String> safeOrder = new LinkedHashSet<>(order);
+        safeOrder.addAll(defaultModuleIds());
+        for (String id : safeOrder) {
+            ModuleDef def = defs.get(id);
+            if (def == null) continue;
             items.add(new DashboardModuleAdapter.ModuleItem(def.id, getString(def.titleRes), isModuleVisible(def.id)));
         }
         return items;
@@ -861,12 +1504,14 @@ public class HomeFragment extends Fragment {
     private void saveModulePreferences(List<DashboardModuleAdapter.ModuleItem> items) {
         try {
             JSONArray modules = new JSONArray();
+            moduleOrder.clear();
             for (DashboardModuleAdapter.ModuleItem item : items) {
                 JSONObject obj = new JSONObject();
                 obj.put("id", item.getId());
                 obj.put("visible", item.isVisible());
                 modules.put(obj);
                 moduleVisibility.put(item.getId(), item.isVisible());
+                moduleOrder.add(item.getId());
             }
             JSONObject body = new JSONObject();
             body.put("modules", modules);
@@ -874,6 +1519,7 @@ public class HomeFragment extends Fragment {
                 @Override
                 public void onSuccess() {
                     if (!isAdded()) return;
+                    applyDashboardOrder();
                     applyModuleVisibility(lastSummary == null || lastSummary.getIngresos() > 0 || lastSummary.getGastos() > 0 || lastSummary.getSaldoActualTotal() > 0);
                     UiFormUtils.showMessage(requireView(), R.string.dashboard_customize_saved);
                 }
@@ -891,12 +1537,56 @@ public class HomeFragment extends Fragment {
     private List<ModuleDef> defaultModules() {
         List<ModuleDef> modules = new ArrayList<>();
         modules.add(new ModuleDef(MODULE_SUMMARY, R.string.dashboard_module_balance));
+        modules.add(new ModuleDef(MODULE_INSIGHTS, R.string.home_financial_intelligence_title));
         modules.add(new ModuleDef(MODULE_CATEGORY, R.string.dashboard_module_chart_budget));
         modules.add(new ModuleDef(MODULE_TREND, R.string.dashboard_module_chart_trend));
         modules.add(new ModuleDef(MODULE_ALERTS, R.string.dashboard_module_alerts));
-        modules.add(new ModuleDef(MODULE_INSIGHTS, R.string.home_insights_title));
+        modules.add(new ModuleDef(MODULE_GOALS, R.string.dashboard_module_goals));
+        modules.add(new ModuleDef(MODULE_REMINDERS, R.string.dashboard_module_reminders));
         modules.add(new ModuleDef(MODULE_QUICK, R.string.dashboard_module_quick));
         return modules;
+    }
+
+    private Map<String, ModuleDef> moduleDefsById() {
+        Map<String, ModuleDef> out = new HashMap<>();
+        for (ModuleDef def : defaultModules()) {
+            out.put(def.id, def);
+        }
+        return out;
+    }
+
+    private List<String> defaultModuleIds() {
+        List<String> ids = new ArrayList<>();
+        for (ModuleDef def : defaultModules()) {
+            ids.add(def.id);
+        }
+        return ids;
+    }
+
+    private void applyDashboardOrder() {
+        if (dashboardContainer == null || moduleSummary == null) return;
+        Map<String, View> views = new HashMap<>();
+        views.put(MODULE_SUMMARY, moduleSummary);
+        views.put(MODULE_CATEGORY, moduleCategory);
+        views.put(MODULE_TREND, moduleTrend);
+        views.put(MODULE_ALERTS, moduleAlerts);
+        views.put(MODULE_INSIGHTS, moduleInsights);
+        views.put(MODULE_GOALS, moduleGoals);
+        views.put(MODULE_REMINDERS, moduleReminders);
+        views.put(MODULE_QUICK, moduleQuick);
+
+        List<String> order = moduleOrder.isEmpty() ? defaultModuleIds() : moduleOrder;
+        LinkedHashSet<String> safeOrder = new LinkedHashSet<>(order);
+        safeOrder.addAll(defaultModuleIds());
+        for (View view : views.values()) {
+            if (view != null && view.getParent() == dashboardContainer) {
+                dashboardContainer.removeView(view);
+            }
+        }
+        for (String id : safeOrder) {
+            View view = views.get(id);
+            if (view != null) dashboardContainer.addView(view);
+        }
     }
 
     private String safeLabel(@Nullable String value) {

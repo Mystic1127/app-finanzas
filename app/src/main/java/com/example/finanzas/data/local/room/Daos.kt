@@ -32,6 +32,21 @@ interface CategoriaDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(entity: CategoriaEntity): Long
 
+    @Query("UPDATE categorias SET nombre=:nombre, es_ingreso=:esIngreso WHERE id=:id AND user_id=:userId")
+    fun updateById(id: Int, userId: Int, nombre: String, esIngreso: Int): Int
+
+    @Query("DELETE FROM categorias WHERE id=:id AND user_id=:userId")
+    fun deleteById(id: Int, userId: Int): Int
+
+    @Query("SELECT COUNT(*) FROM transacciones WHERE user_id=:userId AND categoria_id=:categoriaId")
+    fun countTransactions(userId: Int, categoriaId: Int): Int
+
+    @Query("SELECT COUNT(*) FROM presupuestos_categoria WHERE user_id=:userId AND categoria_id=:categoriaId")
+    fun countBudgets(userId: Int, categoriaId: Int): Int
+
+    @Query("SELECT COUNT(*) FROM import_rules WHERE user_id=:userId AND categoria_id=:categoriaId")
+    fun countImportRules(userId: Int, categoriaId: Int): Int
+
     @Query("DELETE FROM categorias WHERE user_id=:userId")
     fun deleteForUser(userId: Int): Int
 }

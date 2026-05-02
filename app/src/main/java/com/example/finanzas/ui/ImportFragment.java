@@ -1,7 +1,11 @@
 package com.example.finanzas.ui;
 
+import android.content.Context;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +14,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONException;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -23,6 +29,7 @@ import com.example.finanzas.data.model.ImportJob;
 import com.example.finanzas.data.model.ImportRule;
 import com.example.finanzas.ui.adapter.ImportJobAdapter;
 import com.example.finanzas.ui.adapter.ImportRuleAdapter;
+import com.example.finanzas.util.ExcelImportParser;
 import com.example.finanzas.util.Prefs;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
@@ -36,10 +43,18 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.text.SimpleDateFormat;
 
 public class ImportFragment extends Fragment implements ImportJobAdapter.Listener, ImportRuleAdapter.Listener {
 
@@ -49,8 +64,14 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
     private ImportJobAdapter jobAdapter;
     private ImportRuleAdapter ruleAdapter;
     private final List<Categoria> categorias = new ArrayList<>();
+    private final List<ImportRule> importRules = new ArrayList<>();
     private final Map<Integer, String> categoriaNombres = new HashMap<>();
     private final Map<Boolean, List<Categoria>> categoriasPorTipo = new HashMap<>();
+    private TextInputEditText activeImportLines;
+    private TextView activeImportPreview;
+
+    private final ActivityResultLauncher<String> importFilePicker =
+            registerForActivityResult(new ActivityResultContracts.GetContent(), this::onImportFileSelected);
 
     @Nullable
     @Override
@@ -82,6 +103,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
 
         cargarCategorias();
         refreshAll();
+        maybeShowImportOnboarding(0);
     }
 
     private void cargarCategorias() {
@@ -94,6 +116,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 if (cats != null) {
                     categorias.addAll(cats);
                     for (Categoria c : cats) {
+                        if (isSpecialCategory(c)) continue;
                         categoriaNombres.put(c.id, c.nombre);
                         boolean key = c.esIngreso;
                         if (!categoriasPorTipo.containsKey(key)) {
@@ -135,6 +158,8 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
             @Override
             public void onSuccess(List<? extends ImportRule> rules) {
                 if (!isAdded()) return;
+                importRules.clear();
+                if (rules != null) importRules.addAll(rules);
                 ruleAdapter.setItems(new ArrayList<>(rules));
                 tvRulesEmpty.setVisibility(rules == null || rules.isEmpty() ? View.VISIBLE : View.GONE);
             }
@@ -153,7 +178,9 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         TextInputLayout tilLineas = content.findViewById(R.id.tilImportLines);
         TextInputEditText etNombre = content.findViewById(R.id.etImportName);
         TextInputEditText etLineas = content.findViewById(R.id.etImportLines);
+        TextView tvPreview = content.findViewById(R.id.tvImportPreview);
         MaterialAutoCompleteTextView actTipo = content.findViewById(R.id.actImportType);
+        MaterialButton btnSelectFile = content.findViewById(R.id.btnSelectImportFile);
         MaterialButton btnCancel = content.findViewById(R.id.btnImportCancel);
         MaterialButton btnCreate = content.findViewById(R.id.btnImportCreate);
 
@@ -161,6 +188,16 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 getResources().getStringArray(R.array.import_type_entries));
         actTipo.setAdapter(adapter);
         actTipo.setText(getString(R.string.import_type_csv), false);
+        activeImportLines = etLineas;
+        activeImportPreview = tvPreview;
+        etLineas.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                updateImportPreview(s == null ? "" : s.toString(), tvPreview);
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+        btnSelectFile.setOnClickListener(v -> importFilePicker.launch("*/*"));
 
         BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
         dialog.setContentView(content);
@@ -179,7 +216,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 }
                 JSONArray lineas;
                 try {
-                    lineas = parseLineas(lineasRaw);
+                    lineas = parseLineasV2(lineasRaw);
                 } catch (IllegalArgumentException e) {
                     tilLineas.setError(e.getMessage());
                     return;
@@ -205,7 +242,113 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 });
         });
 
+        dialog.setOnDismissListener(d -> {
+            activeImportLines = null;
+            activeImportPreview = null;
+        });
         dialog.show();
+    }
+
+    private void updateImportPreview(@Nullable String raw, @NonNull TextView preview) {
+        if (raw == null || raw.trim().isEmpty()) {
+            preview.setText(R.string.import_preview_empty);
+            return;
+        }
+        try {
+            JSONArray rows = parseLineasV2(raw);
+            StringBuilder out = new StringBuilder(getString(R.string.import_preview_title, rows.length()));
+            int max = Math.min(3, rows.length());
+            for (int i = 0; i < max; i++) {
+                JSONObject row = rows.getJSONObject(i);
+                out.append("\n")
+                        .append(row.optString("fecha"))
+                        .append(" · ")
+                        .append(row.optString("descripcion"))
+                        .append(" · ")
+                        .append(row.optDouble("monto"))
+                        .append(row.optInt("es_ingreso", 0) == 1 ? " · I" : " · G");
+            }
+            preview.setText(out.toString());
+        } catch (Exception e) {
+            preview.setText(e.getMessage() == null ? getString(R.string.import_line_format_error) : e.getMessage());
+        }
+    }
+
+    private void onImportFileSelected(@Nullable Uri uri) {
+        if (uri == null || activeImportLines == null) return;
+        String rawUri = uri.toString().toLowerCase(Locale.ROOT);
+        String mime = requireContext().getContentResolver().getType(uri);
+        String cleanMime = mime == null ? "" : mime.toLowerCase(Locale.ROOT);
+        boolean excel = rawUri.endsWith(".xlsx") || rawUri.contains("xlsx") || cleanMime.contains("spreadsheet");
+        boolean legacyExcel = (rawUri.endsWith(".xls") || rawUri.contains(".xls")) && !rawUri.contains(".xlsx");
+        try (InputStream input = requireContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IllegalStateException("empty");
+            if (excel && !legacyExcel) {
+                JSONArray rows = parseExcelInput(input);
+                activeImportLines.setText(rows.toString());
+                if (activeImportPreview != null) updateImportPreview(rows.toString(), activeImportPreview);
+                Toast.makeText(requireContext(), R.string.import_file_loaded, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (legacyExcel) {
+                Toast.makeText(requireContext(), R.string.import_file_excel_pending, Toast.LENGTH_LONG).show();
+                return;
+            }
+            BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+            StringBuilder out = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (out.length() > 0) out.append('\n');
+                out.append(line);
+            }
+            activeImportLines.setText(out.toString());
+            if (activeImportPreview != null) updateImportPreview(out.toString(), activeImportPreview);
+            Toast.makeText(requireContext(), R.string.import_file_loaded, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            if (activeImportPreview != null && e.getMessage() != null) {
+                activeImportPreview.setText(e.getMessage());
+            }
+            Toast.makeText(requireContext(), R.string.import_file_error, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void maybeShowImportOnboarding(int step) {
+        if (!isAdded()) return;
+        long userId = Prefs.getCurrentUserId(requireContext());
+        if (userId <= 0) return;
+        String key = "imports_onboarding_seen_" + userId;
+        if (requireContext().getSharedPreferences("finanzas_settings", Context.MODE_PRIVATE).getBoolean(key, false)) {
+            return;
+        }
+        int[] titles = {
+                R.string.import_onboarding_title_1,
+                R.string.import_onboarding_title_2,
+                R.string.import_onboarding_title_3
+        };
+        int[] bodies = {
+                R.string.import_onboarding_body_1,
+                R.string.import_onboarding_body_2,
+                R.string.import_onboarding_body_3
+        };
+        int current = Math.max(0, Math.min(step, titles.length - 1));
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(titles[current])
+                .setMessage(bodies[current])
+                .setNegativeButton(R.string.import_onboarding_skip, (dialog, which) -> markImportOnboardingSeen(key));
+        if (current < titles.length - 1) {
+            builder.setPositiveButton(R.string.import_onboarding_next, (dialog, which) -> maybeShowImportOnboarding(current + 1));
+        } else {
+            builder.setPositiveButton(R.string.import_onboarding_done, (dialog, which) -> markImportOnboardingSeen(key));
+        }
+        builder.show();
+    }
+
+    private void markImportOnboardingSeen(@NonNull String key) {
+        if (!isAdded()) return;
+        requireContext().getSharedPreferences("finanzas_settings", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(key, true)
+                .apply();
     }
 
     private JSONArray parseLineas(String raw) {
@@ -252,6 +395,248 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
             throw new IllegalArgumentException(getString(R.string.import_lines_required));
         }
         return array;
+    }
+
+    private JSONArray parseLineasV2(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new IllegalArgumentException(getString(R.string.import_lines_required));
+        }
+        String cleanRaw = raw.trim();
+        if (cleanRaw.startsWith("[")) {
+            try {
+                JSONArray parsed = new JSONArray(cleanRaw);
+                if (parsed.length() == 0) throw new IllegalArgumentException(getString(R.string.import_lines_required));
+                return parsed;
+            } catch (JSONException e) {
+                throw new IllegalArgumentException(getString(R.string.import_line_format_error));
+            }
+        }
+
+        String[] filas = raw.split("\n");
+        JSONArray array = new JSONArray();
+        List<String> errores = new ArrayList<>();
+        boolean hasHeader = filas.length > 0 && looksLikeHeader(filas[0]);
+        Map<String, Integer> header = hasHeader ? parseHeader(filas[0]) : new HashMap<>();
+        for (int index = hasHeader ? 1 : 0; index < filas.length; index++) {
+            String limpia = filas[index].trim();
+            if (limpia.isEmpty()) continue;
+            String[] partes = splitDelimited(limpia);
+            if (partes.length < 3) {
+                errores.add("Fila " + (index + 1) + ": formato incompleto");
+                continue;
+            }
+            String fecha = hasHeader ? valueFor(partes, header, "fecha") : partes[0].trim();
+            String descripcion = hasHeader ? valueFor(partes, header, "descripcion") : partes[1].trim();
+            String montoStr = hasHeader ? valueFor(partes, header, "monto") : partes[2].trim();
+            String tipoRaw = hasHeader ? valueFor(partes, header, "tipo") : (partes.length >= 4 ? partes[3].trim() : "");
+            String moneda = hasHeader ? valueFor(partes, header, "moneda") : (partes.length >= 5 ? partes[4].trim() : "");
+            String categoria = hasHeader ? valueFor(partes, header, "categoria") : (partes.length >= 6 ? partes[5].trim() : "");
+            double monto;
+            try {
+                monto = parseAmount(montoStr);
+            } catch (NumberFormatException e) {
+                errores.add("Fila " + (index + 1) + ": monto invalido");
+                continue;
+            }
+            boolean ingreso = monto >= 0;
+            if (!TextUtils.isEmpty(tipoRaw)) ingreso = parseIncomeType(tipoRaw, ingreso);
+
+            try {
+                JSONObject linea = buildImportJson(fecha, descripcion, Math.abs(monto), ingreso, moneda, categoria);
+                if (linea == null) {
+                    errores.add("Fila " + (index + 1) + ": faltan fecha, descripcion o monto");
+                } else {
+                    array.put(linea);
+                }
+            } catch (JSONException e) {
+                errores.add("Fila " + (index + 1) + ": formato invalido");
+            }
+        }
+        if (array.length() == 0) {
+            throw new IllegalArgumentException(errores.isEmpty()
+                    ? getString(R.string.import_lines_required)
+                    : TextUtils.join("\n", errores.subList(0, Math.min(3, errores.size()))));
+        }
+        return array;
+    }
+
+    private JSONArray parseExcelInput(@NonNull InputStream input) throws Exception {
+        List<Map<String, String>> rows = ExcelImportParser.parseFirstSheet(input);
+        if (rows.isEmpty()) throw new IllegalArgumentException(getString(R.string.import_lines_required));
+
+        JSONArray out = new JSONArray();
+        List<String> errors = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            Map<String, String> row = normalizeKeys(rows.get(i));
+            String fecha = first(row, "fecha", "date", "dia", "vencimiento");
+            String descripcion = first(row, "descripcion", "description", "detalle", "concepto", "nota", "comercio");
+            String montoRaw = first(row, "monto", "importe", "amount", "valor", "total");
+            String tipoRaw = first(row, "tipo", "type", "movimiento", "ingresogasto", "ingresoegreso");
+            String moneda = first(row, "moneda", "currency", "divisa");
+            String categoria = first(row, "categoria", "category", "rubro");
+            if (TextUtils.isEmpty(fecha) || TextUtils.isEmpty(descripcion) || TextUtils.isEmpty(montoRaw)) {
+                errors.add("Fila " + (i + 2) + ": faltan fecha, descripcion o monto");
+                continue;
+            }
+            double amount;
+            try {
+                amount = parseAmount(montoRaw);
+            } catch (NumberFormatException e) {
+                errors.add("Fila " + (i + 2) + ": monto invalido");
+                continue;
+            }
+            boolean ingreso = amount >= 0;
+            if (!TextUtils.isEmpty(tipoRaw)) ingreso = parseIncomeType(tipoRaw, ingreso);
+
+            JSONObject json = buildImportJson(fecha, descripcion, Math.abs(amount), ingreso, moneda, categoria);
+            if (json == null) {
+                errors.add("Fila " + (i + 2) + ": datos invalidos");
+            } else {
+                out.put(json);
+            }
+        }
+        if (out.length() == 0) {
+            throw new IllegalArgumentException(errors.isEmpty()
+                    ? getString(R.string.import_line_format_error)
+                    : TextUtils.join("\n", errors.subList(0, Math.min(3, errors.size()))));
+        }
+        return out;
+    }
+
+    @Nullable
+    private JSONObject buildImportJson(@Nullable String fecha, @Nullable String descripcion, double monto,
+                                       boolean ingreso, @Nullable String moneda, @Nullable String categoria) throws JSONException {
+        String cleanFecha = normalizeDate(fecha);
+        String cleanDesc = descripcion == null ? "" : descripcion.trim();
+        if (TextUtils.isEmpty(cleanFecha) || TextUtils.isEmpty(cleanDesc) || monto <= 0.0) return null;
+
+        ImportRule rule = findMatchingRule(cleanDesc);
+        boolean finalIngreso = rule != null ? rule.isIngreso() : ingreso;
+        Integer categoriaId = rule != null && rule.getCategoriaId() != null
+                ? rule.getCategoriaId()
+                : resolveCategoriaId(categoria == null ? "" : categoria.trim(), finalIngreso);
+
+        JSONObject linea = new JSONObject();
+        linea.put("fecha", cleanFecha);
+        linea.put("descripcion", cleanDesc);
+        linea.put("monto", monto);
+        linea.put("es_ingreso", finalIngreso ? 1 : 0);
+        if (!TextUtils.isEmpty(moneda)) linea.put("moneda", moneda.trim().toUpperCase(Locale.ROOT));
+        if (categoriaId != null) linea.put("categoria_id", categoriaId);
+        if (!TextUtils.isEmpty(categoria)) linea.put("categoria", categoria.trim());
+        if (rule != null && !TextUtils.isEmpty(rule.getDescripcion())) linea.put("nota", rule.getDescripcion());
+        return linea;
+    }
+
+    @Nullable
+    private ImportRule findMatchingRule(@NonNull String descripcion) {
+        for (ImportRule rule : importRules) {
+            if (rule == null || TextUtils.isEmpty(rule.getPatron())) continue;
+            if (descripcion.toLowerCase(Locale.ROOT).contains(rule.getPatron().toLowerCase(Locale.ROOT))) return rule;
+        }
+        return null;
+    }
+
+    private boolean looksLikeHeader(@NonNull String firstLine) {
+        String normalized = normalize(firstLine);
+        return normalized.contains("fecha") && (normalized.contains("monto") || normalized.contains("importe"));
+    }
+
+    private Map<String, Integer> parseHeader(@NonNull String line) {
+        String[] parts = splitDelimited(line);
+        Map<String, Integer> out = new HashMap<>();
+        for (int i = 0; i < parts.length; i++) {
+            String key = normalize(parts[i]);
+            if (key.contains("fecha") || key.equals("date")) out.put("fecha", i);
+            else if (key.contains("descripcion") || key.contains("detalle") || key.contains("concepto") || key.contains("nota")) out.put("descripcion", i);
+            else if (key.contains("monto") || key.contains("importe") || key.contains("amount") || key.contains("total")) out.put("monto", i);
+            else if (key.contains("tipo") || key.contains("movimiento") || key.contains("ingreso")) out.put("tipo", i);
+            else if (key.contains("moneda") || key.contains("currency") || key.contains("divisa")) out.put("moneda", i);
+            else if (key.contains("categoria") || key.contains("category") || key.contains("rubro")) out.put("categoria", i);
+        }
+        return out;
+    }
+
+    private String valueFor(String[] parts, Map<String, Integer> header, String key) {
+        Integer index = header.get(key);
+        return index != null && index >= 0 && index < parts.length ? parts[index].trim() : "";
+    }
+
+    private String[] splitDelimited(@NonNull String line) {
+        String separator = line.contains(";") ? ";" : ",";
+        return line.split(separator, -1);
+    }
+
+    private Map<String, String> normalizeKeys(@NonNull Map<String, String> row) {
+        Map<String, String> out = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : row.entrySet()) {
+            out.put(normalize(entry.getKey()), entry.getValue() == null ? "" : entry.getValue().trim());
+        }
+        return out;
+    }
+
+    private String first(@NonNull Map<String, String> row, @NonNull String... keys) {
+        for (String key : keys) {
+            String value = row.get(key);
+            if (!TextUtils.isEmpty(value)) return value;
+        }
+        return "";
+    }
+
+    private String normalize(@Nullable String raw) {
+        if (raw == null) return "";
+        String clean = Normalizer.normalize(raw.toLowerCase(Locale.ROOT), Normalizer.Form.NFD);
+        return clean.replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                .replaceAll("[^a-z0-9]", "")
+                .trim();
+    }
+
+    private double parseAmount(@Nullable String raw) {
+        if (raw == null) throw new NumberFormatException("empty");
+        String clean = raw.trim().replaceAll("[^0-9,.-]", "");
+        if (clean.isEmpty()) throw new NumberFormatException("empty");
+        int lastComma = clean.lastIndexOf(',');
+        int lastDot = clean.lastIndexOf('.');
+        if (lastComma >= 0 && lastDot >= 0 && lastComma > lastDot) {
+            clean = clean.replace(".", "").replace(',', '.');
+        } else if (lastComma >= 0 && lastDot >= 0) {
+            clean = clean.replace(",", "");
+        } else if (lastComma >= 0) {
+            clean = clean.replace(',', '.');
+        }
+        return Double.parseDouble(clean);
+    }
+
+    private boolean parseIncomeType(@Nullable String raw, boolean fallback) {
+        if (raw == null) return fallback;
+        String clean = raw.trim();
+        if ("+".equals(clean) || "1".equals(clean)) return true;
+        if ("-".equals(clean) || "0".equals(clean)) return false;
+        String tipo = normalize(raw);
+        if (tipo.startsWith("i") || tipo.contains("ingreso") || tipo.contains("abono") || tipo.equals("1")) return true;
+        if (tipo.startsWith("g") || tipo.contains("gasto") || tipo.contains("egreso") || tipo.contains("cargo") || tipo.equals("0")) return false;
+        return fallback;
+    }
+
+    private String normalizeDate(@Nullable String raw) {
+        if (raw == null) return "";
+        String clean = raw.trim();
+        if (clean.isEmpty()) return "";
+        if (clean.matches("\\d+(\\.\\d+)?")) {
+            try {
+                double serial = Double.parseDouble(clean);
+                long millis = Math.round((serial - 25569.0) * 86400000.0);
+                return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(millis));
+            } catch (Exception ignored) { }
+        }
+        String[] patterns = {"yyyy-MM-dd", "dd/MM/yyyy", "dd-MM-yyyy", "MM/dd/yyyy"};
+        for (String pattern : patterns) {
+            try {
+                Date date = new SimpleDateFormat(pattern, Locale.US).parse(clean);
+                if (date != null) return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date);
+            } catch (Exception ignored) { }
+        }
+        return clean;
     }
 
     private String mapTipo(String texto) {
@@ -360,6 +745,12 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         return nombres;
     }
 
+    private boolean isSpecialCategory(@Nullable Categoria categoria) {
+        return categoria != null
+                && categoria.nombre != null
+                && categoria.nombre.equalsIgnoreCase(com.example.finanzas.data.model.Transaccion.INITIAL_BALANCE_CATEGORY);
+    }
+
     private Integer resolveCategoriaId(String label, boolean ingreso) {
         if (TextUtils.isEmpty(label) || label.equals(getString(R.string.import_rule_any_category))) {
             return null;
@@ -398,6 +789,12 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
 
                 if (response != null) {
                     int omitidosSaldo = response.optInt("omitidos_saldo", 0);
+                    int duplicados = response.optInt("duplicados", 0);
+                    if (duplicados > 0) {
+                        Toast.makeText(requireContext(),
+                                getString(R.string.import_process_duplicates, duplicados),
+                                Toast.LENGTH_LONG).show();
+                    }
                     if (omitidosSaldo > 0) {
                         Toast.makeText(requireContext(),
                                 getResources().getQuantityString(R.plurals.import_process_skipped_balance,

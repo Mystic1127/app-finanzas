@@ -23,6 +23,11 @@ object CategoryStore {
         fun onError()
     }
 
+    interface SimpleCallback {
+        fun onSuccess()
+        fun onError()
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     @Volatile
@@ -39,7 +44,7 @@ object CategoryStore {
 
     suspend fun create(ctx: Context, nombre: String, esIngreso: Boolean): Categoria = withContext(Dispatchers.IO) {
         val id = LocalRepository.getInstance(ctx).createCategoria(nombre, esIngreso)
-        Categoria(id, nombre, esIngreso).also { nueva ->
+        Categoria(id, Prefs.getCurrentUserId(ctx).toInt(), nombre, esIngreso, true).also { nueva ->
             val userId = Prefs.getCurrentUserId(ctx)
             synchronized(this@CategoryStore) {
                 val current = cache
@@ -53,6 +58,16 @@ object CategoryStore {
                 }
             }
         }
+    }
+
+    suspend fun update(ctx: Context, categoria: Categoria): Boolean = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).updateCategoria(categoria.id, categoria.nombre ?: "", categoria.esIngreso)
+            .also { if (it) clearCache() }
+    }
+
+    suspend fun delete(ctx: Context, categoriaId: Int): Boolean = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).deleteCategoria(categoriaId)
+            .also { if (it) clearCache() }
     }
 
     @JvmStatic
@@ -111,6 +126,24 @@ object CategoryStore {
                     }
                     cb.onReady(nueva)
                 }
+                .onFailure { cb.onError() }
+        }
+    }
+
+    @JvmStatic
+    fun updateCategoria(ctx: Context, categoria: Categoria, cb: SimpleCallback) {
+        scope.launch {
+            runCatching { update(ctx, categoria) }
+                .onSuccess { if (it) cb.onSuccess() else cb.onError() }
+                .onFailure { cb.onError() }
+        }
+    }
+
+    @JvmStatic
+    fun deleteCategoria(ctx: Context, categoriaId: Int, cb: SimpleCallback) {
+        scope.launch {
+            runCatching { delete(ctx, categoriaId) }
+                .onSuccess { if (it) cb.onSuccess() else cb.onError() }
                 .onFailure { cb.onError() }
         }
     }
