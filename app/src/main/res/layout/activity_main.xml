@@ -5,7 +5,8 @@
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    app:statusBarBackground="@color/gradient_start">
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
@@ -39,7 +40,7 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:fitsSystemWindows="true"
-        android:background="@color/md_theme_background"
+        android:background="@color/drawer_body_background"
         app:itemIconTint="@color/md_theme_onSurfaceVariant"
         app:itemTextColor="@color/md_theme_onSurface"
         app:headerLayout="@layout/nav_header"

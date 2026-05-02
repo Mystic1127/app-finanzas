@@ -1,7 +1,11 @@
 package com.example.finanzas.ui;
 
+import android.content.Context;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +14,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONException;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -40,6 +46,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 public class ImportFragment extends Fragment implements ImportJobAdapter.Listener, ImportRuleAdapter.Listener {
 
@@ -51,6 +61,11 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
     private final List<Categoria> categorias = new ArrayList<>();
     private final Map<Integer, String> categoriaNombres = new HashMap<>();
     private final Map<Boolean, List<Categoria>> categoriasPorTipo = new HashMap<>();
+    private TextInputEditText activeImportLines;
+    private TextView activeImportPreview;
+
+    private final ActivityResultLauncher<String> importFilePicker =
+            registerForActivityResult(new ActivityResultContracts.GetContent(), this::onImportFileSelected);
 
     @Nullable
     @Override
@@ -82,6 +97,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
 
         cargarCategorias();
         refreshAll();
+        maybeShowImportOnboarding(0);
     }
 
     private void cargarCategorias() {
@@ -94,6 +110,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 if (cats != null) {
                     categorias.addAll(cats);
                     for (Categoria c : cats) {
+                        if (isSpecialCategory(c)) continue;
                         categoriaNombres.put(c.id, c.nombre);
                         boolean key = c.esIngreso;
                         if (!categoriasPorTipo.containsKey(key)) {
@@ -153,7 +170,9 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         TextInputLayout tilLineas = content.findViewById(R.id.tilImportLines);
         TextInputEditText etNombre = content.findViewById(R.id.etImportName);
         TextInputEditText etLineas = content.findViewById(R.id.etImportLines);
+        TextView tvPreview = content.findViewById(R.id.tvImportPreview);
         MaterialAutoCompleteTextView actTipo = content.findViewById(R.id.actImportType);
+        MaterialButton btnSelectFile = content.findViewById(R.id.btnSelectImportFile);
         MaterialButton btnCancel = content.findViewById(R.id.btnImportCancel);
         MaterialButton btnCreate = content.findViewById(R.id.btnImportCreate);
 
@@ -161,6 +180,16 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 getResources().getStringArray(R.array.import_type_entries));
         actTipo.setAdapter(adapter);
         actTipo.setText(getString(R.string.import_type_csv), false);
+        activeImportLines = etLineas;
+        activeImportPreview = tvPreview;
+        etLineas.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                updateImportPreview(s == null ? "" : s.toString(), tvPreview);
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+        btnSelectFile.setOnClickListener(v -> importFilePicker.launch("*/*"));
 
         BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
         dialog.setContentView(content);
@@ -205,7 +234,101 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 });
         });
 
+        dialog.setOnDismissListener(d -> {
+            activeImportLines = null;
+            activeImportPreview = null;
+        });
         dialog.show();
+    }
+
+    private void updateImportPreview(@Nullable String raw, @NonNull TextView preview) {
+        if (raw == null || raw.trim().isEmpty()) {
+            preview.setText(R.string.import_preview_empty);
+            return;
+        }
+        try {
+            JSONArray rows = parseLineas(raw);
+            StringBuilder out = new StringBuilder(getString(R.string.import_preview_title, rows.length()));
+            int max = Math.min(3, rows.length());
+            for (int i = 0; i < max; i++) {
+                JSONObject row = rows.getJSONObject(i);
+                out.append("\n")
+                        .append(row.optString("fecha"))
+                        .append(" · ")
+                        .append(row.optString("descripcion"))
+                        .append(" · ")
+                        .append(row.optDouble("monto"))
+                        .append(row.optInt("es_ingreso", 0) == 1 ? " · I" : " · G");
+            }
+            preview.setText(out.toString());
+        } catch (Exception e) {
+            preview.setText(e.getMessage() == null ? getString(R.string.import_line_format_error) : e.getMessage());
+        }
+    }
+
+    private void onImportFileSelected(@Nullable Uri uri) {
+        if (uri == null || activeImportLines == null) return;
+        String rawUri = uri.toString().toLowerCase(Locale.ROOT);
+        String mime = requireContext().getContentResolver().getType(uri);
+        String cleanMime = mime == null ? "" : mime.toLowerCase(Locale.ROOT);
+        if (rawUri.endsWith(".xlsx") || rawUri.contains("xlsx") || cleanMime.contains("spreadsheet")) {
+            Toast.makeText(requireContext(), R.string.import_file_excel_pending, Toast.LENGTH_LONG).show();
+            return;
+        }
+        try (InputStream input = requireContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IllegalStateException("empty");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+            StringBuilder out = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (out.length() > 0) out.append('\n');
+                out.append(line);
+            }
+            activeImportLines.setText(out.toString());
+            if (activeImportPreview != null) updateImportPreview(out.toString(), activeImportPreview);
+            Toast.makeText(requireContext(), R.string.import_file_loaded, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), R.string.import_file_error, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void maybeShowImportOnboarding(int step) {
+        if (!isAdded()) return;
+        long userId = Prefs.getCurrentUserId(requireContext());
+        if (userId <= 0) return;
+        String key = "imports_onboarding_seen_" + userId;
+        if (requireContext().getSharedPreferences("finanzas_settings", Context.MODE_PRIVATE).getBoolean(key, false)) {
+            return;
+        }
+        int[] titles = {
+                R.string.import_onboarding_title_1,
+                R.string.import_onboarding_title_2,
+                R.string.import_onboarding_title_3
+        };
+        int[] bodies = {
+                R.string.import_onboarding_body_1,
+                R.string.import_onboarding_body_2,
+                R.string.import_onboarding_body_3
+        };
+        int current = Math.max(0, Math.min(step, titles.length - 1));
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(titles[current])
+                .setMessage(bodies[current])
+                .setNegativeButton(R.string.import_onboarding_skip, (dialog, which) -> markImportOnboardingSeen(key));
+        if (current < titles.length - 1) {
+            builder.setPositiveButton(R.string.import_onboarding_next, (dialog, which) -> maybeShowImportOnboarding(current + 1));
+        } else {
+            builder.setPositiveButton(R.string.import_onboarding_done, (dialog, which) -> markImportOnboardingSeen(key));
+        }
+        builder.show();
+    }
+
+    private void markImportOnboardingSeen(@NonNull String key) {
+        if (!isAdded()) return;
+        requireContext().getSharedPreferences("finanzas_settings", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(key, true)
+                .apply();
     }
 
     private JSONArray parseLineas(String raw) {
@@ -358,6 +481,12 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
             nombres.add(c.nombre);
         }
         return nombres;
+    }
+
+    private boolean isSpecialCategory(@Nullable Categoria categoria) {
+        return categoria != null
+                && categoria.nombre != null
+                && categoria.nombre.equalsIgnoreCase(com.example.finanzas.data.model.Transaccion.INITIAL_BALANCE_CATEGORY);
     }
 
     private Integer resolveCategoriaId(String label, boolean ingreso) {

@@ -21,6 +21,7 @@ import com.example.finanzas.data.api.SuggestionService;
 import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.Categoria;
+import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
@@ -208,7 +209,9 @@ public class NuevaTransaccionFragment extends Fragment {
         if (categorias == null) return;
 
         visibles = new ArrayList<>();
-        for (Categoria c : categorias) if (c != null && c.esIngreso == esIngreso) visibles.add(c);
+        for (Categoria c : categorias) {
+            if (c != null && c.esIngreso == esIngreso && !isSpecialCategory(c)) visibles.add(c);
+        }
 
         List<String> nombres = new ArrayList<>();
         for (Categoria c : visibles) nombres.add(c.nombre);
@@ -362,6 +365,11 @@ public class NuevaTransaccionFragment extends Fragment {
             if (categoria != null && categoria.id == id) return categoria;
         }
         return null;
+    }
+
+    private boolean isSpecialCategory(@NonNull Categoria categoria) {
+        return categoria.nombre != null
+                && categoria.nombre.equalsIgnoreCase(Transaccion.INITIAL_BALANCE_CATEGORY);
     }
 
     @Nullable

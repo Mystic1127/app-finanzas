@@ -70,6 +70,25 @@ public class MainActivity extends AppCompatActivity {
         drawerLayout = findViewById(R.id.drawer_layout);
         drawerLayout.setScrimColor(ContextCompat.getColor(this, R.color.drawer_scrim));
         navView = findViewById(R.id.nav_view);
+        navView.setBackgroundColor(ContextCompat.getColor(this, R.color.drawer_body_background));
+        drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
+            @Override
+            public void onDrawerSlide(@NonNull View drawerView, float slideOffset) {
+                if (slideOffset > 0f) {
+                    applyDrawerSystemBars();
+                }
+            }
+
+            @Override
+            public void onDrawerOpened(@NonNull View drawerView) {
+                applyDrawerSystemBars();
+            }
+
+            @Override
+            public void onDrawerClosed(@NonNull View drawerView) {
+                configureSystemBars();
+            }
+        });
         navHostView = findViewById(R.id.nav_host_fragment);
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
         contentTopMargin = params.topMargin;
@@ -293,6 +312,27 @@ public class MainActivity extends AppCompatActivity {
                 new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
 
         controller.setAppearanceLightStatusBars(!night);
+        controller.setAppearanceLightNavigationBars(!night);
+    }
+
+    private void applyDrawerSystemBars() {
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+        int statusColor = ContextCompat.getColor(this, R.color.gradient_start);
+        int navigationColor = ContextCompat.getColor(this, R.color.drawer_body_background);
+
+        getWindow().setStatusBarColor(statusColor);
+        getWindow().setNavigationBarColor(navigationColor);
+        getWindow().getDecorView().setBackgroundColor(navigationColor);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(false);
         controller.setAppearanceLightNavigationBars(!night);
     }
 

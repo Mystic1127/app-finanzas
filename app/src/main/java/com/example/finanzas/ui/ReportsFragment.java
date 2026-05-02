@@ -36,10 +36,17 @@ public class ReportsFragment extends Fragment {
     private TextView tvEmpty;
     private TextView tvPeriod;
     private TextView tvStatus;
-    private TextView tvSummary;
+    private TextView tvIncome;
+    private TextView tvExpense;
+    private TextView tvBalance;
+    private TextView tvCurrent;
+    private TextView tvScore;
+    private TextView tvProjection;
     private TextView tvCategories;
     private TextView tvTrend;
     private TextView tvTransactions;
+    private View detailsContainer;
+    private MaterialButton btnToggleDetails;
     private ReportsViewModel viewModel;
     private boolean manualRefresh;
     private long perfStartMs;
@@ -63,10 +70,17 @@ public class ReportsFragment extends Fragment {
         tvEmpty = view.findViewById(R.id.tvReportsEmpty);
         tvPeriod = view.findViewById(R.id.tvReportPeriod);
         tvStatus = view.findViewById(R.id.tvReportStatus);
-        tvSummary = view.findViewById(R.id.tvReportSummary);
+        tvIncome = view.findViewById(R.id.tvReportIncome);
+        tvExpense = view.findViewById(R.id.tvReportExpense);
+        tvBalance = view.findViewById(R.id.tvReportBalance);
+        tvCurrent = view.findViewById(R.id.tvReportCurrent);
+        tvScore = view.findViewById(R.id.tvReportScore);
+        tvProjection = view.findViewById(R.id.tvReportProjection);
         tvCategories = view.findViewById(R.id.tvReportCategories);
         tvTrend = view.findViewById(R.id.tvReportTrend);
         tvTransactions = view.findViewById(R.id.tvReportTransactions);
+        detailsContainer = view.findViewById(R.id.reportDetailsContainer);
+        btnToggleDetails = view.findViewById(R.id.btnReportToggleDetails);
         MaterialButton btnExport = view.findViewById(R.id.btnExportReportPdf);
 
         viewModel = new ViewModelProvider(requireActivity()).get(ReportsViewModel.class);
@@ -78,6 +92,7 @@ public class ReportsFragment extends Fragment {
             viewModel.loadCurrentMonth(true);
         });
         btnExport.setOnClickListener(v -> viewModel.exportPdf());
+        btnToggleDetails.setOnClickListener(v -> toggleDetails());
         FinancialReport cachedReport = viewModel.getReport().getValue();
         if (cachedReport != null) {
             render(cachedReport);
@@ -131,26 +146,26 @@ public class ReportsFragment extends Fragment {
         String currency = report.getCurrencyCode();
         tvEmpty.setVisibility(report.getHasData() ? View.GONE : View.VISIBLE);
         tvPeriod.setText(report.getMonthLabel());
-        tvStatus.setText(getString(R.string.reports_status_format, report.getStatus(), currency));
-        tvSummary.setText(getString(
-                R.string.reports_summary_format,
-                Format.money(report.getSummary().getIngresos(), currency),
-                Format.money(report.getSummary().getGastos(), currency),
-                Format.money(report.getSummary().getSaldo(), currency),
-                Format.money(report.getSummary().getAhorroSugerido(), currency),
-                report.getSummary().getScoreFinanciero(),
-                Format.money(report.getSummary().getEfectivo(), currency),
-                Format.money(report.getSummary().getTarjetaCuenta(), currency),
-                Format.money(report.getSummary().getSaldoActualTotal(), currency),
-                Format.money(report.getSummary().getGastoProyectado(), currency),
-                Format.money(report.getSummary().getProyeccionFinMes(), currency),
-                report.getSummary().getConfianzaProyeccion() == null
-                        ? getString(R.string.home_projection_confidence_low)
-                        : report.getSummary().getConfianzaProyeccion()
-        ));
+        tvStatus.setText(getString(R.string.reports_status_chip, report.getStatus(), currency));
+        tvIncome.setText(metricText(getString(R.string.home_ingresos), Format.money(report.getSummary().getIngresos(), currency)));
+        tvExpense.setText(metricText(getString(R.string.home_gastos), Format.money(report.getSummary().getGastos(), currency)));
+        tvBalance.setText(metricText(getString(R.string.home_balance), Format.money(report.getSummary().getSaldo(), currency)));
+        tvCurrent.setText(metricText(getString(R.string.home_total_current), Format.money(report.getSummary().getSaldoActualTotal(), currency)));
+        tvScore.setText(metricText(getString(R.string.home_financial_score_label), report.getSummary().getScoreFinanciero() + "/100"));
+        tvProjection.setText(metricText(getString(R.string.home_predict_projected), Format.money(report.getSummary().getProyeccionFinMes(), currency)));
         tvCategories.setText(buildCategories(report.getTopCategories(), currency));
         tvTrend.setText(buildTrend(report.getTrend(), currency));
         tvTransactions.setText(buildTransactions(report.getRecentTransactions(), currency));
+    }
+
+    private String metricText(@NonNull String label, @NonNull String value) {
+        return label + "\n" + value;
+    }
+
+    private void toggleDetails() {
+        boolean show = detailsContainer.getVisibility() != View.VISIBLE;
+        detailsContainer.setVisibility(show ? View.VISIBLE : View.GONE);
+        btnToggleDetails.setText(show ? R.string.reports_view_less : R.string.reports_view_more);
     }
 
     private String buildCategories(@Nullable List<CategoryChartSlice> items, @NonNull String currency) {

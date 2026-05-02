@@ -1,5 +1,8 @@
 ﻿<resources>
     <string name="app_name_spendly">Spendly</string>
+    <string name="nav_header_title">Finanzas</string>
+    <string name="nav_header_subtitle">Gestión financiera premium</string>
+    <string name="nav_header_tagline">Tu dinero, siempre contigo</string>
     <string name="welcome_tagline">Controla tu dinero con claridad.</string>
     <string name="welcome_login">Iniciar sesión</string>
     <string name="welcome_register">Crear cuenta</string>
@@ -106,6 +109,23 @@
     <string name="home_empty_budgets">Aún no configuraste presupuestos por categoría.</string>
     <string name="home_empty_goals">Crea metas de ahorro para visualizar tu progreso.</string>
     <string name="home_empty_reminders">Agrega recordatorios para no olvidar tus pagos.</string>
+    <string name="home_goal_progress_empty">Sin meta activa</string>
+    <string name="home_goal_create_hint">Crea una meta para seguir tu progreso desde Inicio.</string>
+    <string name="home_goal_without_title">Meta sin título</string>
+    <string name="home_goal_progress_value">%1$d%% avanzado</string>
+    <string name="home_goal_missing_value">Falta %1$s para completar esta meta.</string>
+    <string name="home_reminder_create_hint">Agrega recordatorios para no olvidar tus pagos.</string>
+    <string name="home_reminder_status_empty">Sin próximos pagos</string>
+    <string name="home_reminder_without_title">Recordatorio sin título</string>
+    <string name="home_reminder_no_date">Sin fecha</string>
+    <string name="home_reminder_due_value">%1$s · %2$s</string>
+    <string name="home_reminder_overdue">Vencido</string>
+    <string name="home_reminder_today">Vence hoy</string>
+    <string name="home_reminder_days_left">Faltan %1$d días</string>
+    <string name="alert_tone_critical">Alerta crítica</string>
+    <string name="alert_tone_warning">Advertencia</string>
+    <string name="alert_tone_info">Nota informativa</string>
+    <string name="alert_tone_positive">Insight positivo</string>
     <string name="home_chart_budget_title">Gasto vs presupuesto</string>
     <string name="home_chart_balance_title">Ingresos, gastos y balance mensual</string>
     <string name="home_chart_balance_label">Resumen mensual</string>
@@ -114,7 +134,7 @@
     <string name="home_empty_goals_chart">Aún no hay metas de ahorro para graficar</string>
     <string name="home_chart_trend_title">Tendencia de los últimos meses</string>
     <string name="home_quick_actions">Acciones rápidas</string>
-    <string name="home_alertas_label">Alertas</string>
+    <string name="home_alertas_label">Avisos importantes</string>
     <string name="home_budget_detail">%1$s de %2$s. Disponible: %3$s</string>
     <string name="home_month_budget_resume">Presupuesto mensual: %1$s (%2$s restante)</string>
     <string name="cd_nueva_transaccion">Nueva transacción</string>
@@ -162,6 +182,24 @@
     <string name="import_rule_any_category">Sin categoría</string>
     <string name="import_dialog_help">Carga líneas con formato AAAA-MM-DD;Descripción;Monto;Tipo (I/G). Puedes pegar datos desde tu CSV y revisaremos las primeras filas.</string>
     <string name="import_dialog_title">Nueva importación bancaria</string>
+    <string name="imports_help_short">Carga movimientos desde un archivo CSV/TXT o pega líneas con el formato esperado. Excel real queda pendiente para una versión con parser dedicado.</string>
+    <string name="imports_rules_help_short">Las reglas clasifican movimientos automáticamente cuando la descripción contiene un texto o patrón.</string>
+    <string name="import_format_guide">Columnas esperadas: Fecha; Descripción; Monto; Tipo. Ejemplo: 2026-05-02;Supermercado;45.90;G</string>
+    <string name="import_select_file">Seleccionar archivo CSV/TXT</string>
+    <string name="import_preview_empty">La vista previa aparecerá cuando pegues líneas válidas.</string>
+    <string name="import_preview_title">Vista previa: %1$d movimientos detectados</string>
+    <string name="import_file_loaded">Archivo cargado. Revisa la vista previa antes de crear la importación.</string>
+    <string name="import_file_excel_pending">La lectura real de Excel requiere soporte adicional. Exporta tu archivo como CSV o pega las líneas por ahora.</string>
+    <string name="import_file_error">No se pudo leer el archivo seleccionado.</string>
+    <string name="import_onboarding_title_1">Importaciones bancarias</string>
+    <string name="import_onboarding_body_1">Aquí puedes cargar movimientos desde archivos o texto pegado para registrarlos más rápido.</string>
+    <string name="import_onboarding_title_2">Reglas de importación</string>
+    <string name="import_onboarding_body_2">Una regla detecta palabras en la descripción, por ejemplo “Super”, y asigna tipo, categoría y nota.</string>
+    <string name="import_onboarding_title_3">Revisa antes de importar</string>
+    <string name="import_onboarding_body_3">Usa la vista previa para validar fechas, montos y tipos antes de procesar movimientos.</string>
+    <string name="import_onboarding_next">Siguiente</string>
+    <string name="import_onboarding_skip">Omitir</string>
+    <string name="import_onboarding_done">Entendido</string>
     <string name="import_field_type">Tipo de archivo</string>
     <string name="import_type_csv">CSV</string>
     <string name="import_field_name">Nombre del archivo</string>
@@ -197,6 +235,7 @@
     <string name="import_rule_field_type">Tipo de movimiento</string>
     <string name="import_rule_field_category">Categoría</string>
     <string name="import_rule_field_desc">Descripción de la regla</string>
+    <string name="import_rule_help">Ejemplo: si el patrón es “Super”, cada movimiento cuya descripción contenga esa palabra puede clasificarse como gasto de Alimentación.</string>
 
     <string name="lista_vacia_titulo">Sin movimientos</string>
     <string name="lista_vacia_sub">Agrega tu primera transacción con el botón “+”.</string>
@@ -243,6 +282,9 @@
     <string name="reports_share_title">Compartir reporte financiero</string>
     <string name="reports_summary_format">Ingresos del mes: %1$s\nGastos del mes: %2$s\nBalance mensual: %3$s\nAhorro estimado: %4$s\nScore: %5$d/100\nEfectivo actual: %6$s\nTarjeta/Cuenta actual: %7$s\nSaldo total actual: %8$s\nGasto proyectado: %9$s\nSaldo estimado fin de mes: %10$s\nConfianza de proyección: %11$s</string>
     <string name="reports_status_format">Estado: %1$s · Moneda base: %2$s</string>
+    <string name="reports_status_chip">%1$s · %2$s</string>
+    <string name="reports_view_more">Ver más detalle</string>
+    <string name="reports_view_less">Ocultar detalle</string>
 
     <string name="imports_rules_title">Reglas de importación</string>
     <string name="imports_rule_add">Agregar regla</string>
@@ -252,6 +294,7 @@
     <string name="pres_hint">Monto</string>
     <string name="pres_btn_guardar">Guardar presupuesto</string>
     <string name="pres_category_title">Presupuestos por categoría</string>
+    <string name="pres_category_expense_hint">Las categorías creadas aquí son de gasto y se usan solo para presupuestar consumos.</string>
     <string name="pres_category_hint">Monto para %1$s</string>
     <string name="pres_category_new_hint">Nueva categoría de gasto</string>
     <string name="pres_btn_agregar_categoria">Agregar categoría</string>
@@ -302,7 +345,7 @@
     <string name="dashboard_module_automation">Automatización</string>
     <string name="dashboard_module_quick">Acciones rápidas</string>
     <string name="dashboard_module_gamification">Retos y consejos</string>
-    <string name="dashboard_module_alerts">Alertas</string>
+    <string name="dashboard_module_alerts">Avisos importantes</string>
     <string name="dashboard_module_budgets">Presupuestos</string>
     <string name="dashboard_module_goals">Metas</string>
     <string name="dashboard_module_reminders">Recordatorios</string>

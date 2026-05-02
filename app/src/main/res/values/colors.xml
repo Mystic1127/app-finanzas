@@ -40,6 +40,17 @@
     <color name="chartBudget">#4A9A76</color>
     <color name="chartBalance">#1F6F62</color>
     <color name="chartAccent">#5A71B9</color>
+    <color name="chart_line_income">#18764F</color>
+    <color name="chart_line_expense">#B83243</color>
+    <color name="chart_line_balance">#2B6F79</color>
+    <color name="chart_pie_1">#18764F</color>
+    <color name="chart_pie_2">#B83243</color>
+    <color name="chart_pie_3">#4A67B0</color>
+    <color name="chart_pie_4">#C58A21</color>
+    <color name="chart_pie_5">#7A5CA8</color>
+    <color name="chart_pie_6">#2C7A7B</color>
+    <color name="chart_pie_7">#8C5C35</color>
+    <color name="chart_pie_8">#5E7D3B</color>
 
     <color name="risk_low_bg">#D8F0E3</color>
     <color name="risk_low_text">#1F6E4C</color>
@@ -56,7 +67,11 @@
 
     <color name="gradient_start">#2E7D5B</color>
     <color name="gradient_end">#1F5E45</color>
+    <color name="nav_header_text">#FFFFFF</color>
+    <color name="nav_header_text_secondary">#EAF7EF</color>
+    <color name="drawer_body_background">#FFFFFF</color>
     <color name="alert_surface">#FFF6F7</color>
+    <color name="dialog_surface">#FFFFFF</color>
     <color name="forecast_gradient_start">#E7F4ED</color>
     <color name="forecast_gradient_end">#F3FAF5</color>
     <color name="drawer_scrim">#33000000</color>
