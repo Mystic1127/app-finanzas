@@ -92,6 +92,10 @@ public class ListaTransaccionesFragment extends Fragment {
         listView.setOnItemClickListener((parent, view, position, id) -> {
             Transaccion t = adapter.getItem(position);
             if (t == null) return;
+            if (t.isInitialBalance()) {
+                UiFormUtils.showMessage(requireView(), R.string.perfil_initial_balances_locked_help);
+                return;
+            }
 
             Bundle args = new Bundle();
             args.putInt(NuevaTransaccionFragment.EXTRA_ID, t.getId());
@@ -114,6 +118,10 @@ public class ListaTransaccionesFragment extends Fragment {
         listView.setOnItemLongClickListener((p, view, pos, id) -> {
             Transaccion t = adapter.getItem(pos);
             if (t == null) return true;
+            if (t.isInitialBalance()) {
+                UiFormUtils.showMessage(requireView(), R.string.perfil_initial_balances_locked_help);
+                return true;
+            }
 
             new android.app.AlertDialog.Builder(requireContext())
                     .setTitle(R.string.btn_eliminar)

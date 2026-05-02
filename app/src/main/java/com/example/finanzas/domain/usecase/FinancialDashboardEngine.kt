@@ -106,7 +106,7 @@ class FinancialDashboardEngine(
         }
 
         if (summary.saldo < 0.0 && summary.saldoActualTotal > 0.0) {
-            insights.add("Tu balance del mes es negativo, pero tu saldo actual sigue positivo")
+            insights.add("Tus gastos del mes superan los ingresos visibles, aunque tu saldo actual sigue positivo")
         } else if (summary.gastos > summary.ingresos) {
             insights.add("Tus gastos superan tus ingresos este mes")
         }
@@ -136,6 +136,11 @@ class FinancialDashboardEngine(
     ) {
         val currentExpenses = currentTx.filter { !it.isEsIngreso }.sumOf { it.monto }
         val previousExpenses = previousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
+        val incomeForAnalysis = (summary.ingresos - currentTx.filter { it.isInitialBalance }.sumOf { it.monto })
+            .coerceAtLeast(0.0)
+        summary.ingresosRecurrentes = incomeForAnalysis
+        summary.balanceVisibleMes = summary.ingresos - summary.gastos
+        summary.balanceOperativoMes = incomeForAnalysis - summary.gastos
         summary.gastosMesAnterior = previousExpenses
         summary.variacionGastosPorcentaje = if (previousExpenses > 0) {
             ((currentExpenses - previousExpenses) / previousExpenses) * 100.0
@@ -148,8 +153,9 @@ class FinancialDashboardEngine(
         summary.categoriaMayorGastoMonto = top?.gastado ?: 0.0
 
         summary.estadoFinanciero = when {
+            summary.saldoActualTotal <= 0.0 && summary.gastos > 0.0 -> "RIESGO"
             summary.presupuestoMonto > 0 && summary.gastos > summary.presupuestoMonto -> "EXCEDIDO"
-            summary.gastos > summary.ingresos && summary.ingresos > 0 -> "RIESGO"
+            summary.gastos > incomeForAnalysis && incomeForAnalysis > 0 -> "RIESGO"
             summary.presupuestoMonto > 0 && summary.presupuestoPorcentaje >= 80 -> "RIESGO"
             else -> "CONTROLADO"
         }
@@ -198,7 +204,11 @@ class FinancialDashboardEngine(
         summary.insightPrincipal = analysis.primaryInsight
         summary.alertas.clear()
         summary.alertas.addAll(analysis.alerts)
-        summary.alertaPrincipal = analysis.alerts.firstOrNull() ?: analysis.confidenceMessage
+        summary.notasInformativas.clear()
+        summary.notasInformativas.addAll(analysis.infoNotes)
+        summary.alertaPrincipal = analysis.alerts.firstOrNull()
+            ?: analysis.infoNotes.firstOrNull()
+            ?: analysis.confidenceMessage
         summary.ahorroSugerido = analysis.suggestedSaving
         summary.ahorroSugeridoMensaje = analysis.savingMessage
         summary.recomendacionAhorroMeta = buildGoalSavingRecommendation(summary, analysis.suggestedSaving)
@@ -206,6 +216,9 @@ class FinancialDashboardEngine(
         summary.scoreFinanciero = analysis.score
         summary.scoreEstado = analysis.scoreState
         summary.scoreExplicacion = analysis.scoreExplanation
+        summary.ingresosRecurrentes = analysis.recurringIncome
+        summary.balanceVisibleMes = analysis.visibleBalance
+        summary.balanceOperativoMes = analysis.operatingBalance
     }
 
     private fun applySmartSavings(
@@ -421,7 +434,7 @@ class FinancialDashboardEngine(
             }
             summary.saldo < 0.0 -> {
                 score -= 25
-                reasons.add("tienes balance mensual negativo")
+                reasons.add("tus gastos superan los ingresos visibles")
             }
             summary.saldo > 0.0 -> reasons.add("mantienes saldo positivo")
         }

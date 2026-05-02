@@ -173,7 +173,7 @@ public class ReportsFragment extends Fragment {
 
     private String buildTrend(@Nullable List<MonthlyTrendPoint> points, @NonNull String currency) {
         if (points == null || points.size() < 2) return getString(R.string.reports_no_trend);
-        StringBuilder out = new StringBuilder("Balance mensual (no incluye saldos iniciales)\n");
+        StringBuilder out = new StringBuilder("Balance mensual (Saldo inicial aparece como ingreso especial)\n");
         for (MonthlyTrendPoint point : points) {
             if (point == null) continue;
             out.append(point.getEtiqueta())

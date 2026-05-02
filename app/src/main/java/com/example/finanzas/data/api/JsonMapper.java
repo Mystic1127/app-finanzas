@@ -79,6 +79,9 @@ public class JsonMapper {
             summary.setIngresos(totales.optDouble("ingresos", 0));
             summary.setGastos(totales.optDouble("gastos", 0));
             summary.setSaldo(totales.optDouble("saldo", 0));
+            summary.setIngresosRecurrentes(totales.optDouble("ingresos_recurrentes", summary.getIngresos()));
+            summary.setBalanceVisibleMes(totales.optDouble("balance_visible_mes", summary.getSaldo()));
+            summary.setBalanceOperativoMes(totales.optDouble("balance_operativo_mes", summary.getIngresosRecurrentes() - summary.getGastos()));
         }
 
         JSONObject presupuesto = res.optJSONObject("presupuesto");
@@ -191,6 +194,16 @@ public class JsonMapper {
                 String alert = arrPredict.optString(i, null);
                 if (alert != null && !alert.isEmpty()) {
                     summary.getAlertasPredictivas().add(alert);
+                }
+            }
+        }
+
+        JSONArray arrNotes = res.optJSONArray("notas_informativas");
+        if (arrNotes != null) {
+            for (int i = 0; i < arrNotes.length(); i++) {
+                String note = arrNotes.optString(i, null);
+                if (note != null && !note.isEmpty()) {
+                    summary.getNotasInformativas().add(note);
                 }
             }
         }

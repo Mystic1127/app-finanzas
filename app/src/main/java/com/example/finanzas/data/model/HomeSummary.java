@@ -10,6 +10,9 @@ public class HomeSummary {
     private double gastos;
     private double saldo;
     private double saldoActualTotal;
+    private double ingresosRecurrentes;
+    private double balanceVisibleMes;
+    private double balanceOperativoMes;
     private double initialCashBalance;
     private double initialCardBalance;
     private double efectivo;
@@ -48,6 +51,7 @@ public class HomeSummary {
     private final List<SavingsGoal> metas = new ArrayList<>();
     private final List<PaymentReminder> recordatorios = new ArrayList<>();
     private final List<String> alertas = new ArrayList<>();
+    private final List<String> notasInformativas = new ArrayList<>();
     private final List<String> alertasPredictivas = new ArrayList<>();
     private final List<String> recomendacionesInteligentes = new ArrayList<>();
     private final List<CategoryChartSlice> chartCategorias = new ArrayList<>();
@@ -77,11 +81,24 @@ public class HomeSummary {
     public double getSaldoActualTotal() { return saldoActualTotal; }
     public void setSaldoActualTotal(double saldoActualTotal) { this.saldoActualTotal = saldoActualTotal; }
 
+    public double getIngresosRecurrentes() { return ingresosRecurrentes; }
+    public void setIngresosRecurrentes(double ingresosRecurrentes) { this.ingresosRecurrentes = ingresosRecurrentes; }
+
+    public double getBalanceVisibleMes() { return balanceVisibleMes; }
+    public void setBalanceVisibleMes(double balanceVisibleMes) { this.balanceVisibleMes = balanceVisibleMes; }
+
+    public double getBalanceOperativoMes() { return balanceOperativoMes; }
+    public void setBalanceOperativoMes(double balanceOperativoMes) { this.balanceOperativoMes = balanceOperativoMes; }
+
     public double getInitialCashBalance() { return initialCashBalance; }
     public void setInitialCashBalance(double initialCashBalance) { this.initialCashBalance = initialCashBalance; }
 
     public double getInitialCardBalance() { return initialCardBalance; }
     public void setInitialCardBalance(double initialCardBalance) { this.initialCardBalance = initialCardBalance; }
+
+    public double getSaldoInicialTotal() { return initialCashBalance + initialCardBalance; }
+
+    public boolean hasInitialBalance() { return getSaldoInicialTotal() > 0.0; }
 
     public double getEfectivo() { return efectivo; }
     public void setEfectivo(double efectivo) { this.efectivo = efectivo; }
@@ -189,6 +206,8 @@ public class HomeSummary {
     public List<PaymentReminder> getRecordatorios() { return recordatorios; }
 
     public List<String> getAlertas() { return alertas; }
+
+    public List<String> getNotasInformativas() { return notasInformativas; }
 
     public List<String> getAlertasPredictivas() { return alertasPredictivas; }
 

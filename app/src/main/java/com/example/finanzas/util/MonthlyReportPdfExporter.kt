@@ -122,7 +122,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
         writer.move(12f)
 
         drawSection(writer, "Ingresos vs gastos", section)
-        drawWrapped(writer, "El balance mensual es ingresos menos gastos del mes; no incluye saldos iniciales.", muted)
+        drawWrapped(writer, "El balance mensual es ingresos menos gastos del mes; Saldo inicial aparece como ingreso especial cuando corresponde.", muted)
         val maxSummary = maxOf(summary.ingresos, summary.gastos)
         drawHorizontalBar(writer, "Ingresos", summary.ingresos, maxSummary, report.currencyCode, incomeBar, barBg, body)
         drawHorizontalBar(writer, "Gastos", summary.gastos, maxSummary, report.currencyCode, expenseBar, barBg, body)
@@ -141,7 +141,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
         writer.move(12f)
 
         drawSection(writer, "Alertas e insights", section)
-        val insights = (listOfNotNull(summary.insightPrincipal, summary.alertaPrincipal) + summary.alertas)
+        val insights = (listOfNotNull(summary.insightPrincipal, summary.alertaPrincipal) + summary.alertas + summary.notasInformativas)
             .filter { it.isNotBlank() }
             .distinct()
             .take(4)

@@ -102,9 +102,43 @@ public class SettingsService {
         return raw != null ? raw : "{}";
     }
 
+    public static boolean isInitialBalanceConfigured(Context ctx) {
+        try {
+            JSONObject body = new JSONObject(getInitialBalancesRaw(ctx));
+            return body.optBoolean("configured", false);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static boolean hasLegacyInitialBalances(Context ctx) {
+        return getInitialCashBalance(ctx) > 0.0 || getInitialCardBalance(ctx) > 0.0;
+    }
+
+    public static void markInitialBalanceConfigured(Context ctx, String currencyCode) {
+        try {
+            JSONObject body = new JSONObject();
+            body.put("configured", true);
+            body.put("currency", normalizeCurrency(currencyCode == null || currencyCode.trim().isEmpty() ? getCurrencyCode(ctx) : currencyCode));
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            sp.edit().putString(initialBalancesKey(currentUserId(ctx)), body.toString()).apply();
+            LocalRepository.invalidateDataVersion();
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static void clearInitialBalances(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            sp.edit().remove(initialBalancesKey(currentUserId(ctx))).apply();
+            LocalRepository.invalidateDataVersion();
+        } catch (Exception ignored) {
+        }
+    }
+
     public static void saveInitialBalances(Context ctx, double cashBalance, double cardBalance, String currencyCode, SaveCb cb) {
         try {
-            if (!isValidAmount(cashBalance) || !isValidAmount(cardBalance)) {
+            if (!isValidAmount(cashBalance) || !isValidAmount(cardBalance) || (cashBalance <= 0.0 && cardBalance <= 0.0)) {
                 cb.onFail();
                 return;
             }

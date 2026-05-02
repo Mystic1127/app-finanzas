@@ -28,10 +28,23 @@ data class FinancialAnalysisResult(
     val savingStatus: String,
     val score: Int,
     val scoreState: String,
-    val scoreExplanation: String
+    val scoreExplanation: String,
+    val recurringIncome: Double,
+    val visibleBalance: Double,
+    val operatingBalance: Double,
+    val infoNotes: List<String>
 )
 
 object FinancialAnalysisRules {
+    private data class AnalysisMoney(
+        val visibleIncome: Double,
+        val recurringIncome: Double,
+        val initialBalanceIncome: Double,
+        val visibleBalance: Double,
+        val operatingBalance: Double,
+        val hasInitialBalance: Boolean
+    )
+
     fun analyze(
         summary: HomeSummary,
         currentTx: List<Transaccion>,
@@ -40,6 +53,7 @@ object FinancialAnalysisRules {
         today: Calendar = Calendar.getInstance()
     ): FinancialAnalysisResult {
         val expenses = currentTx.filter { !it.isEsIngreso && it.monto > 0.0 }
+        val money = analysisMoney(summary, currentTx)
         val expenseCount = expenses.size
         val movementDays = currentTx.mapNotNull { dayKey(it.fecha?.time) }.distinct().size
         val expenseDays = expenses.mapNotNull { dayKey(it.fecha?.time) }.distinct().size.coerceAtLeast(1)
@@ -67,13 +81,15 @@ object FinancialAnalysisRules {
         val projectedAdditionalExpense = (projectedExpenses - currentExpenses).coerceAtLeast(0.0)
         val projectedEndBalance = summary.saldoActualTotal - projectedAdditionalExpense
 
-        val alerts = buildAlerts(summary, currentTx, previousTx, hasUnusualExpense, confidence, projectedEndBalance)
-        val suggestedSaving = calculateSuggestedSaving(summary, projectedEndBalance, confidence)
-        val savingMessage = savingMessage(summary, suggestedSaving, confidence)
-        val savingStatus = savingStatus(summary, suggestedSaving, projectedEndBalance, confidence)
-        val score = calculateScore(summary, currentExpenses, previousExpenses, projectedEndBalance, confidence, hasUnusualExpense)
+        val alerts = buildAlerts(summary, currentTx, previousTx, hasUnusualExpense, confidence, projectedEndBalance, money)
+        val infoNotes = buildInfoNotes(summary, confidence, money)
+        val suggestedSaving = calculateSuggestedSaving(summary, projectedEndBalance, confidence, money.recurringIncome)
+        val savingMessage = savingMessage(summary, suggestedSaving, confidence, money)
+        val savingStatus = savingStatus(summary, suggestedSaving, projectedEndBalance, confidence, money)
+        val score = calculateScore(summary, currentExpenses, previousExpenses, projectedEndBalance, confidence, hasUnusualExpense, money)
         val scoreState = when {
             score >= 75 -> "Bueno"
+            score >= 70 && summary.saldoActualTotal > 0.0 -> "Estable"
             score >= 55 -> "Atento"
             else -> "Riesgo"
         }
@@ -87,14 +103,18 @@ object FinancialAnalysisRules {
             confidenceMessage = confidenceMessage,
             expenseCount = expenseCount,
             movementDays = movementDays,
-            primaryInsight = buildPrimaryInsight(summary, currentExpenses, previousExpenses, confidence),
+            primaryInsight = buildPrimaryInsight(summary, currentExpenses, previousExpenses, confidence, money),
             alerts = alerts,
             suggestedSaving = suggestedSaving,
             savingMessage = savingMessage,
             savingStatus = savingStatus,
             score = score,
             scoreState = scoreState,
-            scoreExplanation = buildScoreExplanation(summary, projectedEndBalance, confidence, scoreState)
+            scoreExplanation = buildScoreExplanation(summary, projectedEndBalance, confidence, scoreState, money),
+            recurringIncome = money.recurringIncome,
+            visibleBalance = money.visibleBalance,
+            operatingBalance = money.operatingBalance,
+            infoNotes = infoNotes
         )
     }
 
@@ -104,23 +124,38 @@ object FinancialAnalysisRules {
         else -> ProjectionConfidence.HIGH
     }
 
+    private fun analysisMoney(summary: HomeSummary, currentTx: List<Transaccion>): AnalysisMoney {
+        val initialBalanceIncome = currentTx
+            .filter { it.isInitialBalance && it.monto > 0.0 }
+            .sumOf { it.monto }
+        val recurringIncome = (summary.ingresos - initialBalanceIncome).coerceAtLeast(0.0)
+        val visibleBalance = summary.ingresos - summary.gastos
+        val operatingBalance = recurringIncome - summary.gastos
+        val hasInitialBalance = initialBalanceIncome > 0.0 || summary.saldoInicialTotal > 0.0
+        return AnalysisMoney(
+            visibleIncome = summary.ingresos,
+            recurringIncome = recurringIncome,
+            initialBalanceIncome = initialBalanceIncome,
+            visibleBalance = visibleBalance,
+            operatingBalance = operatingBalance,
+            hasInitialBalance = hasInitialBalance
+        )
+    }
+
     private fun buildAlerts(
         summary: HomeSummary,
         currentTx: List<Transaccion>,
         previousTx: List<Transaccion>,
         hasUnusualExpense: Boolean,
         confidence: ProjectionConfidence,
-        projectedEndBalance: Double
+        projectedEndBalance: Double,
+        money: AnalysisMoney
     ): List<String> {
         val alerts = mutableListOf<String>()
         if (summary.saldoActualTotal < 0.0) {
             alerts.add("Tu saldo actual real esta en negativo.")
         } else if (projectedEndBalance < 0.0 && confidence != ProjectionConfidence.LOW) {
             alerts.add("Si mantienes este ritmo de gasto, tu saldo podria ajustarse hacia fin de mes.")
-        }
-
-        if (confidence == ProjectionConfidence.LOW && summary.gastos > 0.0) {
-            alerts.add("Proyeccion preliminar: registra mas movimientos para mejorar el analisis.")
         }
 
         if (summary.presupuestoMonto > 0 && summary.gastos > summary.presupuestoMonto) {
@@ -139,8 +174,8 @@ object FinancialAnalysisRules {
             }
         }
 
-        if (summary.ingresos <= 0.0 && summary.gastos > 0.0 && summary.saldoActualTotal > 0.0) {
-            alerts.add("No hay ingresos registrados este mes, pero tienes saldo disponible.")
+        if (money.recurringIncome <= 0.0 && summary.gastos > 0.0 && summary.saldoActualTotal <= 0.0) {
+            alerts.add("No hay ingresos ni saldo suficiente para cubrir tus gastos.")
         }
 
         val currentExpenses = currentTx.filter { !it.isEsIngreso }.sumOf { it.monto }
@@ -153,23 +188,48 @@ object FinancialAnalysisRules {
         return alerts.distinct().take(4)
     }
 
+    private fun buildInfoNotes(
+        summary: HomeSummary,
+        confidence: ProjectionConfidence,
+        money: AnalysisMoney
+    ): List<String> {
+        val notes = mutableListOf<String>()
+        val hasAnyData = summary.gastos > 0.0 || summary.ingresos > 0.0 || summary.saldoActualTotal > 0.0
+        if (confidence == ProjectionConfidence.LOW && hasAnyData) {
+            notes.add("El analisis aun es preliminar porque hay pocos movimientos.")
+        }
+        if (money.hasInitialBalance && money.recurringIncome <= 0.0 && summary.saldoActualTotal > 0.0) {
+            notes.add("Ya tienes saldo inicial registrado. Registra ingresos y gastos habituales para mejorar el analisis.")
+        }
+        if (money.hasInitialBalance && money.operatingBalance < 0.0 && money.visibleBalance >= 0.0 && summary.gastos > 0.0) {
+            notes.add("El balance operativo excluye el saldo inicial; sirve solo para proyectar ingresos habituales.")
+        }
+        return notes.distinct().take(3)
+    }
+
     private fun buildPrimaryInsight(
         summary: HomeSummary,
         currentExpenses: Double,
         previousExpenses: Double,
-        confidence: ProjectionConfidence
+        confidence: ProjectionConfidence,
+        money: AnalysisMoney
     ): String {
-        if (summary.ingresos <= 0.0 && summary.gastos <= 0.0) {
+        if (money.recurringIncome <= 0.0 && summary.gastos <= 0.0 && summary.saldoActualTotal > 0.0) {
+            return "Tu saldo actual esta estable. Aun no hay suficientes movimientos para evaluar tu ritmo mensual."
+        }
+        if (money.recurringIncome <= 0.0 && summary.gastos <= 0.0) {
             return "Aun no tienes datos suficientes este mes."
         }
         if (confidence == ProjectionConfidence.LOW) {
             return when {
-                summary.saldoActualTotal > 0.0 && summary.saldo < 0.0 ->
-                    "Tu saldo actual es positivo, pero tu balance del mes esta en negativo. El analisis aun es preliminar."
-                summary.ingresos > summary.gastos ->
+                summary.saldoActualTotal > 0.0 && summary.gastos > summary.saldoActualTotal ->
+                    "Tu saldo actual sigue positivo, pero el margen esta ajustado."
+                summary.saldoActualTotal > 0.0 ->
+                    "Tu saldo actual esta positivo. El analisis aun es preliminar."
+                money.recurringIncome > summary.gastos ->
                     "Vas bien: tus gastos estan por debajo de tus ingresos, aunque aun hay pocos datos."
-                summary.ingresos <= 0.0 && summary.saldoActualTotal > 0.0 ->
-                    "No hay ingresos registrados este mes, pero tienes saldo inicial disponible."
+                money.recurringIncome <= 0.0 && summary.saldoActualTotal <= 0.0 ->
+                    "No hay ingresos registrados y tu saldo esta ajustado."
                 else -> "Aun hay pocos datos para una proyeccion precisa."
             }
         }
@@ -185,9 +245,11 @@ object FinancialAnalysisRules {
         }
 
         return when {
-            summary.saldoActualTotal > 0.0 && summary.saldo < 0.0 ->
-                "Tu balance del mes es negativo, pero tu saldo actual sigue positivo."
-            summary.ingresos > summary.gastos ->
+            summary.saldoActualTotal > 0.0 && money.operatingBalance < 0.0 && money.visibleBalance >= 0.0 ->
+                "Tu saldo actual sigue positivo; la proyeccion separa el saldo inicial de tus ingresos habituales."
+            summary.saldoActualTotal > 0.0 && money.visibleBalance < 0.0 ->
+                "Tus gastos del mes superan los ingresos visibles, aunque tu saldo actual sigue positivo."
+            money.recurringIncome > summary.gastos ->
                 "Vas bien: tus gastos estan por debajo de tus ingresos."
             else -> "Revisa tus gastos principales para mantener tu saldo bajo control."
         }
@@ -196,8 +258,10 @@ object FinancialAnalysisRules {
     private fun calculateSuggestedSaving(
         summary: HomeSummary,
         projectedEndBalance: Double,
-        confidence: ProjectionConfidence
+        confidence: ProjectionConfidence,
+        incomeForAnalysis: Double
     ): Double {
+        if (incomeForAnalysis <= 0.0) return 0.0
         val reserve = maxOf(summary.gastos * 1.25, summary.saldoActualTotal * 0.25, 0.0)
         val realMargin = (summary.saldoActualTotal - reserve).coerceAtLeast(0.0)
         val projectedMargin = (projectedEndBalance - reserve).coerceAtLeast(0.0)
@@ -216,15 +280,22 @@ object FinancialAnalysisRules {
         return (baseMargin * confidenceFactor * budgetFactor).coerceAtLeast(0.0)
     }
 
-    private fun savingMessage(summary: HomeSummary, suggestedSaving: Double, confidence: ProjectionConfidence): String = when {
+    private fun savingMessage(
+        summary: HomeSummary,
+        suggestedSaving: Double,
+        confidence: ProjectionConfidence,
+        money: AnalysisMoney
+    ): String = when {
         suggestedSaving > 0.0 && confidence == ProjectionConfidence.LOW ->
             "Podrias separar un ahorro pequeno, pero el analisis aun es preliminar."
         suggestedSaving > 0.0 ->
             "Podrias ahorrar este mes sin comprometer tu saldo disponible."
-        summary.saldoActualTotal > 0.0 && summary.saldo < 0.0 ->
-            "Tu saldo actual sigue positivo, pero conviene esperar antes de apartar mas ahorro."
-        summary.saldoActualTotal > 0.0 && summary.ingresos <= 0.0 ->
-            "Tienes saldo disponible, pero no hay ingresos del mes; evita comprometerlo por ahora."
+        summary.saldoActualTotal > 0.0 && confidence == ProjectionConfidence.LOW && money.hasInitialBalance ->
+            "Tu saldo sigue positivo; espera mas movimientos antes de separar ahorro."
+        summary.saldoActualTotal > 0.0 && money.operatingBalance < 0.0 ->
+            "Tu saldo sigue positivo, pero espera mas movimientos antes de apartar ahorro."
+        summary.saldoActualTotal > 0.0 && money.recurringIncome <= 0.0 ->
+            "Tienes saldo disponible; registra ingresos habituales antes de comprometerlo."
         else -> "No se recomienda ahorrar mas por ahora porque tu margen disponible es bajo."
     }
 
@@ -232,11 +303,14 @@ object FinancialAnalysisRules {
         summary: HomeSummary,
         suggestedSaving: Double,
         projectedEndBalance: Double,
-        confidence: ProjectionConfidence
+        confidence: ProjectionConfidence,
+        money: AnalysisMoney
     ): String = when {
         summary.saldoActualTotal <= 0.0 -> "En riesgo"
+        confidence == ProjectionConfidence.LOW && money.hasInitialBalance && suggestedSaving <= 0.0 -> "Preliminar"
         suggestedSaving > 0.0 && confidence == ProjectionConfidence.LOW -> "Prudente"
         suggestedSaving > 0.0 -> "Saludable"
+        projectedEndBalance > 0.0 && confidence == ProjectionConfidence.LOW -> "Preliminar"
         projectedEndBalance > 0.0 -> "Ajustado"
         else -> "En riesgo"
     }
@@ -247,7 +321,8 @@ object FinancialAnalysisRules {
         previousExpenses: Double,
         projectedEndBalance: Double,
         confidence: ProjectionConfidence,
-        hasUnusualExpense: Boolean
+        hasUnusualExpense: Boolean,
+        money: AnalysisMoney
     ): Int {
         var score = 62
         score += when {
@@ -256,12 +331,12 @@ object FinancialAnalysisRules {
             else -> -30
         }
         score += when {
-            summary.saldo > 0.0 -> 10
-            summary.saldo < 0.0 && summary.saldoActualTotal > 0.0 -> -5
-            summary.saldo < 0.0 -> -16
+            money.operatingBalance > 0.0 -> 10
+            money.operatingBalance < 0.0 && summary.saldoActualTotal > 0.0 -> -5
+            money.operatingBalance < 0.0 -> -16
             else -> 0
         }
-        if (summary.ingresos <= 0.0 && currentExpenses > 0.0) {
+        if (money.recurringIncome <= 0.0 && currentExpenses > 0.0) {
             score += if (summary.saldoActualTotal > 0.0) -4 else -14
         }
         score += when {
@@ -292,13 +367,21 @@ object FinancialAnalysisRules {
         summary: HomeSummary,
         projectedEndBalance: Double,
         confidence: ProjectionConfidence,
-        scoreState: String
+        scoreState: String,
+        money: AnalysisMoney
     ): String {
         val parts = mutableListOf<String>()
         parts.add(if (summary.saldoActualTotal > 0.0) "saldo actual positivo" else "saldo actual ajustado")
-        if (summary.saldo < 0.0) parts.add("balance mensual negativo")
-        if (summary.ingresos <= 0.0 && summary.gastos > 0.0 && summary.saldoActualTotal > 0.0) {
-            parts.add("sin ingresos registrados pero con saldo disponible")
+        when {
+            money.operatingBalance < 0.0 && money.visibleBalance >= 0.0 && money.hasInitialBalance ->
+                parts.add("balance operativo preliminar")
+            money.visibleBalance < 0.0 ->
+                parts.add("balance visible ajustado")
+            money.operatingBalance < 0.0 ->
+                parts.add("balance operativo ajustado")
+        }
+        if (money.recurringIncome <= 0.0 && summary.gastos > 0.0 && summary.saldoActualTotal > 0.0) {
+            parts.add("ingresos habituales pendientes")
         }
         if (confidence == ProjectionConfidence.LOW) parts.add("proyeccion preliminar")
         if (summary.presupuestoMonto > 0.0) {

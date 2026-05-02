@@ -110,7 +110,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 val status = when {
                     summary.saldoActualTotal < 0.0 -> "Saldo actual negativo"
                     summary.proyeccionFinMes < 0.0 && !summary.isProyeccionPreliminar -> "Proyeccion ajustada"
-                    summary.saldo < 0.0 && summary.saldoActualTotal > 0.0 -> "Balance mensual negativo con saldo disponible"
+                    summary.saldo < 0.0 && summary.saldoActualTotal > 0.0 -> "Gasto visible mayor que ingresos"
                     summary.presupuestoMonto > 0.0 && summary.presupuestoPorcentaje >= 85.0 -> "Presupuesto ajustado"
                     summary.ahorroSugerido <= 0.0 && summary.ingresos > 0.0 -> "Ahorro ajustado"
                     else -> "Saludable"

@@ -114,4 +114,13 @@ object CategoryStore {
                 .onFailure { cb.onError() }
         }
     }
+
+    @JvmStatic
+    @Synchronized
+    fun clearCache() {
+        cacheUserId = 0L
+        cache = null
+        loading = false
+        pending.clear()
+    }
 }

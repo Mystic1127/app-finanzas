@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.room.AppRoomDatabase
 import com.example.finanzas.data.local.room.CategoriaEntity
+import com.example.finanzas.data.model.Transaccion
 import com.example.finanzas.data.model.ImportRule
 import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.runBlocking
@@ -29,6 +30,7 @@ class LocalRepositoryInstrumentedTest {
     fun setUp() {
         context = InstrumentationRegistry.getInstrumentation().targetContext
         Prefs.clearAuth(context)
+        context.getSharedPreferences("finanzas_settings", Context.MODE_PRIVATE).edit().clear().commit()
         db = Room.inMemoryDatabaseBuilder(context, AppRoomDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -52,18 +54,18 @@ class LocalRepositoryInstrumentedTest {
         val fecha = millis(2026, 4, 10)
 
         loginAs(userA, "ana@test.com", "Ana")
-        repository.createTransaccion(categoriaId = 2, esIngreso = false, monto = 50.0, nota = "Almuerzo", fecha = fecha)
+        repository.createTransaccion(categoriaId = 1, esIngreso = true, monto = 50.0, nota = "Ingreso A", fecha = fecha)
         assertEquals(1, repository.listTransacciones(2026, 4).size)
 
         loginAs(userB, "beto@test.com", "Beto")
         assertEquals(0, repository.listTransacciones(2026, 4).size)
-        repository.createTransaccion(categoriaId = 3, esIngreso = false, monto = 20.0, nota = "Bus", fecha = fecha)
+        repository.createTransaccion(categoriaId = 1, esIngreso = true, monto = 20.0, nota = "Ingreso B", fecha = fecha)
         assertEquals(1, repository.listTransacciones(2026, 4).size)
 
         loginAs(userA, "ana@test.com", "Ana")
         val userAItems = repository.listTransacciones(2026, 4)
         assertEquals(1, userAItems.size)
-        assertEquals("Almuerzo", userAItems.first().nota)
+        assertEquals("Ingreso A", userAItems.first().nota)
     }
 
     @Test
@@ -76,6 +78,7 @@ class LocalRepositoryInstrumentedTest {
             .toString()
 
         loginAs(userA, "imports-a@test.com", "Import A")
+        assertTrue(repository.configureInitialBalances(0.0, 200.0, "PEN"))
         repository.saveImportRule(ImportRule().apply {
             patron = "Super"
             isEsIngreso = false
@@ -88,7 +91,7 @@ class LocalRepositoryInstrumentedTest {
         assertEquals(2, result.getInt("procesados"))
         assertEquals(0, result.getInt("errores"))
         val userATransactions = repository.listTransacciones(2026, 4)
-        assertEquals(2, userATransactions.size)
+        assertEquals(2, userATransactions.filterNot { it.isInitialBalance }.size)
         assertTrue(userATransactions.any { it.nota == "Compra importada" && it.categoriaId == 2 })
         assertTrue(userATransactions.any { it.isEsIngreso && it.monto == 2500.0 })
 
@@ -151,6 +154,7 @@ class LocalRepositoryInstrumentedTest {
     fun newlyCreatedCategoryCanBeUsedByTransactionWithCashAndTime() = runBlocking {
         val userA = createUser("cash-category@test.com", "Cash Category")
         loginAs(userA, "cash-category@test.com", "Cash Category")
+        assertTrue(repository.configureInitialBalances(40.0, 0.0, "PEN"))
 
         val categoryId = repository.createCategoria("Mascotas", false)
         val fecha = millis(2026, 4, 12, 17, 45)
@@ -165,10 +169,10 @@ class LocalRepositoryInstrumentedTest {
         )
 
         val items = repository.listTransacciones(2026, 4)
-        assertEquals(1, items.size)
-        assertEquals("Mascotas", items.first().categoriaNombre)
-        assertTrue(items.first().isCash)
-        assertEquals(fecha, items.first().fecha.time)
+        val expense = items.first { it.nota == "Arena" }
+        assertEquals("Mascotas", expense.categoriaNombre)
+        assertTrue(expense.isCash)
+        assertEquals(fecha, expense.fecha.time)
     }
 
     @Test
@@ -197,13 +201,13 @@ class LocalRepositoryInstrumentedTest {
         val userB = createUser("initial-b@test.com", "Initial B")
 
         loginAs(userA, "initial-a@test.com", "Initial A")
-        saveInitialBalances(120.0, 350.0, "PEN")
+        assertTrue(repository.configureInitialBalances(120.0, 350.0, "PEN"))
         val userASummary = repository.buildHomeSummary(2026, 4)
         assertEquals(120.0, userASummary.efectivo, 0.001)
         assertEquals(350.0, userASummary.tarjetaCuenta, 0.001)
         assertEquals(470.0, userASummary.saldoActualTotal, 0.001)
-        assertEquals(0.0, userASummary.ingresos, 0.001)
-        assertEquals(0.0, userASummary.saldo, 0.001)
+        assertTrue(repository.hasInitialBalanceConfigured())
+        assertTrue(repository.listTodasTransacciones().all { it.isInitialBalance })
 
         loginAs(userB, "initial-b@test.com", "Initial B")
         val userBSummary = repository.buildHomeSummary(2026, 4)
@@ -216,7 +220,7 @@ class LocalRepositoryInstrumentedTest {
     fun initialBalancesAndAccountTypedTransactionsBuildCurrentBalances() = runBlocking {
         val userA = createUser("initial-tx@test.com", "Initial Tx")
         loginAs(userA, "initial-tx@test.com", "Initial Tx")
-        saveInitialBalances(100.0, 500.0, "PEN")
+        assertTrue(repository.configureInitialBalances(100.0, 500.0, "PEN"))
 
         repository.createTransaccion(
             categoriaId = 1,
@@ -250,9 +254,93 @@ class LocalRepositoryInstrumentedTest {
         assertEquals(150.0, summary.efectivo, 0.001)
         assertEquals(450.0, summary.tarjetaCuenta, 0.001)
         assertEquals(600.0, summary.saldoActualTotal, 0.001)
-        assertEquals(80.0, summary.ingresos, 0.001)
         assertEquals(80.0, summary.gastos, 0.001)
-        assertEquals(0.0, summary.saldo, 0.001)
+    }
+
+    @Test
+    fun initialBalanceTransactionsAreCreatedAndRepeatedConfigurationIsBlocked() = runBlocking {
+        val userA = createUser("initial-special@test.com", "Initial Special")
+        loginAs(userA, "initial-special@test.com", "Initial Special")
+
+        assertTrue(repository.configureInitialBalances(60.0, 150.0, "PEN"))
+        assertTrue(repository.hasInitialBalanceConfigured())
+        assertTrue(!repository.configureInitialBalances(10.0, 10.0, "PEN"))
+
+        val items = repository.listTodasTransacciones()
+        assertEquals(2, items.size)
+        assertTrue(items.all { it.isInitialBalance && it.isEsIngreso })
+        assertTrue(items.any { it.isCash && it.nota == Transaccion.INITIAL_BALANCE_CASH_NOTE })
+        assertTrue(items.any { !it.isCash && it.nota == Transaccion.INITIAL_BALANCE_CARD_NOTE })
+    }
+
+    @Test
+    fun insufficientBalanceValidationUsesInitialBalanceTransactions() = runBlocking {
+        val userA = createUser("initial-validation@test.com", "Initial Validation")
+        loginAs(userA, "initial-validation@test.com", "Initial Validation")
+
+        assertTrue(repository.configureInitialBalances(60.0, 150.0, "PEN"))
+        repository.createTransaccion(
+            categoriaId = 2,
+            esIngreso = false,
+            monto = 15.0,
+            nota = "Almuerzo",
+            fecha = millis(2026, 4, 8),
+            moneda = "PEN",
+            accountType = "CASH"
+        )
+        assertEquals(45.0, repository.buildHomeSummary(2026, 4).efectivo, 0.001)
+
+        var blocked = false
+        try {
+            repository.createTransaccion(
+                categoriaId = 2,
+                esIngreso = false,
+                monto = 100.0,
+                nota = "Debe bloquearse",
+                fecha = millis(2026, 4, 9),
+                moneda = "PEN",
+                accountType = "CASH"
+            )
+        } catch (expected: LocalRepository.InsufficientBalanceException) {
+            blocked = true
+        }
+        assertTrue(blocked)
+    }
+
+    @Test
+    fun deleteCurrentUserFinancialDataDoesNotAffectOtherUsersAndAllowsInitialBalanceAgain() = runBlocking {
+        val userA = createUser("reset-a@test.com", "Reset A")
+        val userB = createUser("reset-b@test.com", "Reset B")
+
+        loginAs(userA, "reset-a@test.com", "Reset A")
+        assertTrue(repository.configureInitialBalances(60.0, 0.0, "PEN"))
+        repository.setPresupuesto(2026, 4, 500.0)
+        assertTrue(repository.saveGoal(0, "Viaje", 100.0, 20.0, null, "PEN"))
+        assertTrue(repository.deleteCurrentUserFinancialData())
+        assertEquals(0, repository.listTodasTransacciones().size)
+        assertEquals(0.0, repository.getPresupuesto(2026, 4), 0.001)
+        assertEquals(0, repository.listGoals().size)
+        assertTrue(!repository.hasInitialBalanceConfigured())
+        assertTrue(repository.configureInitialBalances(10.0, 0.0, "PEN"))
+
+        loginAs(userB, "reset-b@test.com", "Reset B")
+        assertTrue(repository.configureInitialBalances(0.0, 80.0, "PEN"))
+        assertEquals(80.0, repository.buildHomeSummary(2026, 4).saldoActualTotal, 0.001)
+
+        loginAs(userA, "reset-a@test.com", "Reset A")
+        assertEquals(10.0, repository.buildHomeSummary(2026, 4).saldoActualTotal, 0.001)
+        assertTrue(repository.getUserByEmail("reset-a@test.com") != null)
+    }
+
+    @Test
+    fun initialBalanceKeepsCurrencyAndRecalculatesWhenBaseCurrencyChanges() = runBlocking {
+        val userA = createUser("initial-usd@test.com", "Initial USD")
+        loginAs(userA, "initial-usd@test.com", "Initial USD")
+
+        assertTrue(repository.configureInitialBalances(0.0, 100.0, "USD"))
+        assertEquals(350.75, repository.buildHomeSummary(2026, 4).saldoActualTotal, 0.01)
+        saveCurrency("USD", 0.0)
+        assertEquals(100.0, repository.buildHomeSummary(2026, 4).saldoActualTotal, 0.01)
     }
 
     private suspend fun createUser(email: String, name: String): Int {
@@ -275,9 +363,9 @@ class LocalRepositoryInstrumentedTest {
         Prefs.setUserSession(context, userId.toLong(), email, name)
     }
 
-    private fun saveInitialBalances(cash: Double, card: Double, currency: String) {
+    private fun saveCurrency(currency: String, rate: Double) {
         var ok = false
-        SettingsService.saveInitialBalances(context, cash, card, currency, object : SettingsService.SaveCb {
+        SettingsService.saveCurrency(context, currency, rate, object : SettingsService.SaveCb {
             override fun onSuccess() {
                 ok = true
             }

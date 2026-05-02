@@ -47,13 +47,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
+import com.example.finanzas.data.api.CategoryStore
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.api.UserService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
+import com.example.finanzas.ui.viewmodel.BudgetViewModel
+import com.example.finanzas.ui.viewmodel.HomeViewModel
+import com.example.finanzas.ui.viewmodel.ReportsViewModel
+import com.example.finanzas.ui.viewmodel.TransactionsViewModel
 import com.example.finanzas.util.CurrencyConverter
 import com.example.finanzas.util.PerfLogger
 import com.example.finanzas.util.Prefs
@@ -72,6 +78,7 @@ class PerfilFragment : Fragment() {
     private var initialCurrency by mutableStateOf("PEN")
     private var initialCashText by mutableStateOf("0")
     private var initialCardText by mutableStateOf("0")
+    private var initialBalancesConfigured by mutableStateOf(false)
     private var themeMode by mutableStateOf(SettingsService.THEME_SYSTEM)
     private var hasPin by mutableStateOf(false)
     private var currentUserId by mutableStateOf(-1L)
@@ -124,6 +131,7 @@ class PerfilFragment : Fragment() {
                         initialCardText = it
                         initialCardError = null
                     },
+                    initialBalancesConfigured = initialBalancesConfigured,
                     initialCashError = initialCashError,
                     initialCardError = initialCardError,
                     onSaveInitialBalances = { saveInitialBalances() },
@@ -135,7 +143,8 @@ class PerfilFragment : Fragment() {
                     onSwitchAccount = { switchAccount(it) },
                     onChangePassword = { findNavController().navigate(R.id.nav_change_password) },
                     onConfigurePin = { findNavController().navigate(R.id.nav_pin_setup) },
-                    onRemovePin = { confirmRemovePin() }
+                    onRemovePin = { confirmRemovePin() },
+                    onDeleteFinancialData = { confirmDeleteFinancialData() }
                 )
             }
         }
@@ -216,6 +225,8 @@ class PerfilFragment : Fragment() {
         val appContext = requireContext().applicationContext
         PerfLogger.log("PerfilFragment", "loadStart")
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val repository = LocalRepository.getInstance(appContext)
+            val configured = repository.hasInitialBalanceConfigured()
             val code = SettingsService.getCurrencyCode(appContext)
             val rate = SettingsService.getManualRate(appContext)
             val balancesCurrency = SettingsService.getInitialBalancesCurrency(appContext)
@@ -228,8 +239,9 @@ class PerfilFragment : Fragment() {
                 currencyLabel = labelForCurrency(code)
                 manualRateText = if (rate > 0) String.format(Locale.US, "%.4f", rate) else ""
                 initialCurrency = CurrencyConverter.normalize(balancesCurrency)
-                initialCashText = if (cash > 0) String.format(Locale.US, "%.2f", cash) else "0"
-                initialCardText = if (card > 0) String.format(Locale.US, "%.2f", card) else "0"
+                initialBalancesConfigured = configured
+                initialCashText = if (!configured && cash > 0) String.format(Locale.US, "%.2f", cash) else "0"
+                initialCardText = if (!configured && card > 0) String.format(Locale.US, "%.2f", card) else "0"
                 themeMode = mode
                 currentUserId = Prefs.getCurrentUserId(appContext)
                 PerfLogger.logSince("PerfilFragment", "loadComplete", loadStartMs)
@@ -272,6 +284,10 @@ class PerfilFragment : Fragment() {
     private fun saveInitialBalances() {
         initialCashError = null
         initialCardError = null
+        if (initialBalancesConfigured) {
+            Toast.makeText(requireContext(), R.string.perfil_initial_balances_locked_help, Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val cash = parseAmount(initialCashText)
         val card = parseAmount(initialCardText)
@@ -283,17 +299,33 @@ class PerfilFragment : Fragment() {
             initialCardError = getString(R.string.error_monto_invalido)
             return
         }
+        if (cash <= 0.0 && card <= 0.0) {
+            initialCashError = getString(R.string.perfil_initial_balances_empty)
+            initialCardError = getString(R.string.perfil_initial_balances_empty)
+            return
+        }
 
         val currency = CurrencyConverter.normalize(initialCurrency)
-        SettingsService.saveInitialBalances(requireContext(), cash, card, currency, object : SettingsService.SaveCb {
-            override fun onSuccess() {
-                if (isAdded) Toast.makeText(requireContext(), R.string.perfil_initial_balances_saved, Toast.LENGTH_SHORT).show()
+        val appContext = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                runCatching {
+                    LocalRepository.getInstance(appContext).configureInitialBalances(cash, card, currency)
+                }.getOrDefault(false)
             }
-
-            override fun onFail() {
-                if (isAdded) Toast.makeText(requireContext(), R.string.perfil_initial_balances_error, Toast.LENGTH_SHORT).show()
+            if (!isAdded) return@launch
+            if (saved) {
+                CategoryStore.clearCache()
+                initialBalancesConfigured = true
+                initialCashText = "0"
+                initialCardText = "0"
+                clearScopedViewModelCaches()
+                Toast.makeText(requireContext(), R.string.perfil_initial_balances_saved, Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), R.string.perfil_initial_balances_error, Toast.LENGTH_SHORT).show()
+                loadSettings()
             }
-        })
+        }
         PerfLogger.logSince("PerfilFragment", "onViewCreated", perfStartMs)
     }
 
@@ -320,6 +352,47 @@ class PerfilFragment : Fragment() {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun confirmDeleteFinancialData() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.perfil_delete_financial_data_title)
+            .setMessage(R.string.perfil_delete_financial_data_confirm)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.perfil_delete_financial_data_action) { _, _ -> deleteFinancialData() }
+            .show()
+    }
+
+    private fun deleteFinancialData() {
+        val appContext = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            val deleted = withContext(Dispatchers.IO) {
+                runCatching { LocalRepository.getInstance(appContext).deleteCurrentUserFinancialData() }
+                    .getOrDefault(false)
+            }
+            if (!isAdded) return@launch
+            if (deleted) {
+                CategoryStore.clearCache()
+                clearScopedViewModelCaches()
+                initialBalancesConfigured = false
+                initialCashText = "0"
+                initialCardText = "0"
+                initialCashError = null
+                initialCardError = null
+                Toast.makeText(requireContext(), R.string.perfil_financial_data_deleted, Toast.LENGTH_SHORT).show()
+                loadSettings()
+            } else {
+                Toast.makeText(requireContext(), R.string.perfil_financial_data_delete_error, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun clearScopedViewModelCaches() {
+        val provider = ViewModelProvider(requireActivity())
+        provider.get(HomeViewModel::class.java).clearCache()
+        provider.get(TransactionsViewModel::class.java).clearCache()
+        provider.get(ReportsViewModel::class.java).clearCache()
+        provider.get(BudgetViewModel::class.java).clearCache()
     }
 
     private fun logFirstRender() {
@@ -404,6 +477,7 @@ private fun ProfileScreen(
     onInitialCashChange: (String) -> Unit,
     initialCardText: String,
     onInitialCardChange: (String) -> Unit,
+    initialBalancesConfigured: Boolean,
     initialCashError: String?,
     initialCardError: String?,
     onSaveInitialBalances: () -> Unit,
@@ -415,7 +489,8 @@ private fun ProfileScreen(
     onSwitchAccount: (AccountUi) -> Unit,
     onChangePassword: () -> Unit,
     onConfigurePin: () -> Unit,
-    onRemovePin: () -> Unit
+    onRemovePin: () -> Unit,
+    onDeleteFinancialData: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -563,49 +638,81 @@ private fun ProfileScreen(
             }
 
             ProfileSection(title = stringResource(R.string.perfil_initial_balances_title)) {
+                if (initialBalancesConfigured) {
+                    Text(
+                        text = stringResource(R.string.perfil_initial_balances_configured),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = stringResource(R.string.perfil_initial_balances_locked_help),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.perfil_initial_balances_subtitle),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    DropdownField(
+                        label = stringResource(R.string.transaction_currency),
+                        value = initialCurrency,
+                        options = initialCurrencyOptions,
+                        onValueChange = onInitialCurrencyChange
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val symbol = SettingsService.getCurrencySymbol(initialCurrency)
+                    OutlinedTextField(
+                        value = initialCashText,
+                        onValueChange = onInitialCashChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("${stringResource(R.string.perfil_initial_cash_hint)} ($symbol)") },
+                        isError = initialCashError != null,
+                        supportingText = initialCashError?.let { { Text(it) } },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = initialCardText,
+                        onValueChange = onInitialCardChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("${stringResource(R.string.perfil_initial_card_hint)} ($symbol)") },
+                        isError = initialCardError != null,
+                        supportingText = initialCardError?.let { { Text(it) } },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    Button(
+                        onClick = onSaveInitialBalances,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .height(48.dp)
+                    ) {
+                        Text(stringResource(R.string.perfil_initial_balances_save))
+                    }
+                }
+            }
+
+            ProfileSection(title = stringResource(R.string.perfil_financial_data_title)) {
                 Text(
-                    text = stringResource(R.string.perfil_initial_balances_subtitle),
+                    text = stringResource(R.string.perfil_financial_data_subtitle),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                DropdownField(
-                    label = stringResource(R.string.transaction_currency),
-                    value = initialCurrency,
-                    options = initialCurrencyOptions,
-                    onValueChange = onInitialCurrencyChange
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                val symbol = SettingsService.getCurrencySymbol(initialCurrency)
-                OutlinedTextField(
-                    value = initialCashText,
-                    onValueChange = onInitialCashChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("${stringResource(R.string.perfil_initial_cash_hint)} ($symbol)") },
-                    isError = initialCashError != null,
-                    supportingText = initialCashError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = initialCardText,
-                    onValueChange = onInitialCardChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("${stringResource(R.string.perfil_initial_card_hint)} ($symbol)") },
-                    isError = initialCardError != null,
-                    supportingText = initialCardError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                )
-                Button(
-                    onClick = onSaveInitialBalances,
+                OutlinedButton(
+                    onClick = onDeleteFinancialData,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp)
                         .height(48.dp)
                 ) {
-                    Text(stringResource(R.string.perfil_initial_balances_save))
+                    Text(stringResource(R.string.perfil_delete_financial_data_title))
                 }
             }
 

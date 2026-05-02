@@ -10,6 +10,9 @@ class FinancialRecommendationEngine {
         previousTransactions: List<Transaccion>
     ): List<String> {
         if (summary.ingresos <= 0.0 && summary.gastos <= 0.0) {
+            if (summary.saldoActualTotal > 0.0 || summary.hasInitialBalance()) {
+                return listOf("Registra movimientos habituales para mejorar el analisis")
+            }
             return listOf("Registra ingresos y gastos para recibir recomendaciones inteligentes")
         }
 

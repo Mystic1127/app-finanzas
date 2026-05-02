@@ -1,5 +1,7 @@
 package com.example.finanzas.ui;
 
+import android.content.res.ColorStateList;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -8,6 +10,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -47,6 +50,7 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
@@ -57,6 +61,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -92,20 +97,18 @@ public class HomeFragment extends Fragment {
     private TextView tvAlertsEmpty;
     private TextView tvInsightsEmpty;
     private TextView tvFinancialInsight;
-    private TextView tvFinancialProjection;
     private TextView tvFinancialAlert;
     private TextView tvFinancialScore;
-    private TextView tvFinancialScoreExplanation;
-    private TextView tvFinancialScoreTrend;
     private TextView tvSmartSavingSuggested;
     private TextView tvSmartSavingGoal;
-    private TextView tvSmartSavingProjection;
     private TextView tvSmartSavingStatus;
     private TextView tvRecommendationsPro;
+    private MaterialButton btnFinancialDetail;
+    private MaterialButton btnSmartSavingDetail;
     private ChipGroup chipRecommendations;
     private PieChart chartCategorias;
     private LineChart chartTrend;
-    private ChipGroup chipAlerts;
+    private LinearLayout chipAlerts;
     private ChipGroup chipInsights;
     private HomeViewModel viewModel;
     private String smartAlertMessage;
@@ -154,15 +157,13 @@ public class HomeFragment extends Fragment {
         tvAlertsEmpty = v.findViewById(R.id.tvHomeAlertsEmpty);
         tvInsightsEmpty = v.findViewById(R.id.tvHomeInsightsEmpty);
         tvFinancialInsight = v.findViewById(R.id.tvFinancialInsight);
-        tvFinancialProjection = v.findViewById(R.id.tvFinancialProjection);
         tvFinancialAlert = v.findViewById(R.id.tvFinancialAlert);
         tvFinancialScore = v.findViewById(R.id.tvFinancialScore);
-        tvFinancialScoreExplanation = v.findViewById(R.id.tvFinancialScoreExplanation);
-        tvFinancialScoreTrend = v.findViewById(R.id.tvFinancialScoreTrend);
         tvSmartSavingSuggested = v.findViewById(R.id.tvSmartSavingSuggested);
         tvSmartSavingGoal = v.findViewById(R.id.tvSmartSavingGoal);
-        tvSmartSavingProjection = v.findViewById(R.id.tvSmartSavingProjection);
         tvSmartSavingStatus = v.findViewById(R.id.tvSmartSavingStatus);
+        btnFinancialDetail = v.findViewById(R.id.btnFinancialDetail);
+        btnSmartSavingDetail = v.findViewById(R.id.btnSmartSavingDetail);
         tvRecommendationsPro = v.findViewById(R.id.tvRecommendationsPro);
         chipRecommendations = v.findViewById(R.id.chipRecommendations);
         chartCategorias = v.findViewById(R.id.chartHomeCategorias);
@@ -177,6 +178,8 @@ public class HomeFragment extends Fragment {
         setupMenu();
         setupCharts();
         setupNavigation(v);
+        btnFinancialDetail.setOnClickListener(view -> showFinancialDetail());
+        btnSmartSavingDetail.setOnClickListener(view -> showSmartSavingDetail());
         swipe.setOnRefreshListener(() -> {
             manualRefresh = true;
             cargarResumen(true);
@@ -448,14 +451,18 @@ public class HomeFragment extends Fragment {
 
     private void renderAlerts(@NonNull HomeSummary summary) {
         chipAlerts.removeAllViews();
-        ArrayList<String> alerts = new ArrayList<>(summary.getAlertas());
+        LinkedHashSet<String> alertSet = new LinkedHashSet<>(summary.getAlertas());
         if (smartAlertMessage != null && !smartAlertMessage.trim().isEmpty()) {
-            alerts.add(0, smartAlertMessage.trim());
+            alertSet.add(smartAlertMessage.trim());
         }
+        ArrayList<String> alerts = new ArrayList<>(alertSet);
+        ArrayList<String> notes = new ArrayList<>(summary.getNotasInformativas());
 
-        tvAlertsEmpty.setVisibility(alerts.isEmpty() ? View.VISIBLE : View.GONE);
-        chipAlerts.setVisibility(alerts.isEmpty() ? View.GONE : View.VISIBLE);
-        for (String alert : alerts) addChip(chipAlerts, alert, true);
+        boolean empty = alerts.isEmpty() && notes.isEmpty();
+        tvAlertsEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+        chipAlerts.setVisibility(empty ? View.GONE : View.VISIBLE);
+        for (String alert : alerts) addAlertRow(chipAlerts, alert, alertTone(alert));
+        for (String note : notes) addAlertRow(chipAlerts, note, AlertTone.INFO);
     }
 
     private void renderInsights() {
@@ -468,27 +475,14 @@ public class HomeFragment extends Fragment {
         }
 
         tvInsightsEmpty.setVisibility(View.GONE);
-        tvFinancialInsight.setText(nonEmpty(lastSummary.getInsightPrincipal(), getString(R.string.home_financial_missing)));
-        tvFinancialProjection.setText(getString(
-                R.string.home_financial_projection_value,
-                Format.money(lastSummary.getProyeccionFinMes(), currencyCode),
-                Format.money(lastSummary.getGastoPromedioDiario(), currencyCode),
-                nonEmpty(lastSummary.getConfianzaProyeccion(), getString(R.string.home_projection_confidence_low))
+        String financialState = financialStatusLabel(lastSummary);
+        tvFinancialScore.setText(financialState);
+        applyStatusStyle(tvFinancialScore, statusTone(financialState, lastSummary.isProyeccionPreliminar() && !"Estable".equals(financialState)));
+        tvFinancialInsight.setText(shortText(
+                nonEmpty(lastSummary.getInsightPrincipal(), getString(R.string.home_financial_missing)),
+                120
         ));
-        tvFinancialAlert.setText(nonEmpty(lastSummary.getAlertaPrincipal(), getString(R.string.home_alerts_empty)));
-        tvFinancialScore.setText(getString(
-                R.string.home_financial_score_value,
-                lastSummary.getScoreFinanciero(),
-                nonEmpty(lastSummary.getScoreEstado(), getString(R.string.home_financial_score_risk))
-        ));
-        tvFinancialScoreExplanation.setText(nonEmpty(
-                lastSummary.getScoreExplicacion(),
-                getString(R.string.home_financial_missing)
-        ));
-        tvFinancialScoreTrend.setText(nonEmpty(
-                lastSummary.getScoreTendencia(),
-                getString(R.string.home_comparison_no_previous)
-        ));
+        tvFinancialAlert.setText(shortText(financialSummaryAction(lastSummary), 110));
         renderSmartSaving(lastSummary);
     }
 
@@ -503,6 +497,11 @@ public class HomeFragment extends Fragment {
     }
 
     private void renderSmartSaving(@NonNull HomeSummary summary) {
+        tvSmartSavingStatus.setText(nonEmpty(
+                summary.getEstadoAhorro(),
+                getString(R.string.home_smart_saving_status_adjusted)
+        ));
+        applyStatusStyle(tvSmartSavingStatus, statusTone(summary.getEstadoAhorro(), summary.isProyeccionPreliminar()));
         if (summary.getAhorroSugerido() > 0) {
             tvSmartSavingSuggested.setText(getString(
                     R.string.home_smart_saving_suggested_value,
@@ -514,20 +513,7 @@ public class HomeFragment extends Fragment {
                     getString(R.string.home_smart_saving_not_recommended)
             ));
         }
-        tvSmartSavingGoal.setText(nonEmpty(
-                summary.getRecomendacionAhorroMeta(),
-                getString(R.string.home_smart_saving_goal_empty)
-        ));
-        tvSmartSavingProjection.setText(getString(
-                R.string.home_smart_saving_projection_value,
-                Format.money(summary.getSaldoActualTotal(), currencyCode),
-                Format.money(summary.getGastoProyectado(), currencyCode),
-                Format.money(summary.getProyeccionFinMes(), currencyCode)
-        ));
-        tvSmartSavingStatus.setText(nonEmpty(
-                summary.getEstadoAhorro(),
-                getString(R.string.home_smart_saving_status_adjusted)
-        ));
+        tvSmartSavingGoal.setText(shortText(savingSummaryAction(summary), 110));
         renderRecommendations(summary);
     }
 
@@ -547,6 +533,203 @@ public class HomeFragment extends Fragment {
         for (String recommendation : recommendations) addChip(chipRecommendations, recommendation, false);
     }
 
+    private String financialStatusLabel(@NonNull HomeSummary summary) {
+        String state = nonEmpty(summary.getScoreEstado(), summary.isProyeccionPreliminar() ? "Preliminar" : getString(R.string.home_financial_score_risk));
+        if (summary.isProyeccionPreliminar() && summary.getSaldoActualTotal() > 0.0 && !hasCriticalAlert(summary)) {
+            state = "Estable";
+        }
+        return state;
+    }
+
+    private String financialSummaryAction(@NonNull HomeSummary summary) {
+        if (summary.isProyeccionPreliminar()) {
+            return "Registra mas movimientos para mejorar la precision.";
+        }
+        String alert = summary.getAlertaPrincipal();
+        if (alert != null && !alert.trim().isEmpty() && !alert.equalsIgnoreCase(getString(R.string.home_alerts_empty))) {
+            return alert.trim();
+        }
+        return "Revisa tus gastos principales una vez por semana.";
+    }
+
+    private String savingSummaryAction(@NonNull HomeSummary summary) {
+        if (summary.isProyeccionPreliminar()) {
+            return "Registra mas movimientos antes de apartar mas ahorro.";
+        }
+        if (summary.getAhorroSugerido() > 0.0) {
+            return nonEmpty(summary.getRecomendacionAhorroMeta(), "Puedes avanzar con cautela este mes.");
+        }
+        return "Manten disponible tu saldo hasta tener mas datos.";
+    }
+
+    private boolean hasCriticalAlert(@NonNull HomeSummary summary) {
+        for (String alert : summary.getAlertas()) {
+            if (alertTone(alert) == AlertTone.CRITICAL) return true;
+        }
+        return false;
+    }
+
+    private void showFinancialDetail() {
+        if (lastSummary == null || !isAdded()) return;
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.home_financial_detail_title)
+                .setMessage(buildFinancialDetail(lastSummary))
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void showSmartSavingDetail() {
+        if (lastSummary == null || !isAdded()) return;
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.home_smart_saving_detail_title)
+                .setMessage(buildSmartSavingDetail(lastSummary))
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private String buildFinancialDetail(@NonNull HomeSummary summary) {
+        StringBuilder out = new StringBuilder();
+        appendDetail(out, "Score financiero", getString(
+                R.string.home_financial_score_value,
+                summary.getScoreFinanciero(),
+                nonEmpty(summary.getScoreEstado(), getString(R.string.home_financial_score_risk))
+        ));
+        appendDetail(out, "Saldo estimado fin de mes", Format.money(summary.getProyeccionFinMes(), currencyCode));
+        appendDetail(out, "Confianza", nonEmpty(summary.getConfianzaProyeccion(), getString(R.string.home_projection_confidence_low)));
+        appendDetail(out, "Balance visible", Format.money(summary.getBalanceVisibleMes(), currencyCode));
+        appendDetail(out, "Balance operativo", Format.money(summary.getBalanceOperativoMes(), currencyCode));
+        appendDetail(out, "Ingresos recurrentes", Format.money(summary.getIngresosRecurrentes(), currencyCode));
+        appendDetail(out, "Explicacion", nonEmpty(summary.getScoreExplicacion(), getString(R.string.home_financial_missing)));
+        appendDetail(out, "Tendencia", nonEmpty(summary.getScoreTendencia(), getString(R.string.home_comparison_no_previous)));
+        appendList(out, "Alertas", summary.getAlertas());
+        appendList(out, "Notas", summary.getNotasInformativas());
+        return out.toString().trim();
+    }
+
+    private String buildSmartSavingDetail(@NonNull HomeSummary summary) {
+        StringBuilder out = new StringBuilder();
+        appendDetail(out, "Saldo actual real", Format.money(summary.getSaldoActualTotal(), currencyCode));
+        appendDetail(out, "Gasto proyectado", Format.money(summary.getGastoProyectado(), currencyCode));
+        appendDetail(out, "Saldo final estimado", Format.money(summary.getProyeccionFinMes(), currencyCode));
+        appendDetail(out, "Ahorro sugerido", Format.money(summary.getAhorroSugerido(), currencyCode));
+        appendDetail(out, "Estado de ahorro", nonEmpty(summary.getEstadoAhorro(), getString(R.string.home_smart_saving_status_adjusted)));
+        appendDetail(out, "Mensaje", nonEmpty(summary.getAhorroSugeridoMensaje(), getString(R.string.home_smart_saving_not_recommended)));
+        appendDetail(out, "Meta", nonEmpty(summary.getRecomendacionAhorroMeta(), getString(R.string.home_smart_saving_goal_empty)));
+        return out.toString().trim();
+    }
+
+    private void appendDetail(@NonNull StringBuilder out, @NonNull String label, @NonNull String value) {
+        if (out.length() > 0) out.append("\n\n");
+        out.append(label).append(": ").append(value);
+    }
+
+    private void appendList(@NonNull StringBuilder out, @NonNull String label, @NonNull List<String> values) {
+        if (values.isEmpty()) return;
+        if (out.length() > 0) out.append("\n\n");
+        out.append(label).append(":");
+        for (String value : values) {
+            if (value == null || value.trim().isEmpty()) continue;
+            out.append("\n").append("- ").append(value.trim());
+        }
+    }
+
+    private void addAlertRow(@NonNull LinearLayout group, @Nullable String text, @NonNull AlertTone tone) {
+        if (text == null || text.trim().isEmpty()) return;
+        TextView view = new TextView(requireContext());
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.topMargin = dp(8);
+        view.setLayoutParams(params);
+        view.setText(text.trim());
+        view.setSingleLine(false);
+        view.setMaxLines(Integer.MAX_VALUE);
+        view.setPadding(dp(14), dp(12), dp(14), dp(12));
+        view.setTextSize(14);
+        view.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
+        view.setTextColor(ContextCompat.getColor(requireContext(), alertTextColor(tone)));
+        view.setBackgroundResource(alertBackground(tone));
+        group.addView(view);
+    }
+
+    private void applyStatusStyle(@NonNull TextView view, @NonNull AlertTone tone) {
+        view.setTextColor(ContextCompat.getColor(requireContext(), alertTextColor(tone)));
+        view.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), alertBackgroundColor(tone))));
+    }
+
+    private AlertTone statusTone(@Nullable String value, boolean preliminary) {
+        String clean = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        if (clean.contains("riesgo") || clean.contains("crit") || clean.contains("exced") || clean.contains("negativo")) {
+            return AlertTone.CRITICAL;
+        }
+        if (preliminary || clean.contains("preliminar") || clean.contains("atento") || clean.contains("ajust") || clean.contains("prudente")) {
+            return AlertTone.WARNING;
+        }
+        return AlertTone.POSITIVE;
+    }
+
+    private AlertTone alertTone(@Nullable String text) {
+        String clean = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        if (clean.contains("negativo") || clean.contains("superaron") || clean.contains("sin saldo suficiente")) {
+            return AlertTone.CRITICAL;
+        }
+        if (clean.contains("cerca") || clean.contains("inusualmente") || clean.contains("subieron") || clean.contains("ritmo de gasto")) {
+            return AlertTone.WARNING;
+        }
+        return AlertTone.INFO;
+    }
+
+    private int alertBackground(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return R.drawable.bg_alert_critical;
+            case WARNING:
+                return R.drawable.bg_alert_warning;
+            default:
+                return R.drawable.bg_alert_info;
+        }
+    }
+
+    private int alertBackgroundColor(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return R.color.risk_high_bg;
+            case WARNING:
+                return R.color.risk_medium_bg;
+            default:
+            case INFO:
+                return R.color.md_theme_secondaryContainer;
+            case POSITIVE:
+                return R.color.risk_low_bg;
+        }
+    }
+
+    private int alertTextColor(@NonNull AlertTone tone) {
+        switch (tone) {
+            case CRITICAL:
+                return R.color.risk_high_text;
+            case WARNING:
+                return R.color.risk_medium_text;
+            case POSITIVE:
+                return R.color.risk_low_text;
+            default:
+                return R.color.md_theme_onSecondaryContainer;
+        }
+    }
+
+    private String shortText(@Nullable String value, int maxLength) {
+        String clean = value == null ? "" : value.trim().replaceAll("\\s+", " ");
+        if (clean.length() <= maxLength) return clean;
+        int cut = clean.lastIndexOf(' ', maxLength);
+        if (cut < maxLength / 2) cut = maxLength;
+        return clean.substring(0, cut).trim() + "...";
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
     private void addChip(@NonNull ChipGroup group, @Nullable String text, boolean alert) {
         if (text == null || text.trim().isEmpty()) return;
         Chip chip = new Chip(requireContext());
@@ -556,6 +739,13 @@ public class HomeFragment extends Fragment {
         chip.setChipBackgroundColorResource(alert ? R.color.md_theme_errorContainer : R.color.md_theme_secondaryContainer);
         chip.setTextColor(ContextCompat.getColor(requireContext(), alert ? R.color.md_theme_onErrorContainer : R.color.md_theme_onSurface));
         group.addView(chip);
+    }
+
+    private enum AlertTone {
+        POSITIVE,
+        INFO,
+        WARNING,
+        CRITICAL
     }
 
     private void setupCharts() {

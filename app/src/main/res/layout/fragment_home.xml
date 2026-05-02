@@ -303,108 +303,46 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="16dp">
+                            android:padding="18dp">
 
                             <TextView
-                                android:layout_width="match_parent"
+                                android:id="@+id/tvFinancialScore"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/home_financial_insight_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
+                                android:background="@drawable/bg_status_chip"
+                                android:paddingStart="12dp"
+                                android:paddingTop="6dp"
+                                android:paddingEnd="12dp"
+                                android:paddingBottom="6dp"
+                                android:textColor="@color/risk_low_text"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
 
                             <TextView
                                 android:id="@+id/tvFinancialInsight"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
+                                android:layout_marginTop="14dp"
                                 android:textColor="@color/md_theme_onSurface"
-                                android:textSize="15sp"
+                                android:textSize="18sp"
                                 android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="14dp"
-                                android:text="@string/home_financial_projection_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvFinancialProjection"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/chartBalance"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="14dp"
-                                android:text="@string/home_financial_alert_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
 
                             <TextView
                                 android:id="@+id/tvFinancialAlert"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/risk_high_text"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="14dp"
-                                android:text="@string/home_financial_score_label"
+                                android:layout_marginTop="8dp"
                                 android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
+                                android:textSize="14sp" />
 
-                            <TextView
-                                android:id="@+id/tvFinancialScore"
-                                android:layout_width="match_parent"
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnFinancialDetail"
+                                style="@style/Widget.Material3.Button.TextButton"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/md_theme_primary"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="14dp"
-                                android:text="@string/home_financial_score_explanation_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvFinancialScoreExplanation"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/md_theme_onSurface"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="14dp"
-                                android:text="@string/home_financial_score_trend_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvFinancialScoreTrend"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/md_theme_primary"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
+                                android:layout_marginTop="10dp"
+                                android:minHeight="40dp"
+                                android:text="@string/home_view_detail" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -427,74 +365,46 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="16dp">
+                            android:padding="18dp">
 
                             <TextView
-                                android:layout_width="match_parent"
+                                android:id="@+id/tvSmartSavingStatus"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/home_smart_saving_suggested_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
+                                android:background="@drawable/bg_status_chip"
+                                android:paddingStart="12dp"
+                                android:paddingTop="6dp"
+                                android:paddingEnd="12dp"
+                                android:paddingBottom="6dp"
+                                android:textColor="@color/risk_medium_text"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
 
                             <TextView
                                 android:id="@+id/tvSmartSavingSuggested"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/income"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
                                 android:layout_marginTop="14dp"
-                                android:text="@string/home_smart_saving_goal_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
+                                android:textColor="@color/income"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
 
                             <TextView
                                 android:id="@+id/tvSmartSavingGoal"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/md_theme_onSurface"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="14dp"
-                                android:text="@string/home_smart_saving_projection_label"
+                                android:layout_marginTop="8dp"
                                 android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
+                                android:textSize="14sp" />
 
-                            <TextView
-                                android:id="@+id/tvSmartSavingProjection"
-                                android:layout_width="match_parent"
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnSmartSavingDetail"
+                                style="@style/Widget.Material3.Button.TextButton"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/chartBalance"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="14dp"
-                                android:text="@string/home_smart_saving_status_label"
-                                android:textColor="@color/md_theme_onSurfaceVariant"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvSmartSavingStatus"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/md_theme_primary"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
+                                android:layout_marginTop="10dp"
+                                android:minHeight="40dp"
+                                android:text="@string/home_view_detail" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -646,15 +556,13 @@
                         android:text="@string/home_alerts_empty"
                         android:textColor="@color/md_theme_onSurfaceVariant" />
 
-                    <com.google.android.material.chip.ChipGroup
+                    <LinearLayout
                         android:id="@+id/chipHomeAlerts"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:visibility="gone"
-                        app:chipSpacingHorizontal="8dp"
-                        app:chipSpacingVertical="8dp"
-                        app:singleLine="false" />
+                        android:orientation="vertical"
+                        android:visibility="gone" />
                 </LinearLayout>
 
                 <LinearLayout

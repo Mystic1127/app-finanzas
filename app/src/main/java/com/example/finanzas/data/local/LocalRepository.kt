@@ -1,12 +1,14 @@
 package com.example.finanzas.data.local
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.room.*
 import com.example.finanzas.data.model.*
 import com.example.finanzas.util.CurrencyConverter
 import com.example.finanzas.util.PasswordSecurity
 import com.example.finanzas.util.Prefs
+import com.example.finanzas.util.ReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -160,6 +162,51 @@ class LocalRepository private constructor(
         db.categoriaDao().listForUser(currentUserId()).map { Categoria(it.id, it.nombre, it.esIngreso == 1) }
     }
 
+    suspend fun hasInitialBalanceConfigured(): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        migrateLegacyInitialBalancesIfNeeded(userId)
+        SettingsService.isInitialBalanceConfigured(appContext) || hasInitialBalanceTransactions(userId)
+    }
+
+    suspend fun configureInitialBalances(cashBalance: Double, cardBalance: Double, currency: String): Boolean = withContext(Dispatchers.IO) {
+        require(isValidAmount(cashBalance) && isValidAmount(cardBalance)) { "Monto invalido" }
+        require(cashBalance > 0.0 || cardBalance > 0.0) { "Ingresa al menos un saldo inicial" }
+
+        val userId = currentUserId()
+        migrateLegacyInitialBalancesIfNeeded(userId)
+        if (SettingsService.isInitialBalanceConfigured(appContext) || hasInitialBalanceTransactions(userId)) {
+            return@withContext false
+        }
+
+        val normalizedCurrency = CurrencyConverter.normalize(currency)
+        db.withTransaction {
+            val categoryId = ensureInitialBalanceCategory(userId)
+            if (cashBalance > 0.0) {
+                insertInitialBalanceTransaction(
+                    userId = userId,
+                    categoryId = categoryId,
+                    amount = cashBalance,
+                    currency = normalizedCurrency,
+                    accountType = "CASH",
+                    note = Transaccion.INITIAL_BALANCE_CASH_NOTE
+                )
+            }
+            if (cardBalance > 0.0) {
+                insertInitialBalanceTransaction(
+                    userId = userId,
+                    categoryId = categoryId,
+                    amount = cardBalance,
+                    currency = normalizedCurrency,
+                    accountType = "CARD",
+                    note = Transaccion.INITIAL_BALANCE_CARD_NOTE
+                )
+            }
+        }
+        SettingsService.markInitialBalanceConfigured(appContext, normalizedCurrency)
+        bumpDataVersion()
+        true
+    }
+
     suspend fun listTransacciones(anio: Int, mes: Int, filtro: TransaccionFiltro? = null): List<Transaccion> = withContext(Dispatchers.IO) {
         val cal = Calendar.getInstance().apply {
             set(anio, mes - 1, 1, 0, 0, 0)
@@ -175,6 +222,7 @@ class LocalRepository private constructor(
         }
 
         val userId = currentUserId()
+        migrateLegacyInitialBalancesIfNeeded(userId)
         val categorias = db.categoriaDao().listForUser(userId).associateBy { it.id }
         val searchText = filtro?.texto?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.ROOT)
         var list = db.transaccionDao().listBetween(userId, start, end)
@@ -241,24 +289,7 @@ class LocalRepository private constructor(
         manualRate: Double,
         excludingTransactionId: Int?
     ): Double {
-        val initialCurrency = SettingsService.getInitialBalancesCurrency(appContext)
-        val initial = if (accountType == "CASH") {
-            CurrencyConverter.convert(
-                SettingsService.getInitialCashBalance(appContext),
-                initialCurrency,
-                base,
-                base,
-                manualRate
-            )
-        } else {
-            CurrencyConverter.convert(
-                SettingsService.getInitialCardBalance(appContext),
-                initialCurrency,
-                base,
-                base,
-                manualRate
-            )
-        }
+        migrateLegacyInitialBalancesIfNeeded(userId)
         val movement = db.transaccionDao().listAll(userId)
             .asSequence()
             .filter { excludingTransactionId == null || it.id != excludingTransactionId }
@@ -267,7 +298,7 @@ class LocalRepository private constructor(
                 val amountInBase = convertToBase(it.monto, it.moneda, base, manualRate)
                 if (it.esIngreso == 1) amountInBase else -amountInBase
             }
-        return initial + movement
+        return movement
     }
 
     suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency(), accountType: String = "CARD"): Int = withContext(Dispatchers.IO) {
@@ -335,8 +366,10 @@ class LocalRepository private constructor(
     }
 
     suspend fun listTodasTransacciones(): List<Transaccion> = withContext(Dispatchers.IO) {
-        val cats = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
-        db.transaccionDao().listAll(currentUserId()).sortedByDescending { it.fecha }.map {
+        val userId = currentUserId()
+        migrateLegacyInitialBalancesIfNeeded(userId)
+        val cats = db.categoriaDao().listForUser(userId).associateBy { it.id }
+        db.transaccionDao().listAll(userId).sortedByDescending { it.fecha }.map {
             Transaccion(it.id, it.categoriaId, cats[it.categoriaId]?.nombre ?: "", it.esIngreso == 1, it.monto, CurrencyConverter.normalize(it.moneda), Date(it.fecha), normalizeAccountType(it.accountType), it.nota)
         }
     }
@@ -664,6 +697,44 @@ class LocalRepository private constructor(
 
     suspend fun deleteImportRule(id: Int) = withContext(Dispatchers.IO) { db.importRuleDao().deleteById(id, currentUserId()) }
 
+    suspend fun deleteCurrentUserFinancialData(): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        val reminders = db.recordatorioDao().listAll(userId).map {
+            PaymentReminder().apply {
+                id = it.id
+                titulo = it.titulo
+                monto = it.monto
+                moneda = CurrencyConverter.normalize(it.moneda)
+                if (it.fechaVencimiento > 0) fechaVencimiento = Date(it.fechaVencimiento)
+                pagado = it.pagado == 1
+                categoriaId = it.categoriaId
+                horaRecordatorio = it.horaRecordatorio
+                frecuencia = it.frecuencia
+                notificar = it.notificar == 1
+                diasRecordatorio = it.diasRecordatorio
+                googleEventId = it.googleEventId
+                notificationId = it.notificationId
+            }
+        }
+        reminders.forEach { ReminderScheduler.cancel(appContext, it) }
+
+        db.withTransaction {
+            db.transaccionDao().deleteForUser(userId)
+            db.presupuestoCategoriaDao().deleteForUser(userId)
+            db.presupuestoDao().deleteForUser(userId)
+            db.metaHitoDao().deleteForUser(userId)
+            db.metaDao().deleteForUser(userId)
+            db.recordatorioDao().deleteForUser(userId)
+            db.importRuleDao().deleteForUser(userId)
+            db.importJobDao().deleteForUser(userId)
+            db.categoriaDao().deleteForUser(userId)
+        }
+        SettingsService.clearInitialBalances(appContext)
+        Prefs.clearLastTransactionsPeriod(appContext)
+        bumpDataVersion()
+        true
+    }
+
     suspend fun processImport(id: Int): JSONObject = withContext(Dispatchers.IO) {
         val userId = currentUserId()
         val job = db.importJobDao().findById(id, userId) ?: throw IllegalArgumentException("Importacion no encontrada")
@@ -823,32 +894,24 @@ class LocalRepository private constructor(
         val trans = listTransacciones(anio, mes).map { it.toBaseCurrencyCopy(base, rate) }
         val ingresos = trans.filter { it.isEsIngreso }.sumOf { it.monto }
         val gastos = trans.filterNot { it.isEsIngreso }.sumOf { it.monto }
+        val initialBalanceIncome = trans.filter { it.isInitialBalance }.sumOf { it.monto }
+        val recurringIncome = (ingresos - initialBalanceIncome).coerceAtLeast(0.0)
         summary.ingresos = ingresos
         summary.gastos = gastos
         summary.saldo = ingresos - gastos
+        summary.ingresosRecurrentes = recurringIncome
+        summary.balanceVisibleMes = summary.saldo
+        summary.balanceOperativoMes = recurringIncome - gastos
 
-        val initialCurrency = SettingsService.getInitialBalancesCurrency(appContext)
-        val initialCash = CurrencyConverter.convert(
-            SettingsService.getInitialCashBalance(appContext),
-            initialCurrency,
-            base,
-            base,
-            rate
-        )
-        val initialCard = CurrencyConverter.convert(
-            SettingsService.getInitialCardBalance(appContext),
-            initialCurrency,
-            base,
-            base,
-            rate
-        )
         val allTrans = listTodasTransacciones().map { it.toBaseCurrencyCopy(base, rate) }
+        val initialCash = allTrans.sumOf { if (it.isInitialBalance && it.isCash) it.monto else 0.0 }
+        val initialCard = allTrans.sumOf { if (it.isInitialBalance && !it.isCash) it.monto else 0.0 }
         val cashMovement = allTrans.sumOf { if (it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
         val cardMovement = allTrans.sumOf { if (!it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
         summary.initialCashBalance = initialCash
         summary.initialCardBalance = initialCard
-        summary.efectivo = initialCash + cashMovement
-        summary.tarjetaCuenta = initialCard + cardMovement
+        summary.efectivo = cashMovement
+        summary.tarjetaCuenta = cardMovement
         summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
 
         val presMonto = getPresupuesto(anio, mes)
@@ -874,6 +937,7 @@ class LocalRepository private constructor(
         summary.mes = mes
 
         val userId = currentUserId()
+        migrateLegacyInitialBalancesIfNeeded(userId)
         val base = baseCurrency()
         val rate = manualRate()
         val cal = Calendar.getInstance().apply {
@@ -885,32 +949,39 @@ class LocalRepository private constructor(
         val end = cal.timeInMillis
 
         val monthTrans = db.transaccionDao().listBetween(userId, start, end)
+        val initialCategoryIds = initialBalanceCategoryIds(userId)
         val ingresos = monthTrans
             .filter { it.esIngreso == 1 }
             .sumOf { convertToBase(it.monto, it.moneda, base, rate) }
         val gastos = monthTrans
             .filter { it.esIngreso == 0 }
             .sumOf { convertToBase(it.monto, it.moneda, base, rate) }
+        val initialBalanceIncome = monthTrans
+            .filter { isInitialBalanceEntity(it, initialCategoryIds) }
+            .sumOf { convertToBase(it.monto, it.moneda, base, rate) }
+        val recurringIncome = (ingresos - initialBalanceIncome).coerceAtLeast(0.0)
         summary.ingresos = ingresos
         summary.gastos = gastos
         summary.saldo = ingresos - gastos
+        summary.ingresosRecurrentes = recurringIncome
+        summary.balanceVisibleMes = summary.saldo
+        summary.balanceOperativoMes = recurringIncome - gastos
 
-        val initialCurrency = SettingsService.getInitialBalancesCurrency(appContext)
-        val initialCash = CurrencyConverter.convert(
-            SettingsService.getInitialCashBalance(appContext),
-            initialCurrency,
-            base,
-            base,
-            rate
-        )
-        val initialCard = CurrencyConverter.convert(
-            SettingsService.getInitialCardBalance(appContext),
-            initialCurrency,
-            base,
-            base,
-            rate
-        )
         val allTrans = db.transaccionDao().listAll(userId)
+        val initialCash = allTrans.sumOf {
+            if (isInitialBalanceEntity(it, initialCategoryIds) && "CASH".equals(it.accountType, ignoreCase = true)) {
+                convertToBase(it.monto, it.moneda, base, rate)
+            } else {
+                0.0
+            }
+        }
+        val initialCard = allTrans.sumOf {
+            if (isInitialBalanceEntity(it, initialCategoryIds) && !"CASH".equals(it.accountType, ignoreCase = true)) {
+                convertToBase(it.monto, it.moneda, base, rate)
+            } else {
+                0.0
+            }
+        }
         val cashMovement = allTrans.sumOf {
             if ("CASH".equals(it.accountType, ignoreCase = true)) {
                 if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
@@ -927,8 +998,8 @@ class LocalRepository private constructor(
         }
         summary.initialCashBalance = initialCash
         summary.initialCardBalance = initialCard
-        summary.efectivo = initialCash + cashMovement
-        summary.tarjetaCuenta = initialCard + cardMovement
+        summary.efectivo = cashMovement
+        summary.tarjetaCuenta = cardMovement
         summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
 
         val presMonto = db.presupuestoDao().find(userId, anio, mes)
@@ -943,6 +1014,123 @@ class LocalRepository private constructor(
         summary.diasRestantes = maxOf(0, Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH) - Calendar.getInstance().get(Calendar.DAY_OF_MONTH))
 
         summary
+    }
+
+    @Synchronized
+    private fun migrateLegacyInitialBalancesIfNeeded(userId: Int): Boolean {
+        if (hasInitialBalanceTransactions(userId)) {
+            if (!SettingsService.isInitialBalanceConfigured(appContext)) {
+                SettingsService.markInitialBalanceConfigured(appContext, SettingsService.getInitialBalancesCurrency(appContext))
+            }
+            return true
+        }
+        if (SettingsService.isInitialBalanceConfigured(appContext)) {
+            return true
+        }
+        if (!SettingsService.hasLegacyInitialBalances(appContext)) {
+            return false
+        }
+
+        val currency = SettingsService.getInitialBalancesCurrency(appContext)
+        val cash = SettingsService.getInitialCashBalance(appContext)
+        val card = SettingsService.getInitialCardBalance(appContext)
+        val categoryId = ensureInitialBalanceCategory(userId)
+        var inserted = false
+        if (cash > 0.0) {
+            insertInitialBalanceTransaction(
+                userId = userId,
+                categoryId = categoryId,
+                amount = cash,
+                currency = currency,
+                accountType = "CASH",
+                note = Transaccion.INITIAL_BALANCE_CASH_NOTE
+            )
+            inserted = true
+        }
+        if (card > 0.0) {
+            insertInitialBalanceTransaction(
+                userId = userId,
+                categoryId = categoryId,
+                amount = card,
+                currency = currency,
+                accountType = "CARD",
+                note = Transaccion.INITIAL_BALANCE_CARD_NOTE
+            )
+            inserted = true
+        }
+        if (inserted) {
+            SettingsService.markInitialBalanceConfigured(appContext, currency)
+            bumpDataVersion()
+        }
+        return inserted
+    }
+
+    private fun hasInitialBalanceTransactions(userId: Int): Boolean {
+        val categoryIds = initialBalanceCategoryIds(userId)
+        if (categoryIds.isEmpty()) return false
+        return db.transaccionDao().listAll(userId).any { isInitialBalanceEntity(it, categoryIds) }
+    }
+
+    private fun initialBalanceCategoryIds(userId: Int): Set<Int> {
+        return db.categoriaDao().listForUser(userId)
+            .asSequence()
+            .filter { it.esIngreso == 1 && it.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true) }
+            .map { it.id }
+            .toSet()
+    }
+
+    private fun ensureInitialBalanceCategory(userId: Int): Int {
+        db.categoriaDao().listForUser(userId)
+            .firstOrNull { it.esIngreso == 1 && it.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true) }
+            ?.let { return it.id }
+
+        val nextId = (db.categoriaDao().listAll().maxOfOrNull { it.id } ?: 0) + 1
+        db.categoriaDao().insert(
+            CategoriaEntity(
+                id = nextId,
+                userId = userId,
+                nombre = Transaccion.INITIAL_BALANCE_CATEGORY,
+                esIngreso = 1
+            )
+        )
+        return nextId
+    }
+
+    private fun insertInitialBalanceTransaction(
+        userId: Int,
+        categoryId: Int,
+        amount: Double,
+        currency: String,
+        accountType: String,
+        note: String
+    ) {
+        db.transaccionDao().insert(
+            TransaccionEntity(
+                userId = userId,
+                categoriaId = categoryId,
+                esIngreso = 1,
+                monto = amount,
+                moneda = CurrencyConverter.normalize(currency),
+                fecha = System.currentTimeMillis(),
+                accountType = normalizeAccountType(accountType),
+                nota = note
+            )
+        )
+    }
+
+    private fun isInitialBalanceEntity(entity: TransaccionEntity, categoryIds: Set<Int>): Boolean {
+        return entity.esIngreso == 1 && entity.categoriaId in categoryIds && isInitialBalanceNote(entity.nota)
+    }
+
+    private fun isInitialBalanceNote(note: String?): Boolean {
+        val clean = note?.trim().orEmpty()
+        return clean.equals(Transaccion.INITIAL_BALANCE_CASH_NOTE, ignoreCase = true) ||
+            clean.equals(Transaccion.INITIAL_BALANCE_CARD_NOTE, ignoreCase = true) ||
+            clean.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true)
+    }
+
+    private fun isValidAmount(value: Double): Boolean {
+        return !value.isNaN() && !value.isInfinite() && value >= 0.0
     }
 
     private fun normalizeAccountType(value: String?): String {

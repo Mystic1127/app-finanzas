@@ -3,6 +3,9 @@ package com.example.finanzas.data.model;
 import java.util.Date;
 
 public class Transaccion {
+    public static final String INITIAL_BALANCE_CATEGORY = "Saldo inicial";
+    public static final String INITIAL_BALANCE_CASH_NOTE = "Saldo inicial efectivo";
+    public static final String INITIAL_BALANCE_CARD_NOTE = "Saldo inicial tarjeta/cuenta";
 
     private int id;
     private int categoriaId;
@@ -106,6 +109,18 @@ public class Transaccion {
 
     public boolean isCash() {
         return "CASH".equalsIgnoreCase(getAccountType());
+    }
+
+    public boolean isInitialBalance() {
+        if (!esIngreso) return false;
+        boolean specialCategory = INITIAL_BALANCE_CATEGORY.equalsIgnoreCase(
+                categoriaNombre == null ? "" : categoriaNombre.trim()
+        );
+        String cleanNote = nota == null ? "" : nota.trim();
+        boolean specialNote = INITIAL_BALANCE_CASH_NOTE.equalsIgnoreCase(cleanNote)
+                || INITIAL_BALANCE_CARD_NOTE.equalsIgnoreCase(cleanNote)
+                || INITIAL_BALANCE_CATEGORY.equalsIgnoreCase(cleanNote);
+        return specialCategory && specialNote;
     }
 
     public String getNota() {

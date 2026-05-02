@@ -78,6 +78,8 @@
     <string name="home_financial_score_trend_label">Tendencia</string>
     <string name="home_financial_score_risk">Riesgo</string>
     <string name="home_financial_missing">Aun no hay datos suficientes.</string>
+    <string name="home_view_detail">Ver detalle</string>
+    <string name="home_financial_detail_title">Detalle de inteligencia financiera</string>
     <string name="home_smart_saving_title">Ahorro inteligente</string>
     <string name="home_smart_saving_suggested_label">Ahorro sugerido</string>
     <string name="home_smart_saving_goal_label">Recomendacion para metas</string>
@@ -88,6 +90,7 @@
     <string name="home_smart_saving_goal_empty">Crea una meta para recibir recomendaciones de ahorro</string>
     <string name="home_smart_saving_projection_value">Saldo actual real: %1$s. Gasto proyectado: %2$s. Saldo final estimado: %3$s</string>
     <string name="home_smart_saving_status_adjusted">Ajustado</string>
+    <string name="home_smart_saving_detail_title">Detalle de ahorro inteligente</string>
     <string name="home_recommendations_title">Recomendaciones inteligentes</string>
     <string name="home_pro_locked_recommendations">Disponible en Pro: activa funciones avanzadas para ver recomendaciones accionables y escaneo de recibos.</string>
     <string name="home_recommendations_empty">Aún no hay recomendaciones suficientes.</string>
@@ -431,8 +434,18 @@
     <string name="perfil_initial_cash_hint">Efectivo inicial</string>
     <string name="perfil_initial_card_hint">Tarjeta/Cuenta inicial</string>
     <string name="perfil_initial_balances_save">Guardar saldos iniciales</string>
-    <string name="perfil_initial_balances_saved">Saldos iniciales actualizados</string>
+    <string name="perfil_initial_balances_saved">Saldo inicial configurado</string>
     <string name="perfil_initial_balances_error">No se pudieron guardar los saldos iniciales</string>
+    <string name="perfil_initial_balances_empty">Ingresa al menos un saldo inicial</string>
+    <string name="perfil_initial_balances_configured">Saldo inicial configurado</string>
+    <string name="perfil_initial_balances_locked_help">Para cambiarlo, borra tus datos financieros y vuelve a empezar.</string>
+    <string name="perfil_financial_data_title">Datos financieros</string>
+    <string name="perfil_financial_data_subtitle">Borra movimientos, presupuestos, metas, recordatorios e importaciones de esta cuenta. Tu usuario se conserva.</string>
+    <string name="perfil_delete_financial_data_title">Borrar mis datos financieros</string>
+    <string name="perfil_delete_financial_data_action">Borrar datos</string>
+    <string name="perfil_delete_financial_data_confirm">Esto borrará tus transacciones, presupuestos, metas y recordatorios de esta cuenta. Tu usuario no se eliminará. ¿Deseas continuar?</string>
+    <string name="perfil_financial_data_deleted">Datos financieros borrados</string>
+    <string name="perfil_financial_data_delete_error">No se pudieron borrar los datos financieros</string>
     <string name="perfil_currency_saved">Moneda actualizada.</string>
     <string name="perfil_currency_error">No se pudo guardar la moneda.</string>
     <string name="profile_accounts_title">Cuentas</string>
