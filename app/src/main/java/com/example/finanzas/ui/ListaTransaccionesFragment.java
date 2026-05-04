@@ -66,7 +66,6 @@ public class ListaTransaccionesFragment extends Fragment {
     private long perfStartMs;
     private long loadStartMs;
     private boolean firstRenderLogged;
-    private MaterialButton btnExportar;
     private MaterialButton btnFiltros;
     private MaterialButton btnAddTransactionColor;
     private View scrollTransactionLabels;
@@ -98,7 +97,6 @@ public class ListaTransaccionesFragment extends Fragment {
         tvEmpty = v.findViewById(R.id.tvTransactionsEmpty);
         progress = v.findViewById(R.id.progressLista);
         swipeRefreshLayout = v.findViewById(R.id.swipeTransacciones);
-        btnExportar = v.findViewById(R.id.btnExportar);
         btnFiltros = v.findViewById(R.id.btnFiltros);
         btnAddTransactionColor = v.findViewById(R.id.btnAddTransactionColor);
         scrollTransactionLabels = v.findViewById(R.id.scrollTransactionLabels);
@@ -152,14 +150,12 @@ public class ListaTransaccionesFragment extends Fragment {
         });
 
         if (swipeRefreshLayout != null) {
+            swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) ->
+                    listView != null && listView.canScrollVertically(-1));
             swipeRefreshLayout.setOnRefreshListener(() -> {
                 manualRefresh = true;
                 cargarTransacciones();
             });
-        }
-
-        if (btnExportar != null) {
-            btnExportar.setOnClickListener(v1 -> exportarTransacciones());
         }
 
         if (btnFiltros != null) {
@@ -241,10 +237,6 @@ public class ListaTransaccionesFragment extends Fragment {
 
     private void eliminarRemotoYRefrescar(int id) {
         viewModel.delete(id);
-    }
-
-    private void exportarTransacciones() {
-        viewModel.export();
     }
 
     private void loadTransactionLabels() {
@@ -452,6 +444,7 @@ public class ListaTransaccionesFragment extends Fragment {
         MaterialAutoCompleteTextView actCategoria = content.findViewById(R.id.actFiltroCategoria);
         android.widget.RadioGroup rgOrden = content.findViewById(R.id.rgOrden);
         MaterialSwitch swAsc = content.findViewById(R.id.swAscendente);
+        final String allCategoriesLabel = getString(R.string.transactions_filter_all_categories);
 
         UiFormUtils.bindDatePicker(requireContext(), etInicio);
         UiFormUtils.bindDatePicker(requireContext(), etFin);
@@ -459,12 +452,16 @@ public class ListaTransaccionesFragment extends Fragment {
 
         ArrayAdapter<String> catAdapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, new ArrayList<>());
         actCategoria.setAdapter(catAdapter);
+        actCategoria.setText(allCategoriesLabel, false);
+        actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
+        actCategoria.setOnClickListener(view -> actCategoria.showDropDown());
 
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
             @Override
             public void onReady(List<? extends Categoria> cats) {
                 categorias = new ArrayList<>(cats);
                 List<String> nombres = new ArrayList<>();
+                nombres.add(allCategoriesLabel);
                 for (Categoria c : cats) nombres.add(c.nombre);
                 catAdapter.clear();
                 catAdapter.addAll(nombres);
@@ -509,6 +506,7 @@ public class ListaTransaccionesFragment extends Fragment {
         }
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setIcon(R.drawable.ic_filter)
                 .setTitle(R.string.transactions_filter_title)
                 .setView(content)
                 .setPositiveButton(R.string.transactions_filter_apply, null)
@@ -538,7 +536,7 @@ public class ListaTransaccionesFragment extends Fragment {
                     if (!TextUtils.isEmpty(texto)) filtro.setTexto(texto);
 
                     String catNombre = actCategoria.getText() == null ? null : actCategoria.getText().toString().trim();
-                    if (!TextUtils.isEmpty(catNombre) && categorias != null) {
+                    if (!TextUtils.isEmpty(catNombre) && !allCategoriesLabel.equalsIgnoreCase(catNombre) && categorias != null) {
                         for (Categoria c : categorias) {
                             if (c != null && catNombre.equalsIgnoreCase(c.nombre)) {
                                 filtro.setCategoriaId(c.id);
@@ -620,9 +618,6 @@ public class ListaTransaccionesFragment extends Fragment {
                 UiFormUtils.showMessage(requireView(), R.string.error_eliminar_transaccion);
             }
         });
-        viewModel.getExportPath().observe(getViewLifecycleOwner(), path ->
-                UiFormUtils.showMessage(requireView(), getString(R.string.transactions_export_success, path))
-        );
         viewModel.getError().observe(getViewLifecycleOwner(), message -> {
             if (message != null && !message.isEmpty()) {
                 UiFormUtils.showMessage(requireView(), message);

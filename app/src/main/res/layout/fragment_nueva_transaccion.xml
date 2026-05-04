@@ -5,7 +5,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/md_theme_background">
+    android:background="@color/md_theme_background"
+    android:fillViewport="true">
 
     <LinearLayout
         android:orientation="vertical"
@@ -13,179 +14,321 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilMonto"
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggleTipo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            app:prefixText="@string/prefix_moneda"
-            app:hintEnabled="true">
+            app:selectionRequired="true"
+            app:singleSelection="true">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etMonto"
-                android:hint="@string/hint_monto"
-                android:inputType="numberDecimal"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnTipoGasto"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="@string/tipo_ingreso_off"
+                android:textAllCaps="false"
+                app:icon="@drawable/ic_less"
+                app:iconGravity="textStart" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnTipoIngreso"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="@string/tipo_ingreso_on"
+                android:textAllCaps="false"
+                app:icon="@drawable/ic_add"
+                app:iconGravity="textStart" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardMonto"
+            style="@style/Widget.Finanzas.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp">
+
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilMoneda"
-            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
-            android:hint="@string/transaction_currency"
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hint_monto"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textSize="13sp" />
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:layout_marginTop="2dp">
+
+                    <TextView
+                        android:id="@+id/tvMontoCurrency"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="start|center_vertical"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:text="@string/prefix_moneda"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <EditText
+                        android:id="@+id/etMonto"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@android:color/transparent"
+                        android:gravity="center"
+                        android:hint="@string/transaction_amount_placeholder"
+                        android:includeFontPadding="false"
+                        android:inputType="numberDecimal"
+                        android:minHeight="96dp"
+                        android:paddingStart="76dp"
+                        android:paddingEnd="76dp"
+                        android:selectAllOnFocus="true"
+                        android:singleLine="true"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant"
+                        android:textSize="42sp" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvMontoError"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:accessibilityLiveRegion="polite"
+                    android:textColor="@color/md_theme_error"
+                    android:textSize="12sp"
+                    android:visibility="gone"
+                    tools:text="@string/error_ingresa_monto"
+                    tools:visibility="visible" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Finanzas.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:hintEnabled="true">
+            android:layout_marginTop="16dp">
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/actMoneda"
-                style="@style/Widget.Finanzas.AutoCompleteTextView"
-                android:inputType="none"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilFecha"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            app:hintEnabled="true">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/transaction_account_type"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:textSize="14sp" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etFecha"
-                android:hint="@string/hint_fecha"
-                android:focusable="false"
-                android:clickable="true"
-                android:inputType="none"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-        </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/toggleAccountType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilHora"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:hint="@string/transaction_time"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:hintEnabled="true">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAccountCard"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="@string/transaction_account_card"
+                        android:textAllCaps="false"
+                        app:icon="@drawable/ic_creditcard"
+                        app:iconGravity="textStart" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etHora"
-                android:focusable="false"
-                android:clickable="true"
-                android:inputType="none"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-        </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAccountCash"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="@string/transaction_account_cash"
+                        android:textAllCaps="false"
+                        app:icon="@drawable/ic_paymente"
+                        app:iconGravity="textStart" />
+                </com.google.android.material.button.MaterialButtonToggleGroup>
 
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swTipo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/tipo_ingreso_titulo"
-            android:textOn="@string/tipo_ingreso_on"
-            android:textOff="@string/tipo_ingreso_off" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilCategoria"
+                    style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
+                    android:hint="@string/hint_categoria"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    app:hintEnabled="true">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilAccountType"
-            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
-            android:hint="@string/transaction_account_type"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:hintEnabled="true">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/actCategoria"
+                        style="@style/Widget.Finanzas.AutoCompleteTextView"
+                        android:inputType="none"
+                        android:contentDescription="@string/categoria_cd"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/actAccountType"
-                style="@style/Widget.Finanzas.AutoCompleteTextView"
-                android:inputType="none"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-        </com.google.android.material.textfield.TextInputLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilCategoria"
-            style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
-            android:hint="@string/hint_categoria"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:hintEnabled="true">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnManageCategories"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="start|center_vertical"
+                        android:minHeight="40dp"
+                        android:text="@string/category_manage" />
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/actCategoria"
-                style="@style/Widget.Finanzas.AutoCompleteTextView"
-                android:inputType="none"
-                android:contentDescription="@string/categoria_cd"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-        </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSugerir"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="end|center_vertical"
+                        android:minHeight="40dp"
+                        android:text="@string/suggest_category" />
+                </LinearLayout>
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipSugerencia"
+                    style="@style/Widget.Finanzas.Chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone"
+                    android:text="@string/suggest_chip_placeholder"
+                    app:closeIconVisible="true" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Finanzas.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/hint_nota_opcional"
+                    app:hintEnabled="true">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etNota"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnManageCategories"
+            android:id="@+id/btnMoreOptions"
             style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/category_manage" />
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="@string/transaction_more_options" />
 
-        <com.google.android.material.textfield.TextInputLayout
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/layoutMoreOptions"
+            style="@style/Widget.Finanzas.Card"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            app:hintEnabled="true">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etNota"
-                android:hint="@string/hint_nota_opcional"
-                android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/colorOnSurfaceVariant"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSugerir"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/suggest_category" />
-
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipSugerencia"
-            style="@style/Widget.Finanzas.Chip"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:visibility="gone"
-            app:closeIconVisible="true"
-            android:text="@string/suggest_chip_placeholder" />
+            tools:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilMoneda"
+                    style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
+                    android:hint="@string/transaction_currency"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:hintEnabled="true">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/actMoneda"
+                        style="@style/Widget.Finanzas.AutoCompleteTextView"
+                        android:inputType="none"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilFecha"
+                    style="@style/Widget.Finanzas.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/transaction_date"
+                    app:hintEnabled="true">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etFecha"
+                        android:focusable="false"
+                        android:clickable="true"
+                        android:inputType="none"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilHora"
+                    style="@style/Widget.Finanzas.TextInputLayout"
+                    android:hint="@string/transaction_time"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    app:hintEnabled="true">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etHora"
+                        android:focusable="false"
+                        android:clickable="true"
+                        android:inputType="none"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGuardar"
             android:text="@string/btn_guardar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" />
+            android:layout_height="52dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="12dp" />
 
     </LinearLayout>
 </ScrollView>

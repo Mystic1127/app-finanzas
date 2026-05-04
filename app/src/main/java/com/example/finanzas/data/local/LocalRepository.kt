@@ -449,7 +449,8 @@ class LocalRepository private constructor(
     }
 
     suspend fun getPresupuesto(anio: Int, mes: Int): Double = withContext(Dispatchers.IO) {
-        db.presupuestoDao().find(currentUserId(), anio, mes)?.let { convertToBase(it.monto, it.moneda) } ?: 0.0
+        val userId = currentUserId()
+        findEffectivePresupuesto(userId, anio, mes)?.let { convertToBase(it.monto, it.moneda) } ?: 0.0
     }
 
     suspend fun setPresupuesto(anio: Int, mes: Int, monto: Double, moneda: String = baseCurrency()) = withContext(Dispatchers.IO) {
@@ -457,11 +458,25 @@ class LocalRepository private constructor(
         bumpDataVersion()
     }
 
+    private fun findEffectivePresupuesto(userId: Int, anio: Int, mes: Int): PresupuestoEntity? {
+        return db.presupuestoDao().find(userId, anio, mes)
+            ?: db.presupuestoDao().findLatestUpTo(userId, anio, mes)
+    }
+
+    private fun listEffectivePresupuestosCategoria(userId: Int, anio: Int, mes: Int): List<PresupuestoCategoriaEntity> {
+        val exact = db.presupuestoCategoriaDao().listByMonth(userId, anio, mes)
+        if (exact.isNotEmpty()) return exact
+
+        val latest = db.presupuestoCategoriaDao().findLatestUpTo(userId, anio, mes) ?: return emptyList()
+        return db.presupuestoCategoriaDao().listByMonth(userId, latest.anio, latest.mes)
+    }
+
     suspend fun listPresupuestosCategoria(anio: Int, mes: Int): List<CategoryBudgetSummary> = withContext(Dispatchers.IO) {
         val base = baseCurrency()
         val rate = manualRate()
-        val catNames = db.categoriaDao().listForUser(currentUserId()).associateBy { it.id }
-        val budgets = db.presupuestoCategoriaDao().listByMonth(currentUserId(), anio, mes)
+        val userId = currentUserId()
+        val catNames = db.categoriaDao().listForUser(userId).associateBy { it.id }
+        val budgets = listEffectivePresupuestosCategoria(userId, anio, mes)
         val out = budgets.map {
             CategoryBudgetSummary().apply {
                 categoriaId = it.categoriaId
@@ -479,7 +494,7 @@ class LocalRepository private constructor(
         cal.add(Calendar.MONTH, 1)
         val end = cal.timeInMillis
 
-        val gastos = db.transaccionDao().listAll(currentUserId())
+        val gastos = db.transaccionDao().listAll(userId)
             .filter { it.esIngreso == 0 && it.fecha >= start && it.fecha < end }
             .groupBy { it.categoriaId }
             .mapValues { e -> e.value.sumOf { convertToBase(it.monto, it.moneda, base, rate) } }
@@ -1090,7 +1105,7 @@ class LocalRepository private constructor(
         summary.tarjetaCuenta = cardMovement
         summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
 
-        val presMonto = db.presupuestoDao().find(userId, anio, mes)
+        val presMonto = findEffectivePresupuesto(userId, anio, mes)
             ?.let { convertToBase(it.monto, it.moneda, base, rate) }
             ?: 0.0
         summary.presupuestoMonto = presMonto

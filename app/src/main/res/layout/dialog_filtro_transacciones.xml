@@ -2,16 +2,20 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="20dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp">
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Finanzas.TextInputLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/transactions_filter_search">
@@ -20,46 +24,62 @@
                 android:id="@+id/etFiltroTexto"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text" />
+                android:inputType="text"
+                android:singleLine="true"
+                android:textColor="?attr/colorOnSurface"
+                android:textColorHint="?attr/colorOnSurfaceVariant" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="16dp"
+            android:text="@string/transactions_filter_dates"
+            android:textColor="@color/md_theme_onSurface"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Finanzas.TextInputLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:hint="@string/transactions_filter_start">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etFiltroInicio"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:focusable="false"
                 android:clickable="true"
-                android:inputType="none" />
+                android:focusable="false"
+                android:inputType="none"
+                android:textColor="?attr/colorOnSurface"
+                android:textColorHint="?attr/colorOnSurfaceVariant" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            style="@style/Widget.Finanzas.TextInputLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:hint="@string/transactions_filter_end">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etFiltroFin"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:focusable="false"
                 android:clickable="true"
-                android:inputType="none" />
+                android:focusable="false"
+                android:inputType="none"
+                android:textColor="?attr/colorOnSurface"
+                android:textColorHint="?attr/colorOnSurfaceVariant" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="14dp"
             android:hint="@string/transactions_filter_category">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -67,41 +87,57 @@
                 style="@style/Widget.Finanzas.AutoCompleteTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none" />
+                android:inputType="none"
+                android:textColor="?attr/colorOnSurface"
+                android:textColorHint="?attr/colorOnSurfaceVariant" />
         </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/transactions_filter_order"
+            android:textColor="@color/md_theme_onSurface"
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
         <RadioGroup
             android:id="@+id/rgOrden"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
+            android:layout_marginTop="4dp"
+            android:orientation="vertical">
 
             <RadioButton
                 android:id="@+id/rbOrdenFecha"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="@string/transactions_filter_order_date" />
+                android:text="@string/transactions_filter_order_date"
+                android:textColor="@color/md_theme_onSurface" />
 
             <RadioButton
                 android:id="@+id/rbOrdenNombre"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/transactions_filter_order_name" />
+                android:text="@string/transactions_filter_order_name"
+                android:textColor="@color/md_theme_onSurface" />
 
             <RadioButton
                 android:id="@+id/rbOrdenCategoria"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/transactions_filter_order_category" />
+                android:text="@string/transactions_filter_order_category"
+                android:textColor="@color/md_theme_onSurface" />
         </RadioGroup>
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swAscendente"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/transactions_filter_sort_direction" />
+            android:layout_marginTop="8dp"
+            android:text="@string/transactions_filter_sort_direction"
+            android:textColor="@color/md_theme_onSurface" />
 
     </LinearLayout>
 </ScrollView>

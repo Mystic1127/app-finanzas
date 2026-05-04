@@ -90,6 +90,16 @@ interface TransaccionDao {
 interface PresupuestoDao {
     @Query("SELECT * FROM presupuestos WHERE user_id=:userId AND anio=:anio AND mes=:mes")
     fun find(userId: Int, anio: Int, mes: Int): PresupuestoEntity?
+    @Query(
+        """
+        SELECT * FROM presupuestos
+        WHERE user_id=:userId
+          AND (anio < :anio OR (anio = :anio AND mes <= :mes))
+        ORDER BY anio DESC, mes DESC
+        LIMIT 1
+        """
+    )
+    fun findLatestUpTo(userId: Int, anio: Int, mes: Int): PresupuestoEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsert(entity: PresupuestoEntity)
     @Query("DELETE FROM presupuestos WHERE user_id=:userId") fun deleteForUser(userId: Int): Int
 }
@@ -98,6 +108,16 @@ interface PresupuestoDao {
 interface PresupuestoCategoriaDao {
     @Query("SELECT * FROM presupuestos_categoria WHERE user_id=:userId AND anio=:anio AND mes=:mes")
     fun listByMonth(userId: Int, anio: Int, mes: Int): List<PresupuestoCategoriaEntity>
+    @Query(
+        """
+        SELECT * FROM presupuestos_categoria
+        WHERE user_id=:userId
+          AND (anio < :anio OR (anio = :anio AND mes <= :mes))
+        ORDER BY anio DESC, mes DESC
+        LIMIT 1
+        """
+    )
+    fun findLatestUpTo(userId: Int, anio: Int, mes: Int): PresupuestoCategoriaEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsert(entity: PresupuestoCategoriaEntity)
     @Query("DELETE FROM presupuestos_categoria WHERE user_id=:userId") fun deleteForUser(userId: Int): Int
 }

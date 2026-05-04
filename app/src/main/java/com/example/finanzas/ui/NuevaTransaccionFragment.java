@@ -1,12 +1,15 @@
 package com.example.finanzas.ui;
 
+import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -28,9 +31,9 @@ import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -54,14 +57,20 @@ public class NuevaTransaccionFragment extends Fragment {
     public static final String EXTRA_MONEDA     = "EXTRA_MONEDA";
     public static final String EXTRA_ACCOUNT_TYPE = "EXTRA_ACCOUNT_TYPE";
 
-    private TextInputEditText etMonto, etNota, etFecha, etHora;
-    private TextInputLayout tilMonto, tilFecha, tilHora, tilCategoria, tilMoneda, tilAccountType;
-    private MaterialSwitch swTipo;
-    private MaterialAutoCompleteTextView actCategoria, actMoneda, actAccountType;
+    private EditText etMonto;
+    private TextInputEditText etNota, etFecha, etHora;
+    private TextInputLayout tilFecha, tilHora, tilCategoria, tilMoneda;
+    private MaterialButtonToggleGroup toggleTipo, toggleAccountType;
+    private MaterialButton btnTipoGasto, btnTipoIngreso, btnAccountCard, btnAccountCash;
+    private MaterialAutoCompleteTextView actCategoria, actMoneda;
     private MaterialButton btnGuardar;
     private MaterialButton btnSugerir;
     private MaterialButton btnManageCategories;
+    private MaterialButton btnMoreOptions;
     private Chip chipSugerencia;
+    private View layoutMoreOptions;
+    private TextView tvMontoCurrency, tvMontoError;
+    private boolean moreOptionsExpanded = false;
 
     private Integer editingId = null;
     private List<Categoria> categorias;
@@ -69,8 +78,6 @@ public class NuevaTransaccionFragment extends Fragment {
     private ArrayAdapter<String> catAdapter;
     private CategorySuggestion currentSuggestion;
     private Integer pendingSuggestedCategoryId;
-    private final CompoundButton.OnCheckedChangeListener switchListener = (buttonView, isChecked) ->
-            aplicarFiltroYRefrescar(isChecked, false, null);
 
     @Nullable
     @Override
@@ -84,30 +91,40 @@ public class NuevaTransaccionFragment extends Fragment {
         super.onViewCreated(v, savedInstanceState);
 
         etMonto       = v.findViewById(R.id.etMonto);
-        tilMonto      = v.findViewById(R.id.tilMonto);
+        tvMontoCurrency = v.findViewById(R.id.tvMontoCurrency);
+        tvMontoError = v.findViewById(R.id.tvMontoError);
         tilFecha      = v.findViewById(R.id.tilFecha);
         tilHora       = v.findViewById(R.id.tilHora);
         tilCategoria  = v.findViewById(R.id.tilCategoria);
         tilMoneda     = v.findViewById(R.id.tilMoneda);
-        tilAccountType = v.findViewById(R.id.tilAccountType);
         etNota        = v.findViewById(R.id.etNota);
         etFecha       = v.findViewById(R.id.etFecha);
         etHora        = v.findViewById(R.id.etHora);
-        swTipo        = v.findViewById(R.id.swTipo);
+        toggleTipo    = v.findViewById(R.id.toggleTipo);
+        toggleAccountType = v.findViewById(R.id.toggleAccountType);
+        btnTipoGasto  = v.findViewById(R.id.btnTipoGasto);
+        btnTipoIngreso = v.findViewById(R.id.btnTipoIngreso);
+        btnAccountCard = v.findViewById(R.id.btnAccountCard);
+        btnAccountCash = v.findViewById(R.id.btnAccountCash);
         actCategoria  = v.findViewById(R.id.actCategoria);
         actMoneda     = v.findViewById(R.id.actMoneda);
-        actAccountType = v.findViewById(R.id.actAccountType);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
         btnSugerir    = v.findViewById(R.id.btnSugerir);
         btnManageCategories = v.findViewById(R.id.btnManageCategories);
+        btnMoreOptions = v.findViewById(R.id.btnMoreOptions);
         chipSugerencia = v.findViewById(R.id.chipSugerencia);
+        layoutMoreOptions = v.findViewById(R.id.layoutMoreOptions);
+
+        setupTransactionTypeSelector();
         setupCurrencySelector();
         setupAccountTypeSelector();
+        setMoreOptionsExpanded(false);
         updateCurrencyPrefix();
 
         if (etFecha != null) UiFormUtils.bindDatePicker(requireContext(), etFecha);
         if (etHora != null) UiFormUtils.bindTimePicker(requireContext(), etHora);
-        UiFormUtils.clearErrorOnTextChange(etMonto, etFecha, etHora, actCategoria, actAccountType);
+        bindMontoErrorCleaner();
+        UiFormUtils.clearErrorOnTextChange(etFecha, etHora, actCategoria);
 
         actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
         actCategoria.setOnClickListener(view -> actCategoria.showDropDown());
@@ -115,10 +132,9 @@ public class NuevaTransaccionFragment extends Fragment {
         catAdapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, new ArrayList<>());
         actCategoria.setAdapter(catAdapter);
 
-        swTipo.setOnCheckedChangeListener(switchListener);
-
         btnSugerir.setOnClickListener(v1 -> solicitarSugerencia());
         btnManageCategories.setOnClickListener(v14 -> showCategoryManagerDialog());
+        btnMoreOptions.setOnClickListener(v15 -> setMoreOptionsExpanded(!moreOptionsExpanded));
         chipSugerencia.setOnClickListener(v12 -> aplicarSugerenciaActual());
         chipSugerencia.setOnCloseIconClickListener(v13 -> {
             chipSugerencia.setVisibility(View.GONE);
@@ -145,9 +161,29 @@ public class NuevaTransaccionFragment extends Fragment {
     }
 
     private void updateCurrencyPrefix() {
-        if (tilMonto != null && getContext() != null) {
-            tilMonto.setPrefixText(SettingsService.getCurrencySymbol(resolveSelectedCurrency()) + " ");
+        if (tvMontoCurrency != null && getContext() != null) {
+            String symbol = SettingsService.getCurrencySymbol(resolveSelectedCurrency());
+            tvMontoCurrency.setText(TextUtils.isEmpty(symbol) ? "" : symbol.trim());
         }
+    }
+
+    private void bindMontoErrorCleaner() {
+        if (etMonto == null) return;
+        etMonto.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                setMontoError(null);
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
+    }
+
+    private void setMontoError(@Nullable String message) {
+        if (tvMontoError == null) return;
+        boolean hasError = !TextUtils.isEmpty(message);
+        tvMontoError.setText(hasError ? message : "");
+        tvMontoError.setVisibility(hasError ? View.VISIBLE : View.GONE);
+        if (!hasError && etMonto != null) etMonto.setError(null);
     }
 
     private void setupCurrencySelector() {
@@ -163,6 +199,32 @@ public class NuevaTransaccionFragment extends Fragment {
         actMoneda.setOnItemClickListener((parent, view, position, id) -> updateCurrencyPrefix());
     }
 
+    private void setupTransactionTypeSelector() {
+        if (toggleTipo == null) return;
+        toggleTipo.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+            updateTransactionTypeUi();
+            aplicarFiltroYRefrescar(isIncomeSelected(), false, null);
+        });
+        setSelectedTransactionType(false);
+    }
+
+    private boolean isIncomeSelected() {
+        return toggleTipo != null && toggleTipo.getCheckedButtonId() == R.id.btnTipoIngreso;
+    }
+
+    private void setSelectedTransactionType(boolean income) {
+        if (toggleTipo != null) {
+            toggleTipo.check(income ? R.id.btnTipoIngreso : R.id.btnTipoGasto);
+        }
+        updateTransactionTypeUi();
+    }
+
+    private void updateTransactionTypeUi() {
+        styleToggleButton(btnTipoGasto, !isIncomeSelected());
+        styleToggleButton(btnTipoIngreso, isIncomeSelected());
+    }
+
     private String resolveSelectedCurrency() {
         String raw = actMoneda == null || actMoneda.getText() == null
                 ? SettingsService.getCurrencyCode(requireContext())
@@ -171,26 +233,50 @@ public class NuevaTransaccionFragment extends Fragment {
     }
 
     private void setupAccountTypeSelector() {
-        ArrayAdapter<String> accountAdapter = new ArrayAdapter<>(
-                requireContext(),
-                R.layout.item_dropdown,
-                new String[]{getString(R.string.transaction_account_cash), getString(R.string.transaction_account_card)}
-        );
-        actAccountType.setAdapter(accountAdapter);
-        actAccountType.setText(getString(R.string.transaction_account_card), false);
-        actAccountType.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actAccountType.showDropDown(); });
-        actAccountType.setOnClickListener(view -> actAccountType.showDropDown());
+        if (toggleAccountType == null) return;
+        toggleAccountType.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (isChecked) updateAccountTypeUi();
+        });
+        setSelectedAccountType("CARD");
     }
 
     private String resolveSelectedAccountType() {
-        String selected = actAccountType == null || actAccountType.getText() == null ? "" : actAccountType.getText().toString();
-        return getString(R.string.transaction_account_cash).equalsIgnoreCase(selected.trim()) ? "CASH" : "CARD";
+        return toggleAccountType != null && toggleAccountType.getCheckedButtonId() == R.id.btnAccountCash
+                ? "CASH" : "CARD";
     }
 
     private void setSelectedAccountType(@Nullable String accountType) {
-        boolean cash = "CASH".equalsIgnoreCase(accountType);
-        if (actAccountType != null) {
-            actAccountType.setText(getString(cash ? R.string.transaction_account_cash : R.string.transaction_account_card), false);
+        if (toggleAccountType != null) {
+            toggleAccountType.check("CASH".equalsIgnoreCase(accountType) ? R.id.btnAccountCash : R.id.btnAccountCard);
+        }
+        updateAccountTypeUi();
+    }
+
+    private void updateAccountTypeUi() {
+        boolean cash = "CASH".equals(resolveSelectedAccountType());
+        styleToggleButton(btnAccountCard, !cash);
+        styleToggleButton(btnAccountCash, cash);
+    }
+
+    private void styleToggleButton(@Nullable MaterialButton button, boolean checked) {
+        if (button == null || getContext() == null) return;
+        int background = ContextCompat.getColor(requireContext(), checked ? R.color.md_theme_primary : R.color.md_theme_surface);
+        int foreground = ContextCompat.getColor(requireContext(), checked ? R.color.md_theme_onPrimary : R.color.md_theme_onSurface);
+        int stroke = ContextCompat.getColor(requireContext(), checked ? R.color.md_theme_primary : R.color.md_theme_outline);
+        ColorStateList foregroundList = ColorStateList.valueOf(foreground);
+        button.setBackgroundTintList(ColorStateList.valueOf(background));
+        button.setTextColor(foreground);
+        button.setIconTint(foregroundList);
+        button.setStrokeColor(ColorStateList.valueOf(stroke));
+    }
+
+    private void setMoreOptionsExpanded(boolean expanded) {
+        moreOptionsExpanded = expanded;
+        if (layoutMoreOptions != null) {
+            layoutMoreOptions.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        }
+        if (btnMoreOptions != null) {
+            btnMoreOptions.setText(expanded ? R.string.transaction_less_options : R.string.transaction_more_options);
         }
     }
 
@@ -199,7 +285,7 @@ public class NuevaTransaccionFragment extends Fragment {
             @Override
             public void onReady(List<? extends Categoria> cats) {
                 categorias = new ArrayList<>(cats);
-                boolean esIngreso = swTipo.isChecked();
+                boolean esIngreso = isIncomeSelected();
                 String catDeseada = getArguments() != null ? getArguments().getString(EXTRA_CAT_NOMBRE) : null;
                 aplicarFiltroYRefrescar(esIngreso, true, catDeseada);
                 tryApplyPendingSuggestion();
@@ -241,7 +327,7 @@ public class NuevaTransaccionFragment extends Fragment {
 
     private void solicitarSugerencia() {
         final double montoActual = parseMontoActual();
-        final boolean esIngreso = swTipo.isChecked();
+        final boolean esIngreso = isIncomeSelected();
         final String nota = etNota.getText() == null ? "" : etNota.getText().toString().trim();
 
         btnSugerir.setEnabled(false);
@@ -286,11 +372,7 @@ public class NuevaTransaccionFragment extends Fragment {
             }
         }
         if (sugerida == null) return;
-        if (swTipo.isChecked() != sugerida.esIngreso) {
-            swTipo.setOnCheckedChangeListener(null);
-            swTipo.setChecked(sugerida.esIngreso);
-            swTipo.setOnCheckedChangeListener(switchListener);
-        }
+        if (isIncomeSelected() != sugerida.esIngreso) setSelectedTransactionType(sugerida.esIngreso);
         aplicarFiltroYRefrescar(sugerida.esIngreso, true, sugerida.nombre);
         actCategoria.setText(sugerida.nombre, false);
         pendingSuggestedCategoryId = null;
@@ -425,7 +507,7 @@ public class NuevaTransaccionFragment extends Fragment {
             if (nota != null) etNota.setText(nota);
 
             boolean esIngreso = args.getBoolean(EXTRA_ES_INGRESO, false);
-            swTipo.setChecked(esIngreso);
+            setSelectedTransactionType(esIngreso);
 
             long fechaMs = args.getLong(EXTRA_FECHA, -1L);
             if (fechaMs > 0) {
@@ -450,7 +532,7 @@ public class NuevaTransaccionFragment extends Fragment {
     }
 
     private void showCategoryManagerDialog() {
-        final boolean incomeFlow = swTipo.isChecked();
+        final boolean incomeFlow = isIncomeSelected();
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(12), dp(20), dp(8));
@@ -665,11 +747,11 @@ public class NuevaTransaccionFragment extends Fragment {
     private void onGuardar(View view) {
         String sMonto = etMonto.getText() == null ? "" : etMonto.getText().toString().trim();
         if (sMonto.isEmpty()) {
-            tilMonto.setError(getString(R.string.error_ingresa_monto));
+            setMontoError(getString(R.string.error_ingresa_monto));
             return;
         }
 
-        tilMonto.setError(null);
+        setMontoError(null);
         String sFecha = etFecha != null && etFecha.getText() != null
                 ? etFecha.getText().toString().trim() : "";
         Date fechaSeleccionada = parseFechaSegura(sFecha);
@@ -709,12 +791,12 @@ public class NuevaTransaccionFragment extends Fragment {
         tilMoneda.setError(null);
         final double montoLocal = Math.abs(parseMontoSeguro(sMonto));
         if (montoLocal <= 0) {
-            tilMonto.setError(getString(R.string.error_monto_invalido));
+            setMontoError(getString(R.string.error_monto_invalido));
             return;
         }
 
-        tilMonto.setError(null);
-        final boolean esIngresoLocal = swTipo.isChecked();
+        setMontoError(null);
+        final boolean esIngresoLocal = isIncomeSelected();
         final String accountTypeLocal = resolveSelectedAccountType();
         final String notaLocal = etNota.getText() == null ? "" : etNota.getText().toString().trim();
         final Categoria catSel = seleccionada;
