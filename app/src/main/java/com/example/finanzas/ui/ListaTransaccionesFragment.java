@@ -1,7 +1,7 @@
 package com.example.finanzas.ui;
 
 import android.os.Bundle;
-import android.graphics.drawable.ColorDrawable;
+import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -30,6 +30,7 @@ import com.example.finanzas.data.model.TransaccionFiltro;
 import com.example.finanzas.ui.adapter.TransaccionAdapter;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
+import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.TransactionLabelStore;
@@ -140,7 +141,7 @@ public class ListaTransaccionesFragment extends Fragment {
                 return true;
             }
 
-            new android.app.AlertDialog.Builder(requireContext())
+            new MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.btn_eliminar)
                     .setMessage(R.string.pres_confirm_delete)
                     .setPositiveButton(R.string.btn_eliminar, (d, w) -> eliminarRemotoYRefrescar(t.getId()))
@@ -262,6 +263,7 @@ public class ListaTransaccionesFragment extends Fragment {
         all.setText(R.string.transactions_labels_all);
         all.setCheckable(true);
         all.setChecked(selectedLabelId == null);
+        styleNeutralLabelChip(all, selectedLabelId == null);
         all.setOnClickListener(v -> {
             selectedLabelId = null;
             renderLabelChips();
@@ -274,10 +276,8 @@ public class ListaTransaccionesFragment extends Fragment {
             Chip chip = new Chip(requireContext());
             chip.setText(label.name);
             chip.setCheckable(true);
-            chip.setChipIcon(new ColorDrawable(label.colorInt()));
-            chip.setChipIconSize(dp(10));
-            chip.setChipIconTint(null);
             chip.setChecked(label.id.equals(selectedLabelId));
+            styleColoredLabelChip(chip, label);
             if (label.id.equals(selectedLabelId)) selectedStillExists = true;
             chip.setOnClickListener(v -> {
                 selectedLabelId = label.id;
@@ -290,6 +290,46 @@ public class ListaTransaccionesFragment extends Fragment {
             selectedLabelId = null;
             renderLabelChips();
         }
+    }
+
+    private void styleNeutralLabelChip(@NonNull Chip chip, boolean selected) {
+        int background = ContextCompat.getColor(requireContext(),
+                selected ? R.color.md_theme_primaryContainer : R.color.md_theme_surface);
+        int text = ContextCompat.getColor(requireContext(),
+                selected ? R.color.md_theme_onPrimaryContainer : R.color.md_theme_onSurface);
+        int stroke = ContextCompat.getColor(requireContext(),
+                selected ? R.color.md_theme_primary : R.color.md_theme_outline);
+        chip.setChipIconVisible(false);
+        chip.setCheckedIconVisible(false);
+        chip.setEnsureMinTouchTargetSize(false);
+        chip.setMinHeight(dp(38));
+        chip.setChipBackgroundColor(ColorStateList.valueOf(background));
+        chip.setTextColor(text);
+        chip.setChipStrokeColor(ColorStateList.valueOf(stroke));
+        chip.setChipStrokeWidth(dp(1));
+    }
+
+    private void styleColoredLabelChip(@NonNull Chip chip, @NonNull TransactionLabelStore.Label label) {
+        boolean selected = label.id.equals(selectedLabelId);
+        int labelColor = label.colorInt();
+        int background = LabelColorUtils.chipBackground(requireContext(), labelColor, selected);
+        int accent = LabelColorUtils.accentOnSurface(requireContext(), labelColor);
+        GradientDrawable marker = new GradientDrawable();
+        marker.setColor(accent);
+        marker.setCornerRadius(dp(2));
+        marker.setSize(dp(12), dp(4));
+
+        chip.setChipIcon(marker);
+        chip.setChipIconVisible(true);
+        chip.setChipIconSize(dp(12));
+        chip.setChipIconTint(null);
+        chip.setCheckedIconVisible(false);
+        chip.setEnsureMinTouchTargetSize(false);
+        chip.setMinHeight(dp(38));
+        chip.setChipBackgroundColor(ColorStateList.valueOf(background));
+        chip.setTextColor(LabelColorUtils.textOnTint(requireContext(), labelColor, background));
+        chip.setChipStrokeColor(ColorStateList.valueOf(LabelColorUtils.cardStroke(requireContext(), labelColor)));
+        chip.setChipStrokeWidth(dp(1));
     }
 
     private void renderTransactionList() {

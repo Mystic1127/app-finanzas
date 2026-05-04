@@ -1,6 +1,5 @@
 package com.example.finanzas.ui;
 
-import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -13,6 +12,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -26,6 +26,7 @@ import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.example.finanzas.util.ReminderScheduler;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
@@ -147,7 +148,7 @@ public class RemindersFragment extends Fragment {
         UiFormUtils.bindTimePicker(requireContext(), etHora);
         UiFormUtils.clearErrorOnTextChange(etTitulo, etMonto, etFecha, etHora, etDias);
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(editando ? R.string.reminder_dialog_title_edit : R.string.reminder_dialog_title_new)
                 .setView(form)
                 .setPositiveButton(R.string.reminder_btn_save, null)
@@ -250,7 +251,7 @@ public class RemindersFragment extends Fragment {
     }
 
     private void confirmarEliminar(PaymentReminder reminder) {
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setMessage(R.string.reminder_confirm_delete)
                 .setPositiveButton(R.string.btn_eliminar, (d, w) -> {
                     ReminderScheduler.cancel(requireContext(), reminder);

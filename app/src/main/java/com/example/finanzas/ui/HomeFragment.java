@@ -402,7 +402,7 @@ public class HomeFragment extends Fragment {
         PieDataSet dataSet = new PieDataSet(entries, "");
         dataSet.setColors(chartColors());
         dataSet.setSliceSpace(2f);
-        dataSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        dataSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         dataSet.setValueTextSize(10.5f);
 
         PieData data = new PieData(dataSet);
@@ -1242,14 +1242,16 @@ public class HomeFragment extends Fragment {
     }
 
     private void applyPieChartTheme() {
-        int background = ContextCompat.getColor(requireContext(), R.color.md_theme_background);
+        int surface = ContextCompat.getColor(requireContext(), R.color.md_theme_surface);
         int text = ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant);
         chartCategorias.setBackgroundColor(Color.TRANSPARENT);
-        chartCategorias.setHoleColor(background);
-        chartCategorias.setTransparentCircleColor(background);
+        chartCategorias.setHoleColor(surface);
+        chartCategorias.setTransparentCircleColor(surface);
         chartCategorias.setTransparentCircleAlpha(0);
         chartCategorias.setEntryLabelColor(text);
         chartCategorias.setNoDataTextColor(text);
+        chartCategorias.setDrawRoundedSlices(true);
+        chartCategorias.setExtraOffsets(0f, 4f, 0f, 6f);
         Legend legend = chartCategorias.getLegend();
         legend.setTextColor(text);
         legend.setTextSize(12f);
@@ -1263,6 +1265,7 @@ public class HomeFragment extends Fragment {
         int outline = ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant);
         chartTrend.setBackgroundColor(Color.TRANSPARENT);
         chartTrend.setDrawGridBackground(false);
+        chartTrend.setDrawBorders(false);
         chartTrend.setNoDataTextColor(text);
         chartTrend.setBorderColor(outline);
         Legend legend = chartTrend.getLegend();

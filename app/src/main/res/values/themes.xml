@@ -26,6 +26,13 @@
 
         <item name="colorSurfaceVariant">@color/md_theme_surfaceVariant</item>
         <item name="colorOnSurfaceVariant">@color/md_theme_onSurfaceVariant</item>
+        <item name="colorSurfaceDim">@color/md_theme_surfaceDim</item>
+        <item name="colorSurfaceBright">@color/md_theme_surfaceBright</item>
+        <item name="colorSurfaceContainerLowest">@color/md_theme_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/md_theme_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/md_theme_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/md_theme_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/md_theme_surfaceContainerHighest</item>
 
         <!-- Fondo global -->
         <item name="android:colorBackground">@color/md_theme_background</item>
@@ -156,7 +163,8 @@
         <item name="strokeColor">@color/md_theme_outlineVariant</item>
         <item name="strokeWidth">1dp</item>
         <item name="cardCornerRadius">20dp</item>
-        <item name="cardElevation">3dp</item>
+        <item name="cardElevation">1dp</item>
+        <item name="cardUseCompatPadding">false</item>
     </style>
 
     <style name="Widget.Finanzas.Card.HomeMetric" parent="Widget.Material3.CardView.Filled">
@@ -164,12 +172,15 @@
         <item name="strokeColor">@color/md_theme_outlineVariant</item>
         <item name="strokeWidth">1dp</item>
         <item name="cardCornerRadius">8dp</item>
-        <item name="cardElevation">1dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="cardUseCompatPadding">false</item>
     </style>
 
     <style name="ThemeOverlay.Finanzas.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurface">@color/dialog_surface</item>
         <item name="colorOnSurface">@color/md_theme_onSurface</item>
+        <item name="colorSurfaceContainerHigh">@color/dialog_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/dialog_surface</item>
         <item name="android:colorBackground">@color/dialog_surface</item>
         <item name="backgroundTint">@color/dialog_surface</item>
         <item name="shapeAppearanceOverlay">@style/Shape.Rounded.Large</item>
@@ -181,13 +192,15 @@
 
     <style name="ThemeOverlay.Finanzas.BottomSheetDialog" parent="ThemeOverlay.Material3.BottomSheetDialog">
         <item name="colorSurface">@color/dialog_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/dialog_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/dialog_surface</item>
         <item name="android:colorBackground">@color/dialog_surface</item>
         <item name="bottomSheetStyle">@style/Widget.Finanzas.BottomSheet</item>
     </style>
 
     <style name="Widget.Finanzas.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
         <item name="backgroundTint">@color/dialog_surface</item>
-        <item name="shapeAppearanceOverlay">@style/Shape.Rounded.Large</item>
+        <item name="shapeAppearanceOverlay">@style/Shape.BottomSheet</item>
     </style>
 
     <style name="Widget.Finanzas.MaterialAlertDialog.Title.Panel" parent="MaterialAlertDialog.Material3.Title.Panel">
@@ -237,6 +250,14 @@
     <style name="Shape.Rounded.Large" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">28dp</item>
+    </style>
+
+    <style name="Shape.BottomSheet" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">28dp</item>
+        <item name="cornerSizeTopRight">28dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
     </style>
 
     <style name="ThemeOverlay.Finanzas.ElevatedCard" parent="">

@@ -1,7 +1,6 @@
 package com.example.finanzas.ui.adapter;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,6 +16,7 @@ import androidx.core.content.ContextCompat;
 import com.example.finanzas.R;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.util.Format;
+import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.TransactionLabelStore;
 
 import java.text.SimpleDateFormat;
@@ -49,59 +49,101 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         if (t == null) return v;
 
         TextView tvTitulo = v.findViewById(R.id.tvTitulo);
-        TextView tvSub    = v.findViewById(R.id.tvSub);
-        TextView tvMonto  = v.findViewById(R.id.tvMonto);
-        TextView tvLabel  = v.findViewById(R.id.tvTransactionLabel);
-        View labelColor   = v.findViewById(R.id.viewTransactionLabelColor);
-        ImageView ivTipo  = v.findViewById(R.id.ivTipo);
+        TextView tvSub = v.findViewById(R.id.tvSub);
+        TextView tvMonto = v.findViewById(R.id.tvMonto);
+        TextView tvLabel = v.findViewById(R.id.tvTransactionLabel);
+        View labelColor = v.findViewById(R.id.viewTransactionLabelColor);
+        ImageView ivTipo = v.findViewById(R.id.ivTipo);
 
-        String cat  = t.getCategoriaNombre() == null ? "—" : t.getCategoriaNombre();
-        String nota = (t.getNota() == null || t.getNota().isEmpty()) ? "" : " · " + t.getNota();
+        String cat = t.getCategoriaNombre() == null ? "-" : t.getCategoriaNombre();
+        String nota = (t.getNota() == null || t.getNota().isEmpty()) ? "" : " - " + t.getNota();
         tvTitulo.setText(cat + nota);
-
 
         String account = t.isCash()
                 ? getContext().getString(R.string.transaction_account_cash)
                 : getContext().getString(R.string.transaction_account_card);
-        tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " · " + account);
+        tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account);
 
         double mostrado = t.isEsIngreso() ? t.getMonto() : -t.getMonto();
         tvMonto.setText(Format.money(mostrado, t.getMoneda()));
 
-        int color = ContextCompat.getColor(getContext(), t.isEsIngreso() ? R.color.income : R.color.expense);
-        tvMonto.setTextColor(color);
-
-        if (ivTipo != null) {
-            ivTipo.setImageResource(R.drawable.ic_wallet_24);
-            ivTipo.setColorFilter(color);
-        }
+        int typeColor = ContextCompat.getColor(getContext(), t.isEsIngreso() ? R.color.income : R.color.expense);
+        tvMonto.setTextColor(typeColor);
+        tvTitulo.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurface));
+        tvSub.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurfaceVariant));
 
         TransactionLabelStore.Label label = labels.get(t.getId());
+        applyRowBackground(v, label);
+
         if (label != null) {
             int labelInt = label.colorInt();
+            int accent = LabelColorUtils.accentOnSurface(getContext(), labelInt);
             if (labelColor != null) {
                 GradientDrawable bar = new GradientDrawable();
-                bar.setColor(labelInt);
+                bar.setColor(accent);
                 bar.setCornerRadius(dp(3));
                 labelColor.setBackground(bar);
                 labelColor.setVisibility(View.VISIBLE);
             }
+            if (ivTipo != null) {
+                ivTipo.setImageResource(R.drawable.ic_wallet_24);
+                ivTipo.setColorFilter(accent);
+                GradientDrawable iconBg = new GradientDrawable();
+                iconBg.setShape(GradientDrawable.OVAL);
+                iconBg.setColor(LabelColorUtils.iconBackground(getContext(), labelInt));
+                ivTipo.setBackground(iconBg);
+                ivTipo.setPadding(dp(5), dp(5), dp(5), dp(5));
+            }
             if (tvLabel != null) {
+                int chipBackground = LabelColorUtils.chipBackground(getContext(), labelInt, false);
                 tvLabel.setText(label.name);
-                tvLabel.setTextColor(labelReadableText(labelInt));
+                tvLabel.setTextColor(LabelColorUtils.textOnTint(getContext(), labelInt, chipBackground));
+
                 GradientDrawable chip = new GradientDrawable();
-                chip.setColor(withAlpha(labelInt, 44));
-                chip.setStroke(1, withAlpha(labelInt, 120));
+                chip.setColor(chipBackground);
+                chip.setStroke(dp(1), LabelColorUtils.cardStroke(getContext(), labelInt));
                 chip.setCornerRadius(dp(10));
                 tvLabel.setBackground(chip);
+
+                GradientDrawable marker = new GradientDrawable();
+                marker.setColor(accent);
+                marker.setCornerRadius(dp(2));
+                marker.setSize(dp(12), dp(3));
+                marker.setBounds(0, 0, dp(12), dp(3));
+                tvLabel.setCompoundDrawables(marker, null, null, null);
+                tvLabel.setCompoundDrawablePadding(dp(6));
                 tvLabel.setVisibility(View.VISIBLE);
             }
         } else {
             if (labelColor != null) labelColor.setVisibility(View.GONE);
-            if (tvLabel != null) tvLabel.setVisibility(View.GONE);
+            if (ivTipo != null) {
+                ivTipo.setImageResource(R.drawable.ic_wallet_24);
+                ivTipo.setColorFilter(typeColor);
+                ivTipo.setBackground(null);
+                ivTipo.setPadding(dp(5), dp(5), dp(5), dp(5));
+            }
+            if (tvLabel != null) {
+                tvLabel.setVisibility(View.GONE);
+                tvLabel.setBackground(null);
+                tvLabel.setCompoundDrawables(null, null, null, null);
+            }
         }
 
         return v;
+    }
+
+    private void applyRowBackground(@NonNull View row, @Nullable TransactionLabelStore.Label label) {
+        GradientDrawable background = new GradientDrawable();
+        background.setCornerRadius(dp(18));
+        if (label == null) {
+            background.setColor(ContextCompat.getColor(getContext(), R.color.md_theme_surface));
+            background.setStroke(dp(1), ContextCompat.getColor(getContext(), R.color.md_theme_outlineVariant));
+        } else {
+            int labelColor = label.colorInt();
+            background.setColor(LabelColorUtils.cardBackground(getContext(), labelColor));
+            background.setStroke(dp(1), LabelColorUtils.cardStroke(getContext(), labelColor));
+        }
+        row.setBackground(background);
     }
 
     private String formatTime(@NonNull Transaccion tx) {
@@ -111,14 +153,5 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
 
     private int dp(int value) {
         return Math.round(value * getContext().getResources().getDisplayMetrics().density);
-    }
-
-    private int withAlpha(int color, int alpha) {
-        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
-    }
-
-    private int labelReadableText(int color) {
-        double luminance = (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255.0;
-        return luminance > 0.55 ? Color.rgb(22, 33, 27) : Color.rgb(245, 250, 247);
     }
 }

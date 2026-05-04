@@ -1,6 +1,5 @@
 package com.example.finanzas.ui;
 
-import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -15,6 +14,7 @@ import android.view.ViewParent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -28,6 +28,7 @@ import com.example.finanzas.ui.viewmodel.GoalsViewModel;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
@@ -111,7 +112,7 @@ public class GoalsFragment extends Fragment {
             }
         }
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(editando ? R.string.goal_dialog_title_edit : R.string.goal_dialog_title_new)
                 .setView(form)
                 .setPositiveButton(R.string.goal_btn_save, null)
@@ -187,7 +188,7 @@ public class GoalsFragment extends Fragment {
     }
 
     private void confirmarEliminar(SavingsGoal goal) {
-        new AlertDialog.Builder(requireContext())
+        new MaterialAlertDialogBuilder(requireContext())
                 .setMessage(R.string.goal_confirm_delete)
                 .setPositiveButton(R.string.btn_eliminar, (d, w) -> viewModel.deleteGoal(goal.getId()))
                 .setNegativeButton(android.R.string.cancel, null)
@@ -224,7 +225,7 @@ public class GoalsFragment extends Fragment {
         setupDatePicker(etFecha);
         UiFormUtils.clearErrorOnTextChange(etTitulo, etMonto, etFecha, etDias);
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(editando ? R.string.goal_milestone_edit : R.string.goal_milestone_new)
                 .setView(form)
                 .setPositiveButton(R.string.goal_btn_save, null)
@@ -314,7 +315,7 @@ public class GoalsFragment extends Fragment {
                 mostrarDialogoHito(goal, milestone);
                 return true;
             } else if (itemId == R.id.action_delete) {
-                new AlertDialog.Builder(requireContext())
+                new MaterialAlertDialogBuilder(requireContext())
                         .setMessage(R.string.goal_milestone_delete_confirm)
                         .setPositiveButton(R.string.btn_eliminar, (d, w) -> viewModel.deleteMilestone(milestone.getId()))
                         .setNegativeButton(android.R.string.cancel, null)
