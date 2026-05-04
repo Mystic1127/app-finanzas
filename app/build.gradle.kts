@@ -15,8 +15,8 @@ android {
         applicationId = "com.example.finanzas"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.9.3"
+        versionCode = 5
+        versionName = "0.9.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -75,9 +75,6 @@ dependencies {
 
     // HTTP client (loopj)
     implementation("com.loopj.android:android-async-http:1.4.11")
-
-    // Charts
-    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

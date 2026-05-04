@@ -68,6 +68,7 @@
     <string name="home_empty_title">Aún no tienes datos</string>
     <string name="home_empty_message">Registra ingresos y gastos para activar el dashboard.</string>
     <string name="home_expense_category_title">Gastos por categoría</string>
+    <string name="home_chart_category_row_value">%1$d%% · %2$s</string>
     <string name="home_empty_category_chart">Aún no hay gastos por categoría este mes.</string>
     <string name="home_category_chart_center">Gastos</string>
     <string name="home_alerts_empty">Sin alertas por ahora.</string>
@@ -522,7 +523,7 @@
     <string name="account_switch_success">Cuenta cambiada</string>
     <string name="initial_currency_title">&#191;Que moneda quieres usar?</string>
     <string name="initial_currency_default">Usar PEN</string>
-    <string name="welcome_beta_version">Beta v0.9.3</string>
+    <string name="welcome_beta_version">Beta v0.9.4</string>
     <string name="tester_thanks_badge">S</string>
     <string name="tester_thanks_title">Gracias por probar Spendly</string>
     <string name="tester_thanks_message">Esta es una versi&#243;n beta creada para seguir mejorando la app con ayuda de ustedes.&#10;&#10;Gracias por tomarse el tiempo de probarla, registrar movimientos y avisarme si algo falla o se puede mejorar.&#10;&#10;Espero que les sirva para organizar mejor su dinero mientras sigo puli&#233;ndola.&#10;&#10;Muchas gracias.&#10;&#10;Alejandro C.</string>

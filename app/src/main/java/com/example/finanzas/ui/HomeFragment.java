@@ -6,6 +6,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -20,6 +21,7 @@ import android.widget.ScrollView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.view.MenuHost;
 import androidx.core.view.MenuProvider;
 import androidx.fragment.app.Fragment;
@@ -39,26 +41,14 @@ import com.example.finanzas.data.model.MonthlyTrendPoint;
 import com.example.finanzas.data.model.PaymentReminder;
 import com.example.finanzas.data.model.SavingsGoal;
 import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
+import com.example.finanzas.ui.view.CategorySpendingChartView;
+import com.example.finanzas.ui.view.TrendOverviewView;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.FinancialAlertNotifier;
-import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.UiFormUtils;
-import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.charts.PieChart;
-import com.github.mikephil.charting.components.Legend;
-import com.github.mikephil.charting.components.XAxis;
-import com.github.mikephil.charting.components.YAxis;
-import com.github.mikephil.charting.data.Entry;
-import com.github.mikephil.charting.data.LineData;
-import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.data.PieData;
-import com.github.mikephil.charting.data.PieDataSet;
-import com.github.mikephil.charting.data.PieEntry;
-import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
-import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.button.MaterialButton;
@@ -66,6 +56,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -131,8 +122,10 @@ public class HomeFragment extends Fragment {
     private MaterialButton btnFinancialDetail;
     private MaterialButton btnSmartSavingDetail;
     private ChipGroup chipRecommendations;
-    private PieChart chartCategorias;
-    private LineChart chartTrend;
+    private CategorySpendingChartView chartCategorias;
+    private TrendOverviewView chartTrend;
+    private LinearLayout categoryBreakdownList;
+    private LinearLayout trendSummaryList;
     private LinearLayout chipAlerts;
     private ChipGroup chipInsights;
     private HomeViewModel viewModel;
@@ -203,6 +196,8 @@ public class HomeFragment extends Fragment {
         chipRecommendations = v.findViewById(R.id.chipRecommendations);
         chartCategorias = v.findViewById(R.id.chartHomeCategorias);
         chartTrend = v.findViewById(R.id.chartHomeTrend);
+        categoryBreakdownList = v.findViewById(R.id.listHomeCategoryBreakdown);
+        trendSummaryList = v.findViewById(R.id.listHomeTrendSummary);
         chipAlerts = v.findViewById(R.id.chipHomeAlerts);
         chipInsights = v.findViewById(R.id.chipHomeInsights);
 
@@ -211,7 +206,6 @@ public class HomeFragment extends Fragment {
         currencyCode = SettingsService.getCurrencyCode(requireContext());
 
         setupMenu();
-        setupCharts();
         setupNavigation(v);
         btnFinancialDetail.setOnClickListener(view -> showFinancialDetail());
         btnSmartSavingDetail.setOnClickListener(view -> showSmartSavingDetail());
@@ -378,137 +372,221 @@ public class HomeFragment extends Fragment {
     }
 
     private void renderCategoryChart(@Nullable List<CategoryChartSlice> slices) {
-        applyPieChartTheme();
         List<CategoryChartSlice> safe = slices == null ? new ArrayList<>() : slices;
-        boolean empty = safe.isEmpty();
-        tvCategoryEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
-        chartCategorias.setVisibility(empty ? View.GONE : View.VISIBLE);
-        if (empty) {
-            chartCategorias.clear();
-            return;
-        }
-
-        ArrayList<PieEntry> entries = new ArrayList<>();
+        ArrayList<CategorySpendingChartView.Slice> entries = new ArrayList<>();
+        ArrayList<Integer> colors = chartColors();
+        double total = 0.0;
+        int colorIndex = 0;
         for (CategoryChartSlice slice : safe) {
             if (slice == null || slice.getGastado() <= 0) continue;
-            entries.add(new PieEntry((float) slice.getGastado(), safeLabel(slice.getCategoriaNombre())));
+            int color = colors.get(colorIndex % colors.size());
+            entries.add(new CategorySpendingChartView.Slice(
+                    safeLabel(slice.getCategoriaNombre()),
+                    (float) slice.getGastado(),
+                    color
+            ));
+            total += slice.getGastado();
+            colorIndex++;
+        }
+
+        boolean empty = entries.isEmpty();
+        tvCategoryEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+        chartCategorias.setVisibility(empty ? View.GONE : View.VISIBLE);
+        if (categoryBreakdownList != null) {
+            categoryBreakdownList.removeAllViews();
+            categoryBreakdownList.setVisibility(empty ? View.GONE : View.VISIBLE);
         }
         if (entries.isEmpty()) {
-            tvCategoryEmpty.setVisibility(View.VISIBLE);
-            chartCategorias.setVisibility(View.GONE);
-            chartCategorias.clear();
+            chartCategorias.setData(new ArrayList<>(), getString(R.string.home_category_chart_center), "");
             return;
         }
 
-        float totalValue = 0f;
-        for (PieEntry entry : entries) totalValue += entry.getValue();
-        final float total = totalValue;
-
-        PieDataSet dataSet = new PieDataSet(entries, "");
-        dataSet.setColors(chartColors());
-        dataSet.setSliceSpace(3f);
-        dataSet.setSelectionShift(6f);
-        dataSet.setYValuePosition(PieDataSet.ValuePosition.OUTSIDE_SLICE);
-        dataSet.setValueLinePart1OffsetPercentage(82f);
-        dataSet.setValueLinePart1Length(0.28f);
-        dataSet.setValueLinePart2Length(0.18f);
-        dataSet.setValueLineVariableLength(true);
-        dataSet.setValueLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outline));
-        dataSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        dataSet.setValueTextSize(10f);
-
-        PieData data = new PieData(dataSet);
-        data.setValueFormatter(new ValueFormatter() {
-            @Override
-            public String getPieLabel(float value, PieEntry pieEntry) {
-                if (total <= 0f || value / total < 0.085f) return "";
-                return Format.money(value, currencyCode);
+        chartCategorias.setData(
+                entries,
+                getString(R.string.home_category_chart_center),
+                Format.money(total, currencyCode)
+        );
+        if (categoryBreakdownList != null) {
+            for (CategorySpendingChartView.Slice entry : entries) {
+                addCategoryBreakdownRow(categoryBreakdownList, entry, entry.value / (float) total);
             }
-        });
-        chartCategorias.setData(data);
-        chartCategorias.setUsePercentValues(false);
-        chartCategorias.setDrawEntryLabels(false);
-        chartCategorias.setHoleRadius(62f);
-        chartCategorias.setTransparentCircleRadius(66f);
-        chartCategorias.setCenterText(getString(R.string.home_category_chart_center));
-        chartCategorias.setCenterTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        chartCategorias.setCenterTextSize(14f);
-        chartCategorias.invalidate();
+        }
     }
 
     private void renderTrendChart(@Nullable List<MonthlyTrendPoint> points) {
-        applyTrendChartTheme();
         List<MonthlyTrendPoint> safe = points == null ? new ArrayList<>() : points;
         boolean empty = safe.isEmpty() || !hasTrendValues(safe);
         tvTrendEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
         chartTrend.setVisibility(empty ? View.GONE : View.VISIBLE);
+        if (trendSummaryList != null) {
+            trendSummaryList.removeAllViews();
+            trendSummaryList.setVisibility(empty ? View.GONE : View.VISIBLE);
+        }
         if (empty) {
-            chartTrend.clear();
+            chartTrend.setData(new ArrayList<>(), currencyCode);
             return;
         }
 
-        ArrayList<Entry> ingresos = new ArrayList<>();
-        ArrayList<Entry> gastos = new ArrayList<>();
-        ArrayList<Entry> balance = new ArrayList<>();
-        ArrayList<String> labels = new ArrayList<>();
-        float min = 0f;
-
-        for (int i = 0; i < safe.size(); i++) {
-            MonthlyTrendPoint point = safe.get(i);
+        ArrayList<TrendOverviewView.TrendPoint> chartPoints = new ArrayList<>();
+        MonthlyTrendPoint latest = null;
+        for (MonthlyTrendPoint point : safe) {
             if (point == null) continue;
-            ingresos.add(new Entry(i, (float) point.getIngresos()));
-            gastos.add(new Entry(i, (float) point.getGastos()));
-            balance.add(new Entry(i, (float) point.getSaldo()));
-            labels.add(point.getEtiqueta() == null ? "" : point.getEtiqueta());
-            min = Math.min(min, (float) point.getSaldo());
+            chartPoints.add(new TrendOverviewView.TrendPoint(
+                    point.getEtiqueta() == null ? "" : point.getEtiqueta(),
+                    (float) point.getIngresos(),
+                    (float) point.getGastos(),
+                    (float) point.getSaldo()
+            ));
+            latest = point;
         }
 
-        LineData data = new LineData(
-                lineSet(ingresos, getString(R.string.home_ingresos), R.color.chart_line_income),
-                lineSet(gastos, getString(R.string.home_gastos), R.color.chart_line_expense),
-                lineSet(balance, getString(R.string.home_balance), R.color.chart_line_balance)
-        );
-        data.setDrawValues(false);
-        chartTrend.setData(data);
-
-        XAxis xAxis = chartTrend.getXAxis();
-        xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
-        xAxis.setGranularity(1f);
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setDrawGridLines(false);
-        xAxis.setDrawAxisLine(false);
-        xAxis.setAvoidFirstLastClipping(true);
-        xAxis.setYOffset(8f);
-        xAxis.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        xAxis.setAxisLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
-
-        YAxis left = chartTrend.getAxisLeft();
-        left.setAxisMinimum(min < 0f ? min * 1.1f : 0f);
-        left.setSpaceTop(14f);
-        left.setDrawAxisLine(false);
-        left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        left.setGridColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
-        left.setGridLineWidth(0.7f);
-        left.setAxisLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
-        left.setValueFormatter(new ValueFormatter() {
-            @Override
-            public String getFormattedValue(float value) {
-                return shortMoney(value);
-            }
-        });
-        chartTrend.getAxisRight().setEnabled(false);
-        chartTrend.setVisibleXRangeMaximum(Math.max(5f, labels.size() - 1f));
-        chartTrend.invalidate();
+        chartTrend.setData(chartPoints, currencyCode);
+        if (trendSummaryList != null && latest != null) {
+            addTrendSummaryRow(
+                    trendSummaryList,
+                    getString(R.string.home_ingresos),
+                    Format.money(latest.getIngresos(), currencyCode),
+                    ContextCompat.getColor(requireContext(), R.color.chart_line_income)
+            );
+            addTrendSummaryRow(
+                    trendSummaryList,
+                    getString(R.string.home_gastos),
+                    Format.money(latest.getGastos(), currencyCode),
+                    ContextCompat.getColor(requireContext(), R.color.chart_line_expense)
+            );
+            addTrendSummaryRow(
+                    trendSummaryList,
+                    getString(R.string.home_balance),
+                    Format.money(latest.getSaldo(), currencyCode),
+                    ContextCompat.getColor(requireContext(), R.color.chart_line_balance)
+            );
+        }
     }
 
-    private String shortMoney(float value) {
-        String symbol = SettingsService.getCurrencySymbol(currencyCode);
-        float abs = Math.abs(value);
-        String sign = value < 0 ? "-" : "";
-        if (abs >= 1000f) {
-            return sign + symbol + String.format(Locale.US, "%.1fk", abs / 1000f);
-        }
-        return sign + symbol + Math.round(abs);
+    private void addCategoryBreakdownRow(
+            @NonNull LinearLayout container,
+            @NonNull CategorySpendingChartView.Slice entry,
+            float percent
+    ) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(roundedDrawable(
+                ContextCompat.getColor(requireContext(), R.color.md_theme_surfaceContainerLow),
+                ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant),
+                16
+        ));
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        rowParams.setMargins(0, 0, 0, dp(8));
+        container.addView(row, rowParams);
+
+        LinearLayout top = new LinearLayout(requireContext());
+        top.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        row.addView(top, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        View marker = new View(requireContext());
+        GradientDrawable markerBg = new GradientDrawable();
+        markerBg.setShape(GradientDrawable.OVAL);
+        markerBg.setColor(entry.color);
+        marker.setBackground(markerBg);
+        LinearLayout.LayoutParams markerParams = new LinearLayout.LayoutParams(dp(10), dp(10));
+        markerParams.setMargins(0, 0, dp(10), 0);
+        top.addView(marker, markerParams);
+
+        TextView label = new TextView(requireContext());
+        label.setText(entry.label);
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        label.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        label.setTextSize(14);
+        label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        top.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView amount = new TextView(requireContext());
+        amount.setText(getString(
+                R.string.home_chart_category_row_value,
+                Math.round(percent * 100f),
+                Format.money(entry.value, currencyCode)
+        ));
+        amount.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        amount.setTextSize(13);
+        top.addView(amount);
+
+        LinearProgressIndicator bar = new LinearProgressIndicator(requireContext());
+        bar.setMax(1000);
+        bar.setProgressCompat(Math.max(1, Math.round(percent * 1000f)), false);
+        bar.setIndicatorColor(entry.color);
+        bar.setTrackColor(ColorUtils.setAlphaComponent(
+                ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant),
+                170
+        ));
+        bar.setTrackThickness(dp(6));
+        LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(6)
+        );
+        barParams.setMargins(0, dp(8), 0, 0);
+        row.addView(bar, barParams);
+    }
+
+    private void addTrendSummaryRow(
+            @NonNull LinearLayout container,
+            @NonNull String labelText,
+            @NonNull String amountText,
+            int color
+    ) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(roundedDrawable(
+                ContextCompat.getColor(requireContext(), R.color.md_theme_surfaceContainerLow),
+                ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant),
+                16
+        ));
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        rowParams.setMargins(0, 0, 0, dp(8));
+        container.addView(row, rowParams);
+
+        View marker = new View(requireContext());
+        GradientDrawable markerBg = new GradientDrawable();
+        markerBg.setShape(GradientDrawable.OVAL);
+        markerBg.setColor(color);
+        marker.setBackground(markerBg);
+        LinearLayout.LayoutParams markerParams = new LinearLayout.LayoutParams(dp(10), dp(10));
+        markerParams.setMargins(0, 0, dp(10), 0);
+        row.addView(marker, markerParams);
+
+        TextView label = new TextView(requireContext());
+        label.setText(labelText);
+        label.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        label.setTextSize(14);
+        row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView amount = new TextView(requireContext());
+        amount.setText(amountText);
+        amount.setTextColor(color);
+        amount.setTextSize(14);
+        amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        row.addView(amount);
+    }
+
+    private GradientDrawable roundedDrawable(int fillColor, int strokeColor, int radiusDp) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(fillColor);
+        bg.setCornerRadius(dp(radiusDp));
+        bg.setStroke(dp(1), strokeColor);
+        return bg;
     }
 
     private void renderAlerts(@NonNull HomeSummary summary) {
@@ -1240,92 +1318,6 @@ public class HomeFragment extends Fragment {
         INFO,
         WARNING,
         CRITICAL
-    }
-
-    private void setupCharts() {
-        chartCategorias.getDescription().setEnabled(false);
-        chartCategorias.setNoDataText(getString(R.string.chart_no_data));
-        chartCategorias.setNoDataTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        Legend pieLegend = chartCategorias.getLegend();
-        pieLegend.setWordWrapEnabled(true);
-        pieLegend.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-
-        chartTrend.getDescription().setEnabled(false);
-        chartTrend.setNoDataText(getString(R.string.chart_no_data));
-        chartTrend.setNoDataTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        chartTrend.setScaleXEnabled(false);
-        chartTrend.setScaleYEnabled(false);
-        chartTrend.setDoubleTapToZoomEnabled(false);
-        Legend trendLegend = chartTrend.getLegend();
-        trendLegend.setWordWrapEnabled(true);
-        trendLegend.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-    }
-
-    private void applyPieChartTheme() {
-        int surface = ContextCompat.getColor(requireContext(), R.color.md_theme_background);
-        int text = ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant);
-        chartCategorias.setBackgroundColor(Color.TRANSPARENT);
-        chartCategorias.setDrawHoleEnabled(true);
-        chartCategorias.setDrawCenterText(true);
-        chartCategorias.setRotationEnabled(false);
-        chartCategorias.setHoleColor(surface);
-        chartCategorias.setTransparentCircleColor(surface);
-        chartCategorias.setTransparentCircleAlpha(0);
-        chartCategorias.setEntryLabelColor(text);
-        chartCategorias.setNoDataTextColor(text);
-        chartCategorias.setDrawRoundedSlices(true);
-        chartCategorias.setMinOffset(8f);
-        chartCategorias.setExtraOffsets(8f, 8f, 8f, 8f);
-        Legend legend = chartCategorias.getLegend();
-        legend.setVerticalAlignment(Legend.LegendVerticalAlignment.BOTTOM);
-        legend.setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
-        legend.setOrientation(Legend.LegendOrientation.HORIZONTAL);
-        legend.setDrawInside(false);
-        legend.setTextColor(text);
-        legend.setTextSize(12f);
-        legend.setFormSize(10f);
-        legend.setXEntrySpace(10f);
-        legend.setYEntrySpace(6f);
-    }
-
-    private void applyTrendChartTheme() {
-        int text = ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant);
-        int outline = ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant);
-        chartTrend.setBackgroundColor(Color.TRANSPARENT);
-        chartTrend.setDrawGridBackground(false);
-        chartTrend.setDrawBorders(false);
-        chartTrend.setMinOffset(10f);
-        chartTrend.setExtraOffsets(4f, 10f, 12f, 10f);
-        chartTrend.setNoDataTextColor(text);
-        chartTrend.setBorderColor(outline);
-        Legend legend = chartTrend.getLegend();
-        legend.setVerticalAlignment(Legend.LegendVerticalAlignment.BOTTOM);
-        legend.setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
-        legend.setOrientation(Legend.LegendOrientation.HORIZONTAL);
-        legend.setDrawInside(false);
-        legend.setTextColor(text);
-        legend.setTextSize(12f);
-        legend.setFormSize(10f);
-        legend.setXEntrySpace(10f);
-    }
-
-    private LineDataSet lineSet(ArrayList<Entry> entries, String label, int colorRes) {
-        int color = ContextCompat.getColor(requireContext(), colorRes);
-        LineDataSet set = new LineDataSet(entries, label);
-        set.setColor(color);
-        set.setCircleColor(color);
-        set.setCircleHoleColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
-        set.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        set.setHighLightColor(color);
-        set.setLineWidth(2.8f);
-        set.setCircleRadius(3.8f);
-        set.setCircleHoleRadius(1.6f);
-        set.setDrawFilled(true);
-        set.setFillColor(color);
-        set.setFillAlpha(LabelColorUtils.isNight(requireContext()) ? 22 : 14);
-        set.setMode(LineDataSet.Mode.CUBIC_BEZIER);
-        set.setCubicIntensity(0.18f);
-        return set;
     }
 
     private ArrayList<Integer> chartColors() {

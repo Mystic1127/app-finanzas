@@ -485,11 +485,18 @@
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
-                    <com.github.mikephil.charting.charts.PieChart
+                    <com.example.finanzas.ui.view.CategorySpendingChartView
                         android:id="@+id/chartHomeCategorias"
                         android:layout_width="match_parent"
-                        android:layout_height="270dp"
+                        android:layout_height="220dp"
                         android:layout_marginTop="10dp" />
+
+                    <LinearLayout
+                        android:id="@+id/listHomeCategoryBreakdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical" />
 
                     <TextView
                         android:id="@+id/tvHomeCategoryEmpty"
@@ -517,11 +524,18 @@
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
-                    <com.github.mikephil.charting.charts.LineChart
+                    <com.example.finanzas.ui.view.TrendOverviewView
                         android:id="@+id/chartHomeTrend"
                         android:layout_width="match_parent"
                         android:layout_height="268dp"
                         android:layout_marginTop="10dp" />
+
+                    <LinearLayout
+                        android:id="@+id/listHomeTrendSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical" />
 
                     <TextView
                         android:id="@+id/tvHomeTrendEmpty"

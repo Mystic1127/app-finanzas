@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -18,9 +19,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -31,6 +34,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -532,7 +536,10 @@ private fun ProfileScreen(
                 }
                 accounts.forEachIndexed { index, account ->
                     if (index > 0) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                        )
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -561,7 +568,11 @@ private fun ProfileScreen(
                             }
                         }
                         if (account.id != currentUserId) {
-                            OutlinedButton(onClick = { onSwitchAccount(account) }) {
+                            OutlinedButton(
+                                onClick = { onSwitchAccount(account) },
+                                shape = RoundedCornerShape(16.dp),
+                                border = profileControlBorder()
+                            ) {
                                 Text(stringResource(R.string.profile_account_switch))
                             }
                         }
@@ -592,14 +603,18 @@ private fun ProfileScreen(
                     label = { Text(stringResource(R.string.perfil_currency_rate_hint)) },
                     isError = manualRateError != null,
                     supportingText = manualRateError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = profileFieldColors()
                 )
                 Button(
                     onClick = onSaveCurrency,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp)
-                        .height(48.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = profilePrimaryButtonColors()
                 ) {
                     Text(stringResource(R.string.perfil_currency_save))
                 }
@@ -674,7 +689,9 @@ private fun ProfileScreen(
                         label = { Text("${stringResource(R.string.perfil_initial_cash_hint)} ($symbol)") },
                         isError = initialCashError != null,
                         supportingText = initialCashError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = profileFieldColors()
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
@@ -685,14 +702,18 @@ private fun ProfileScreen(
                         label = { Text("${stringResource(R.string.perfil_initial_card_hint)} ($symbol)") },
                         isError = initialCardError != null,
                         supportingText = initialCardError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = profileFieldColors()
                     )
                     Button(
                         onClick = onSaveInitialBalances,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp)
-                            .height(48.dp)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = profilePrimaryButtonColors()
                     ) {
                         Text(stringResource(R.string.perfil_initial_balances_save))
                     }
@@ -710,7 +731,9 @@ private fun ProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp)
-                        .height(48.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = profileControlBorder()
                 ) {
                     Text(stringResource(R.string.perfil_delete_financial_data_title))
                 }
@@ -721,7 +744,9 @@ private fun ProfileScreen(
                     onClick = onChangePassword,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = profileControlBorder()
                 ) {
                     Text(stringResource(R.string.perfil_change_password))
                 }
@@ -730,7 +755,9 @@ private fun ProfileScreen(
                     onClick = onConfigurePin,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = profileControlBorder()
                 ) {
                     Text(stringResource(R.string.perfil_config_pin))
                 }
@@ -740,7 +767,9 @@ private fun ProfileScreen(
                         onClick = onRemovePin,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = profileControlBorder()
                     ) {
                         Text(stringResource(R.string.perfil_remove_pin))
                     }
@@ -758,7 +787,9 @@ private fun ProfileSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
@@ -798,15 +829,19 @@ private fun DropdownField(
             label = { Text(label) },
             isError = error != null,
             supportingText = error?.let { { Text(it) } },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            shape = RoundedCornerShape(16.dp),
+            colors = profileFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(18.dp),
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option) },
+                    text = { Text(option, color = MaterialTheme.colorScheme.onSurface) },
                     onClick = {
                         onValueChange(option)
                         expanded = false
@@ -816,3 +851,29 @@ private fun DropdownField(
         }
     }
 }
+
+@Composable
+private fun profilePrimaryButtonColors() = ButtonDefaults.buttonColors(
+    containerColor = MaterialTheme.colorScheme.primary,
+    contentColor = MaterialTheme.colorScheme.onPrimary
+)
+
+@Composable
+private fun profileControlBorder() = BorderStroke(
+    width = 1.dp,
+    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+)
+
+@Composable
+private fun profileFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f),
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    cursorColor = MaterialTheme.colorScheme.primary,
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
+    errorContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+)
