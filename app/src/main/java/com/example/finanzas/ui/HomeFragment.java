@@ -42,6 +42,7 @@ import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.FinancialAlertNotifier;
+import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.UiFormUtils;
@@ -399,24 +400,36 @@ public class HomeFragment extends Fragment {
             return;
         }
 
+        float totalValue = 0f;
+        for (PieEntry entry : entries) totalValue += entry.getValue();
+        final float total = totalValue;
+
         PieDataSet dataSet = new PieDataSet(entries, "");
         dataSet.setColors(chartColors());
-        dataSet.setSliceSpace(2f);
+        dataSet.setSliceSpace(3f);
+        dataSet.setSelectionShift(6f);
+        dataSet.setYValuePosition(PieDataSet.ValuePosition.OUTSIDE_SLICE);
+        dataSet.setValueLinePart1OffsetPercentage(82f);
+        dataSet.setValueLinePart1Length(0.28f);
+        dataSet.setValueLinePart2Length(0.18f);
+        dataSet.setValueLineVariableLength(true);
+        dataSet.setValueLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outline));
         dataSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        dataSet.setValueTextSize(10.5f);
+        dataSet.setValueTextSize(10f);
 
         PieData data = new PieData(dataSet);
         data.setValueFormatter(new ValueFormatter() {
             @Override
-            public String getFormattedValue(float value) {
+            public String getPieLabel(float value, PieEntry pieEntry) {
+                if (total <= 0f || value / total < 0.085f) return "";
                 return Format.money(value, currencyCode);
             }
         });
         chartCategorias.setData(data);
         chartCategorias.setUsePercentValues(false);
         chartCategorias.setDrawEntryLabels(false);
-        chartCategorias.setHoleRadius(58f);
-        chartCategorias.setTransparentCircleRadius(62f);
+        chartCategorias.setHoleRadius(62f);
+        chartCategorias.setTransparentCircleRadius(66f);
         chartCategorias.setCenterText(getString(R.string.home_category_chart_center));
         chartCategorias.setCenterTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
         chartCategorias.setCenterTextSize(14f);
@@ -463,13 +476,19 @@ public class HomeFragment extends Fragment {
         xAxis.setGranularity(1f);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
         xAxis.setDrawGridLines(false);
+        xAxis.setDrawAxisLine(false);
+        xAxis.setAvoidFirstLastClipping(true);
+        xAxis.setYOffset(8f);
         xAxis.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         xAxis.setAxisLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
 
         YAxis left = chartTrend.getAxisLeft();
         left.setAxisMinimum(min < 0f ? min * 1.1f : 0f);
+        left.setSpaceTop(14f);
+        left.setDrawAxisLine(false);
         left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         left.setGridColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        left.setGridLineWidth(0.7f);
         left.setAxisLineColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
         left.setValueFormatter(new ValueFormatter() {
             @Override
@@ -478,6 +497,7 @@ public class HomeFragment extends Fragment {
             }
         });
         chartTrend.getAxisRight().setEnabled(false);
+        chartTrend.setVisibleXRangeMaximum(Math.max(5f, labels.size() - 1f));
         chartTrend.invalidate();
     }
 
@@ -1242,17 +1262,25 @@ public class HomeFragment extends Fragment {
     }
 
     private void applyPieChartTheme() {
-        int surface = ContextCompat.getColor(requireContext(), R.color.md_theme_surface);
+        int surface = ContextCompat.getColor(requireContext(), R.color.md_theme_background);
         int text = ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant);
         chartCategorias.setBackgroundColor(Color.TRANSPARENT);
+        chartCategorias.setDrawHoleEnabled(true);
+        chartCategorias.setDrawCenterText(true);
+        chartCategorias.setRotationEnabled(false);
         chartCategorias.setHoleColor(surface);
         chartCategorias.setTransparentCircleColor(surface);
         chartCategorias.setTransparentCircleAlpha(0);
         chartCategorias.setEntryLabelColor(text);
         chartCategorias.setNoDataTextColor(text);
         chartCategorias.setDrawRoundedSlices(true);
-        chartCategorias.setExtraOffsets(0f, 4f, 0f, 6f);
+        chartCategorias.setMinOffset(8f);
+        chartCategorias.setExtraOffsets(8f, 8f, 8f, 8f);
         Legend legend = chartCategorias.getLegend();
+        legend.setVerticalAlignment(Legend.LegendVerticalAlignment.BOTTOM);
+        legend.setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
+        legend.setOrientation(Legend.LegendOrientation.HORIZONTAL);
+        legend.setDrawInside(false);
         legend.setTextColor(text);
         legend.setTextSize(12f);
         legend.setFormSize(10f);
@@ -1266,9 +1294,15 @@ public class HomeFragment extends Fragment {
         chartTrend.setBackgroundColor(Color.TRANSPARENT);
         chartTrend.setDrawGridBackground(false);
         chartTrend.setDrawBorders(false);
+        chartTrend.setMinOffset(10f);
+        chartTrend.setExtraOffsets(4f, 10f, 12f, 10f);
         chartTrend.setNoDataTextColor(text);
         chartTrend.setBorderColor(outline);
         Legend legend = chartTrend.getLegend();
+        legend.setVerticalAlignment(Legend.LegendVerticalAlignment.BOTTOM);
+        legend.setHorizontalAlignment(Legend.LegendHorizontalAlignment.CENTER);
+        legend.setOrientation(Legend.LegendOrientation.HORIZONTAL);
+        legend.setDrawInside(false);
         legend.setTextColor(text);
         legend.setTextSize(12f);
         legend.setFormSize(10f);
@@ -1286,6 +1320,9 @@ public class HomeFragment extends Fragment {
         set.setLineWidth(2.8f);
         set.setCircleRadius(3.8f);
         set.setCircleHoleRadius(1.6f);
+        set.setDrawFilled(true);
+        set.setFillColor(color);
+        set.setFillAlpha(LabelColorUtils.isNight(requireContext()) ? 22 : 14);
         set.setMode(LineDataSet.Mode.CUBIC_BEZIER);
         set.setCubicIntensity(0.18f);
         return set;

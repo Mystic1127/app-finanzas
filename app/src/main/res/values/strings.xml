@@ -261,6 +261,7 @@
     <string name="transactions_filter_order_name">Ordenar por nota</string>
     <string name="transactions_filter_order_category">Ordenar por categoría</string>
     <string name="transactions_filter_sort_direction">Orden ascendente</string>
+    <string name="transactions_filter_cancel">Cancelar</string>
     <string name="transactions_filter_clear">Limpiar filtros</string>
     <string name="transactions_filter_apply">Aplicar</string>
     <string name="transactions_period_label">Mostrando: %1$s</string>
@@ -521,7 +522,7 @@
     <string name="account_switch_success">Cuenta cambiada</string>
     <string name="initial_currency_title">&#191;Que moneda quieres usar?</string>
     <string name="initial_currency_default">Usar PEN</string>
-    <string name="welcome_beta_version">Beta v0.9.2</string>
+    <string name="welcome_beta_version">Beta v0.9.3</string>
     <string name="tester_thanks_badge">S</string>
     <string name="tester_thanks_title">Gracias por probar Spendly</string>
     <string name="tester_thanks_message">Esta es una versi&#243;n beta creada para seguir mejorando la app con ayuda de ustedes.&#10;&#10;Gracias por tomarse el tiempo de probarla, registrar movimientos y avisarme si algo falla o se puede mejorar.&#10;&#10;Espero que les sirva para organizar mejor su dinero mientras sigo puli&#233;ndola.&#10;&#10;Muchas gracias.&#10;&#10;Alejandro C.</string>

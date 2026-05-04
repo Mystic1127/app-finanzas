@@ -19,14 +19,14 @@ public final class LabelColorUtils {
     public static int cardBackground(@NonNull Context context, @ColorInt int labelColor) {
         int base = ContextCompat.getColor(context, R.color.md_theme_surface);
         int accent = accentOnSurface(context, labelColor);
-        return ColorUtils.blendARGB(base, accent, isNight(context) ? 0.24f : 0.11f);
+        return ColorUtils.blendARGB(base, accent, isNight(context) ? 0.30f : 0.13f);
     }
 
     @ColorInt
     public static int cardStroke(@NonNull Context context, @ColorInt int labelColor) {
         int base = ContextCompat.getColor(context, R.color.md_theme_outlineVariant);
         int accent = accentOnSurface(context, labelColor);
-        return ColorUtils.blendARGB(base, accent, isNight(context) ? 0.72f : 0.58f);
+        return ColorUtils.blendARGB(base, accent, isNight(context) ? 0.78f : 0.62f);
     }
 
     @ColorInt

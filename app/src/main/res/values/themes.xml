@@ -128,7 +128,7 @@
 
     <style name="Widget.Finanzas.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox">
         <item name="boxStrokeColor">@color/md_theme_outline</item>
-        <item name="boxBackgroundColor">@color/md_theme_surface</item>
+        <item name="boxBackgroundColor">@color/md_theme_surfaceContainerLow</item>
         <item name="boxStrokeWidth">1dp</item>
         <item name="boxCornerRadiusTopStart">16dp</item>
         <item name="boxCornerRadiusTopEnd">16dp</item>

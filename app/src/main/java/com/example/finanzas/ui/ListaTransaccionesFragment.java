@@ -2,10 +2,15 @@ package com.example.finanzas.ui;
 
 import android.os.Bundle;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -17,6 +22,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
@@ -484,6 +491,9 @@ public class ListaTransaccionesFragment extends Fragment {
         MaterialAutoCompleteTextView actCategoria = content.findViewById(R.id.actFiltroCategoria);
         android.widget.RadioGroup rgOrden = content.findViewById(R.id.rgOrden);
         MaterialSwitch swAsc = content.findViewById(R.id.swAscendente);
+        MaterialButton btnCancel = content.findViewById(R.id.btnFilterCancel);
+        MaterialButton btnClear = content.findViewById(R.id.btnFilterClear);
+        MaterialButton btnApply = content.findViewById(R.id.btnFilterApply);
         final String allCategoriesLabel = getString(R.string.transactions_filter_all_categories);
 
         UiFormUtils.bindDatePicker(requireContext(), etInicio);
@@ -546,56 +556,119 @@ public class ListaTransaccionesFragment extends Fragment {
         }
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setIcon(R.drawable.ic_filter)
-                .setTitle(R.string.transactions_filter_title)
                 .setView(content)
-                .setPositiveButton(R.string.transactions_filter_apply, null)
-                .setNegativeButton(R.string.transactions_filter_clear, (d, which) -> {
-                    filtroActual = null;
-                    cargarTransacciones();
-                })
-                .setNeutralButton(android.R.string.cancel, null)
                 .create();
 
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                    UiFormUtils.clearErrors(etInicio, etFin);
-                    TransaccionFiltro filtro = new TransaccionFiltro();
-                    Long inicio = parseFiltroFecha(etInicio);
-                    Long fin = parseFiltroFecha(etFin);
-                    if (!isFechaFiltroValida(etInicio)) {
-                        UiFormUtils.setError(etInicio, getString(R.string.error_formato_fecha));
-                        return;
-                    }
-                    if (!isFechaFiltroValida(etFin)) {
-                        UiFormUtils.setError(etFin, getString(R.string.error_formato_fecha));
-                        return;
-                    }
-                    if (inicio != null) filtro.setFechaInicio(inicio);
-                    if (fin != null) filtro.setFechaFin(fin + 86_400_000L);
-                    String texto = etTexto.getText() == null ? "" : etTexto.getText().toString().trim();
-                    if (!TextUtils.isEmpty(texto)) filtro.setTexto(texto);
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnClear.setOnClickListener(v -> {
+            filtroActual = null;
+            cargarTransacciones();
+            dialog.dismiss();
+        });
+        btnApply.setOnClickListener(v -> {
+            UiFormUtils.clearErrors(etInicio, etFin);
+            TransaccionFiltro filtro = new TransaccionFiltro();
+            Long inicio = parseFiltroFecha(etInicio);
+            Long fin = parseFiltroFecha(etFin);
+            if (!isFechaFiltroValida(etInicio)) {
+                UiFormUtils.setError(etInicio, getString(R.string.error_formato_fecha));
+                return;
+            }
+            if (!isFechaFiltroValida(etFin)) {
+                UiFormUtils.setError(etFin, getString(R.string.error_formato_fecha));
+                return;
+            }
+            if (inicio != null) filtro.setFechaInicio(inicio);
+            if (fin != null) filtro.setFechaFin(fin + 86_400_000L);
+            String texto = etTexto.getText() == null ? "" : etTexto.getText().toString().trim();
+            if (!TextUtils.isEmpty(texto)) filtro.setTexto(texto);
 
-                    String catNombre = actCategoria.getText() == null ? null : actCategoria.getText().toString().trim();
-                    if (!TextUtils.isEmpty(catNombre) && !allCategoriesLabel.equalsIgnoreCase(catNombre) && categorias != null) {
-                        for (Categoria c : categorias) {
-                            if (c != null && catNombre.equalsIgnoreCase(c.nombre)) {
-                                filtro.setCategoriaId(c.id);
-                                break;
-                            }
-                        }
+            String catNombre = actCategoria.getText() == null ? null : actCategoria.getText().toString().trim();
+            if (!TextUtils.isEmpty(catNombre) && !allCategoriesLabel.equalsIgnoreCase(catNombre) && categorias != null) {
+                for (Categoria c : categorias) {
+                    if (c != null && catNombre.equalsIgnoreCase(c.nombre)) {
+                        filtro.setCategoriaId(c.id);
+                        break;
                     }
+                }
+            }
 
-                    int checked = rgOrden.getCheckedRadioButtonId();
-                    if (checked == R.id.rbOrdenNombre) filtro.setOrden(TransaccionFiltro.Orden.NOMBRE);
-                    else if (checked == R.id.rbOrdenCategoria) filtro.setOrden(TransaccionFiltro.Orden.CATEGORIA);
-                    else filtro.setOrden(TransaccionFiltro.Orden.FECHA);
-                    filtro.setAscendente(swAsc.isChecked());
+            int checked = rgOrden.getCheckedRadioButtonId();
+            if (checked == R.id.rbOrdenNombre) filtro.setOrden(TransaccionFiltro.Orden.NOMBRE);
+            else if (checked == R.id.rbOrdenCategoria) filtro.setOrden(TransaccionFiltro.Orden.CATEGORIA);
+            else filtro.setOrden(TransaccionFiltro.Orden.FECHA);
+            filtro.setAscendente(swAsc.isChecked());
 
-                    filtroActual = filtro;
-                    cargarTransacciones();
-                    dialog.dismiss();
-                }));
+            filtroActual = filtro;
+            cargarTransacciones();
+            dialog.dismiss();
+        });
         dialog.show();
+        configureFilterDialogWindow(dialog, content);
+    }
+
+    private void configureFilterDialogWindow(@NonNull AlertDialog dialog, @NonNull View content) {
+        View actions = content.findViewById(R.id.filterDialogActions);
+        if (actions != null) {
+            int bottomPadding = actions.getPaddingBottom();
+            int leftPadding = actions.getPaddingLeft();
+            int topPadding = actions.getPaddingTop();
+            int rightPadding = actions.getPaddingRight();
+            ViewCompat.setOnApplyWindowInsetsListener(actions, (view, insets) -> {
+                int bottomInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
+                view.setPadding(
+                        leftPadding,
+                        topPadding,
+                        rightPadding,
+                        bottomPadding + Math.min(bottomInset, dp(24))
+                );
+                return insets;
+            });
+            ViewCompat.requestApplyInsets(actions);
+        }
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            int screenWidth = getResources().getDisplayMetrics().widthPixels;
+            int width = Math.min(screenWidth - dp(40), dp(420));
+            window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+
+        content.post(() -> {
+            ViewParent parent = content.getParent();
+            if (parent instanceof View) {
+                ((View) parent).setBackgroundResource(R.drawable.bg_dialog_surface);
+            }
+
+            int screenHeight = getResources().getDisplayMetrics().heightPixels;
+            int availableHeight = Math.max(dp(320), screenHeight - dp(96));
+            int maxHeight = Math.min(availableHeight, (int) (screenHeight * 0.86f));
+            if (content.getMeasuredHeight() > maxHeight) {
+                View scroll = content.findViewById(R.id.filterDialogScroll);
+                if (scroll != null) {
+                    int overflow = content.getMeasuredHeight() - maxHeight;
+                    ViewGroup.LayoutParams scrollParams = scroll.getLayoutParams();
+                    scrollParams.height = Math.max(dp(220), scroll.getMeasuredHeight() - overflow);
+                    scroll.setLayoutParams(scrollParams);
+                } else {
+                    ViewGroup.LayoutParams params = content.getLayoutParams();
+                    if (params != null) {
+                        params.height = maxHeight;
+                        content.setLayoutParams(params);
+                    }
+                }
+                content.post(() -> {
+                    Window resizedWindow = dialog.getWindow();
+                    if (resizedWindow != null) {
+                        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+                        int width = Math.min(screenWidth - dp(40), dp(420));
+                        resizedWindow.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    }
+                });
+            }
+        });
     }
 
     @Nullable
