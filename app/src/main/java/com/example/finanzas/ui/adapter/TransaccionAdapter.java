@@ -14,7 +14,9 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.TransactionLabelStore;
@@ -59,15 +61,13 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         String nota = (t.getNota() == null || t.getNota().isEmpty()) ? "" : " - " + t.getNota();
         tvTitulo.setText(cat + nota);
 
-        String account = t.isCash()
-                ? getContext().getString(R.string.transaction_account_cash)
-                : getContext().getString(R.string.transaction_account_card);
+        String account = SettingsService.getFinancialAccountName(getContext(), t.getAccountType());
         tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account);
 
         double mostrado = t.isEsIngreso() ? t.getMonto() : -t.getMonto();
         tvMonto.setText(Format.money(mostrado, t.getMoneda()));
 
-        int typeColor = ContextCompat.getColor(getContext(), t.isEsIngreso() ? R.color.income : R.color.expense);
+        int typeColor = CategoryVisuals.colorFor(getContext(), t.getCategoriaNombre(), t.isEsIngreso());
         tvMonto.setTextColor(typeColor);
         tvTitulo.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurface));
         tvSub.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurfaceVariant));
@@ -86,7 +86,7 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
                 labelColor.setVisibility(View.VISIBLE);
             }
             if (ivTipo != null) {
-                ivTipo.setImageResource(R.drawable.ic_wallet_24);
+                ivTipo.setImageResource(CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
                 ivTipo.setColorFilter(accent);
                 GradientDrawable iconBg = new GradientDrawable();
                 iconBg.setShape(GradientDrawable.OVAL);
@@ -117,9 +117,12 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         } else {
             if (labelColor != null) labelColor.setVisibility(View.GONE);
             if (ivTipo != null) {
-                ivTipo.setImageResource(R.drawable.ic_wallet_24);
+                ivTipo.setImageResource(CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
                 ivTipo.setColorFilter(typeColor);
-                ivTipo.setBackground(null);
+                GradientDrawable iconBg = new GradientDrawable();
+                iconBg.setShape(GradientDrawable.OVAL);
+                iconBg.setColor(LabelColorUtils.iconBackground(getContext(), typeColor));
+                ivTipo.setBackground(iconBg);
                 ivTipo.setPadding(dp(5), dp(5), dp(5), dp(5));
             }
             if (tvLabel != null) {

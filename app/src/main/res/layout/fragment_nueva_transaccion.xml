@@ -132,36 +132,20 @@
                     android:textColor="@color/md_theme_onSurface"
                     android:textSize="14sp" />
 
-                <com.google.android.material.button.MaterialButtonToggleGroup
-                    android:id="@+id/toggleAccountType"
+                <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    app:selectionRequired="true"
-                    app:singleSelection="true">
+                    android:overScrollMode="never"
+                    android:scrollbars="none">
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnAccountCard"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_weight="1"
-                        android:text="@string/transaction_account_card"
-                        android:textAllCaps="false"
-                        app:icon="@drawable/ic_creditcard"
-                        app:iconGravity="textStart" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnAccountCash"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_weight="1"
-                        android:text="@string/transaction_account_cash"
-                        android:textAllCaps="false"
-                        app:icon="@drawable/ic_paymente"
-                        app:iconGravity="textStart" />
-                </com.google.android.material.button.MaterialButtonToggleGroup>
+                    <com.google.android.material.button.MaterialButtonToggleGroup
+                        android:id="@+id/toggleAccountType"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:selectionRequired="true"
+                        app:singleSelection="true" />
+                </HorizontalScrollView>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilCategoria"
@@ -207,7 +191,8 @@
                         android:layout_weight="1"
                         android:gravity="end|center_vertical"
                         android:minHeight="40dp"
-                        android:text="@string/suggest_category" />
+                        android:text="@string/suggest_category"
+                        android:visibility="gone" />
                 </LinearLayout>
 
                 <com.google.android.material.chip.Chip

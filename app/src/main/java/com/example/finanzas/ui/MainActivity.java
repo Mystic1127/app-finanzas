@@ -10,6 +10,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -51,7 +53,9 @@ public class MainActivity extends AppCompatActivity {
     private NavigationView navView;
     private MaterialToolbar toolbar;
     private View navHostView;
+    private View bottomNavContainer;
     private int contentTopMargin;
+    private int contentBottomMargin;
     private int pendingDrawerDestination = 0;
 
     @Override
@@ -92,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
         navHostView = findViewById(R.id.nav_host_fragment);
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
         contentTopMargin = params.topMargin;
+        contentBottomMargin = params.bottomMargin;
 
         NavHostFragment navHost =
                 (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
@@ -101,8 +106,11 @@ public class MainActivity extends AppCompatActivity {
 
         appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.nav_home,
+                R.id.nav_analysis,
                 R.id.nav_list,
                 R.id.nav_budget,
+                R.id.nav_planning,
+                R.id.nav_settings,
                 R.id.nav_reports,
                 R.id.nav_goals,
                 R.id.nav_reminders,
@@ -115,6 +123,7 @@ public class MainActivity extends AppCompatActivity {
 
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(navView, navController);
+        setupBottomNavigation();
 
 
         navView.setNavigationItemSelectedListener(this::onDrawerItemSelected);
@@ -128,8 +137,18 @@ public class MainActivity extends AppCompatActivity {
                     || destId == R.id.nav_welcome
                     || destId == R.id.nav_pin_lock);
             boolean isWelcomeScreen = destId == R.id.nav_welcome;
-            toolbar.setVisibility(isWelcomeScreen ? View.GONE : View.VISIBLE);
-            setContentTopMargin(isWelcomeScreen ? 0 : contentTopMargin);
+            boolean hasLocalHeader = destId == R.id.nav_home
+                    || destId == R.id.nav_analysis
+                    || destId == R.id.nav_settings
+                    || destId == R.id.nav_planning;
+            toolbar.setVisibility((isWelcomeScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
+            setContentTopMargin((isWelcomeScreen || hasLocalHeader) ? 0 : contentTopMargin);
+            boolean bottomVisible = isBottomDestination(destId);
+            setContentBottomMargin(bottomVisible ? dp(96) : contentBottomMargin);
+            if (bottomNavContainer != null) {
+                bottomNavContainer.setVisibility(bottomVisible ? View.VISIBLE : View.GONE);
+            }
+            updateBottomSelection(destId);
 
             if (isAuthScreen) {
                 drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
@@ -184,8 +203,11 @@ public class MainActivity extends AppCompatActivity {
     private boolean onDrawerItemSelected(@NonNull MenuItem item) {
         int destId = item.getItemId();
         if (destId == R.id.nav_home
+                || destId == R.id.nav_analysis
                 || destId == R.id.nav_list
                 || destId == R.id.nav_budget
+                || destId == R.id.nav_planning
+                || destId == R.id.nav_settings
                 || destId == R.id.nav_reports
                 || destId == R.id.nav_goals
                 || destId == R.id.nav_reminders
@@ -239,6 +261,66 @@ public class MainActivity extends AppCompatActivity {
                 .setPopUpTo(navController.getGraph().getId(), true)
                 .build();
         navController.navigate(R.id.nav_home, null, opts);
+    }
+
+    private void setupBottomNavigation() {
+        bottomNavContainer = findViewById(R.id.bottom_nav_container);
+        bindBottomItem(R.id.bottomNavHome, R.id.nav_home);
+        bindBottomItem(R.id.bottomNavAnalysis, R.id.nav_analysis);
+        bindBottomItem(R.id.bottomNavNew, R.id.nav_new);
+        bindBottomItem(R.id.bottomNavBudget, R.id.nav_budget);
+        bindBottomItem(R.id.bottomNavPlanning, R.id.nav_planning);
+    }
+
+    private void bindBottomItem(int viewId, int destinationId) {
+        View item = findViewById(viewId);
+        if (item == null) return;
+        item.setOnClickListener(v -> navigateFromBottom(destinationId));
+    }
+
+    private void navigateFromBottom(int destinationId) {
+        NavDestination current = navController.getCurrentDestination();
+        if (current != null && current.getId() == destinationId) return;
+
+        NavOptions opts = new NavOptions.Builder()
+                .setLaunchSingleTop(true)
+                .setRestoreState(true)
+                .setPopUpTo(R.id.nav_home, false, true)
+                .build();
+        navController.navigate(destinationId, null, opts);
+    }
+
+    private boolean isBottomDestination(int destId) {
+        return destId == R.id.nav_home
+                || destId == R.id.nav_analysis
+                || destId == R.id.nav_new
+                || destId == R.id.nav_budget
+                || destId == R.id.nav_planning;
+    }
+
+    private void updateBottomSelection(int destId) {
+        applyBottomItem(R.id.bottomIconHome, R.id.bottomLabelHome, R.id.bottomDotHome, destId == R.id.nav_home);
+        applyBottomItem(R.id.bottomIconAnalysis, R.id.bottomLabelAnalysis, R.id.bottomDotAnalysis, destId == R.id.nav_analysis);
+        applyBottomItem(0, 0, R.id.bottomDotNew, destId == R.id.nav_new);
+        applyBottomItem(R.id.bottomIconBudget, R.id.bottomLabelBudget, R.id.bottomDotBudget, destId == R.id.nav_budget);
+        applyBottomItem(R.id.bottomIconPlanning, R.id.bottomLabelPlanning, R.id.bottomDotPlanning, destId == R.id.nav_planning);
+    }
+
+    private void applyBottomItem(int iconId, int labelId, int dotId, boolean selected) {
+        int color = ContextCompat.getColor(this, selected ? R.color.md_theme_primary : R.color.md_theme_onSurfaceVariant);
+        if (iconId != 0) {
+            ImageView icon = findViewById(iconId);
+            if (icon != null) icon.setColorFilter(color);
+        }
+        if (labelId != 0) {
+            TextView label = findViewById(labelId);
+            if (label != null) {
+                label.setTextColor(color);
+                label.setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            }
+        }
+        View dot = findViewById(dotId);
+        if (dot != null) dot.setVisibility(selected ? View.VISIBLE : View.INVISIBLE);
     }
 
     private void navigateAfterDrawerCloses(int destId) {
@@ -342,6 +424,18 @@ public class MainActivity extends AppCompatActivity {
         if (params.topMargin == topMargin) return;
         params.topMargin = topMargin;
         navHostView.setLayoutParams(params);
+    }
+
+    private void setContentBottomMargin(int bottomMargin) {
+        if (navHostView == null) return;
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
+        if (params.bottomMargin == bottomMargin) return;
+        params.bottomMargin = bottomMargin;
+        navHostView.setLayoutParams(params);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void requestNotificationPermissionIfNeeded() {

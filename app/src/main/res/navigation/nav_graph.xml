@@ -62,6 +62,12 @@
             app:destination="@id/nav_perfil" />
     </fragment>
 
+    <fragment
+        android:id="@+id/nav_analysis"
+        android:name="com.example.finanzas.ui.AnalysisFragment"
+        android:label="Análisis"
+        tools:layout="@layout/fragment_analysis" />
+
     <!-- LISTA -->
     <fragment
         android:id="@+id/nav_list"
@@ -79,6 +85,18 @@
         android:name="com.example.finanzas.ui.PresupuestoFragment"
         android:label="Presupuesto"
         tools:layout="@layout/fragment_presupuesto" />
+
+    <fragment
+        android:id="@+id/nav_planning"
+        android:name="com.example.finanzas.ui.PlanningFragment"
+        android:label="Metas"
+        tools:layout="@layout/fragment_planning" />
+
+    <fragment
+        android:id="@+id/nav_settings"
+        android:name="com.example.finanzas.ui.SettingsFragment"
+        android:label="Ajustes"
+        tools:layout="@layout/fragment_settings" />
 
     <fragment
         android:id="@+id/nav_reports"

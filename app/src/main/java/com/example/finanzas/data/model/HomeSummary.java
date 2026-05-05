@@ -56,6 +56,8 @@ public class HomeSummary {
     private final List<String> recomendacionesInteligentes = new ArrayList<>();
     private final List<CategoryChartSlice> chartCategorias = new ArrayList<>();
     private final List<MonthlyTrendPoint> tendenciaMensual = new ArrayList<>();
+    private final List<AccountBalance> accountBalances = new ArrayList<>();
+    private final List<Transaccion> latestTransactions = new ArrayList<>();
     private int importacionesPendientes;
     private final List<ExchangeRate> tiposCambio = new ArrayList<>();
     private ConversionSummary conversion;
@@ -216,6 +218,10 @@ public class HomeSummary {
     public List<CategoryChartSlice> getChartCategorias() { return chartCategorias; }
 
     public List<MonthlyTrendPoint> getTendenciaMensual() { return tendenciaMensual; }
+
+    public List<AccountBalance> getAccountBalances() { return accountBalances; }
+
+    public List<Transaccion> getLatestTransactions() { return latestTransactions; }
 
     public int getImportacionesPendientes() { return importacionesPendientes; }
     public void setImportacionesPendientes(int importacionesPendientes) { this.importacionesPendientes = importacionesPendientes; }

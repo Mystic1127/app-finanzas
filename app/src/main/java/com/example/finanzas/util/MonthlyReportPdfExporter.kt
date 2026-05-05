@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.os.Environment
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.model.FinancialReport
 import java.io.File
 import java.io.FileOutputStream
@@ -160,7 +161,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
                 val type = if (tx.isEsIngreso) "Ingreso" else "Gasto"
                 val name = tx.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoria"
                 val note = tx.nota?.takeIf { it.isNotBlank() }?.let { " - $it" } ?: ""
-                val account = if (tx.isCash) "Efectivo" else "Tarjeta/Cuenta"
+                val account = SettingsService.getFinancialAccountName(context, tx.accountType)
                 val amount = Format.money(if (tx.isEsIngreso) tx.monto else -tx.monto, report.currencyCode)
                 drawWrapped(writer, "${Format.date(tx.fecha)} - $type - $name - $account$note - $amount", body)
             }

@@ -6,10 +6,16 @@ import android.content.SharedPreferences;
 import androidx.appcompat.app.AppCompatDelegate;
 
 import com.example.finanzas.data.local.LocalRepository;
+import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.Prefs;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public class SettingsService {
 
@@ -21,6 +27,7 @@ public class SettingsService {
     private static final String KEY_DASHBOARD_PREFIX = "dashboard_prefs_user_";
     private static final String KEY_TRAVEL_PREFIX = "travel_prefs_user_";
     private static final String KEY_INITIAL_BALANCES_PREFIX = "initial_balances_user_";
+    private static final String KEY_FINANCIAL_ACCOUNTS_PREFIX = "financial_accounts_user_";
     private static final String KEY_THEME_MODE = "theme_mode";
     public static final String THEME_SYSTEM = "system";
     public static final String THEME_LIGHT = "light";
@@ -136,6 +143,88 @@ public class SettingsService {
         }
     }
 
+    public static String normalizeAccountType(String value) {
+        if (value == null) return "CARD";
+        String clean = value.trim();
+        if (clean.isEmpty()) return "CARD";
+        String upper = clean.toUpperCase(Locale.ROOT);
+        if ("CASH".equals(upper) || "EFECTIVO".equals(upper)) return "CASH";
+        if ("CARD".equals(upper) || "TARJETA".equals(upper) || "TARJETA/CUENTA".equals(upper)) return "CARD";
+        return upper.replaceAll("[^A-Z0-9_:-]", "_");
+    }
+
+    public static List<FinancialAccount> listFinancialAccounts(Context ctx) {
+        ArrayList<FinancialAccount> out = new ArrayList<>();
+        try {
+            JSONObject body = new JSONObject(getFinancialAccountsRaw(ctx));
+            JSONArray accounts = body.optJSONArray("accounts");
+            if (accounts == null) return out;
+            for (int i = 0; i < accounts.length(); i++) {
+                JSONObject item = accounts.optJSONObject(i);
+                if (item == null) continue;
+                String id = normalizeAccountType(item.optString("id", ""));
+                String name = item.optString("name", "").trim();
+                if (id.isEmpty() || "CASH".equals(id) || "CARD".equals(id) || name.isEmpty()) continue;
+                out.add(new FinancialAccount(id, name, item.optLong("createdAt", 0L)));
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    public static FinancialAccount addFinancialAccount(Context ctx, String rawName) {
+        String name = rawName == null ? "" : rawName.trim();
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("Nombre de cuenta requerido");
+        }
+        long now = System.currentTimeMillis();
+        String id = "ACCOUNT_" + now;
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONObject body = new JSONObject(getFinancialAccountsRaw(ctx));
+            JSONArray current = body.optJSONArray("accounts");
+            JSONArray accounts = current == null ? new JSONArray() : current;
+            JSONObject item = new JSONObject();
+            item.put("id", id);
+            item.put("name", name);
+            item.put("createdAt", now);
+            accounts.put(item);
+            body.put("accounts", accounts);
+            sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
+            LocalRepository.invalidateDataVersion();
+            return new FinancialAccount(id, name, now);
+        } catch (Exception e) {
+            throw new IllegalStateException("No se pudo guardar la cuenta", e);
+        }
+    }
+
+    public static void clearFinancialAccounts(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            sp.edit().remove(financialAccountsKey(currentUserId(ctx))).apply();
+            LocalRepository.invalidateDataVersion();
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static String getFinancialAccountName(Context ctx, String accountType) {
+        String normalized = normalizeAccountType(accountType);
+        if ("CASH".equals(normalized)) return "Efectivo";
+        if ("CARD".equals(normalized)) return "Tarjeta/Cuenta";
+        for (FinancialAccount account : listFinancialAccounts(ctx)) {
+            if (normalized.equals(account.getId())) {
+                return account.getName();
+            }
+        }
+        return "Cuenta";
+    }
+
+    public static String getFinancialAccountsRaw(Context ctx) {
+        SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String raw = sp.getString(financialAccountsKey(currentUserId(ctx)), null);
+        return raw != null ? raw : "{}";
+    }
+
     public static void saveInitialBalances(Context ctx, double cashBalance, double cardBalance, String currencyCode, SaveCb cb) {
         try {
             if (!isValidAmount(cashBalance) || !isValidAmount(cardBalance) || (cashBalance <= 0.0 && cardBalance <= 0.0)) {
@@ -213,6 +302,10 @@ public class SettingsService {
 
     private static String initialBalancesKey(long userId) {
         return KEY_INITIAL_BALANCES_PREFIX + userId;
+    }
+
+    private static String financialAccountsKey(long userId) {
+        return KEY_FINANCIAL_ACCOUNTS_PREFIX + userId;
     }
 
     private static double getInitialBalanceRaw(Context ctx, String key) {

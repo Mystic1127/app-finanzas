@@ -6,6 +6,7 @@ public class Transaccion {
     public static final String INITIAL_BALANCE_CATEGORY = "Saldo inicial";
     public static final String INITIAL_BALANCE_CASH_NOTE = "Saldo inicial efectivo";
     public static final String INITIAL_BALANCE_CARD_NOTE = "Saldo inicial tarjeta/cuenta";
+    public static final String INITIAL_BALANCE_ACCOUNT_NOTE_PREFIX = "Saldo inicial cuenta:";
 
     private int id;
     private int categoriaId;
@@ -119,7 +120,10 @@ public class Transaccion {
         String cleanNote = nota == null ? "" : nota.trim();
         boolean specialNote = INITIAL_BALANCE_CASH_NOTE.equalsIgnoreCase(cleanNote)
                 || INITIAL_BALANCE_CARD_NOTE.equalsIgnoreCase(cleanNote)
-                || INITIAL_BALANCE_CATEGORY.equalsIgnoreCase(cleanNote);
+                || INITIAL_BALANCE_CATEGORY.equalsIgnoreCase(cleanNote)
+                || cleanNote.toLowerCase(java.util.Locale.ROOT).startsWith(
+                INITIAL_BALANCE_ACCOUNT_NOTE_PREFIX.toLowerCase(java.util.Locale.ROOT)
+        );
         return specialCategory && specialNote;
     }
 
@@ -149,7 +153,11 @@ public class Transaccion {
 
     private String normalizeAccountType(String value) {
         if (value == null) return "CARD";
-        String clean = value.trim().toUpperCase(java.util.Locale.ROOT);
-        return "CASH".equals(clean) ? "CASH" : "CARD";
+        String clean = value.trim();
+        if (clean.isEmpty()) return "CARD";
+        String upper = clean.toUpperCase(java.util.Locale.ROOT);
+        if ("CASH".equals(upper) || "EFECTIVO".equals(upper)) return "CASH";
+        if ("CARD".equals(upper) || "TARJETA".equals(upper) || "TARJETA/CUENTA".equals(upper)) return "CARD";
+        return upper.replaceAll("[^A-Z0-9_:-]", "_");
     }
 }

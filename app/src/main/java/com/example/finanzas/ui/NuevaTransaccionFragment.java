@@ -1,6 +1,8 @@
 package com.example.finanzas.ui;
 
 import android.content.res.ColorStateList;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -10,10 +12,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -27,11 +31,15 @@ import com.example.finanzas.data.api.SuggestionService;
 import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.Categoria;
+import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.CurrencyConverter;
+import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -42,8 +50,10 @@ import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class NuevaTransaccionFragment extends Fragment {
 
@@ -61,7 +71,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private TextInputEditText etNota, etFecha, etHora;
     private TextInputLayout tilFecha, tilHora, tilCategoria, tilMoneda;
     private MaterialButtonToggleGroup toggleTipo, toggleAccountType;
-    private MaterialButton btnTipoGasto, btnTipoIngreso, btnAccountCard, btnAccountCash;
+    private MaterialButton btnTipoGasto, btnTipoIngreso;
     private MaterialAutoCompleteTextView actCategoria, actMoneda;
     private MaterialButton btnGuardar;
     private MaterialButton btnSugerir;
@@ -78,6 +88,8 @@ public class NuevaTransaccionFragment extends Fragment {
     private ArrayAdapter<String> catAdapter;
     private CategorySuggestion currentSuggestion;
     private Integer pendingSuggestedCategoryId;
+    private final Map<Integer, String> accountTypesByButtonId = new HashMap<>();
+    private String selectedAccountType = "CARD";
 
     @Nullable
     @Override
@@ -104,8 +116,6 @@ public class NuevaTransaccionFragment extends Fragment {
         toggleAccountType = v.findViewById(R.id.toggleAccountType);
         btnTipoGasto  = v.findViewById(R.id.btnTipoGasto);
         btnTipoIngreso = v.findViewById(R.id.btnTipoIngreso);
-        btnAccountCard = v.findViewById(R.id.btnAccountCard);
-        btnAccountCash = v.findViewById(R.id.btnAccountCash);
         actCategoria  = v.findViewById(R.id.actCategoria);
         actMoneda     = v.findViewById(R.id.actMoneda);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
@@ -126,13 +136,13 @@ public class NuevaTransaccionFragment extends Fragment {
         bindMontoErrorCleaner();
         UiFormUtils.clearErrorOnTextChange(etFecha, etHora, actCategoria);
 
-        actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
-        actCategoria.setOnClickListener(view -> actCategoria.showDropDown());
+        actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) showCategoryPickerSheet(); });
+        actCategoria.setOnClickListener(view -> showCategoryPickerSheet());
 
         catAdapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, new ArrayList<>());
         actCategoria.setAdapter(catAdapter);
 
-        btnSugerir.setOnClickListener(v1 -> solicitarSugerencia());
+        if (btnSugerir != null) btnSugerir.setVisibility(View.GONE);
         btnManageCategories.setOnClickListener(v14 -> showCategoryManagerDialog());
         btnMoreOptions.setOnClickListener(v15 -> setMoreOptionsExpanded(!moreOptionsExpanded));
         chipSugerencia.setOnClickListener(v12 -> aplicarSugerenciaActual());
@@ -158,6 +168,7 @@ public class NuevaTransaccionFragment extends Fragment {
     public void onResume() {
         super.onResume();
         updateCurrencyPrefix();
+        populateAccountTypeButtons(selectedAccountType);
     }
 
     private void updateCurrencyPrefix() {
@@ -235,27 +246,81 @@ public class NuevaTransaccionFragment extends Fragment {
     private void setupAccountTypeSelector() {
         if (toggleAccountType == null) return;
         toggleAccountType.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
-            if (isChecked) updateAccountTypeUi();
+            if (!isChecked) return;
+            String type = accountTypesByButtonId.get(checkedId);
+            if (type != null) selectedAccountType = type;
+            updateAccountTypeUi();
         });
-        setSelectedAccountType("CARD");
+        populateAccountTypeButtons("CARD");
     }
 
     private String resolveSelectedAccountType() {
-        return toggleAccountType != null && toggleAccountType.getCheckedButtonId() == R.id.btnAccountCash
-                ? "CASH" : "CARD";
+        return SettingsService.normalizeAccountType(selectedAccountType);
     }
 
     private void setSelectedAccountType(@Nullable String accountType) {
+        String normalized = SettingsService.normalizeAccountType(accountType);
+        selectedAccountType = normalized;
         if (toggleAccountType != null) {
-            toggleAccountType.check("CASH".equalsIgnoreCase(accountType) ? R.id.btnAccountCash : R.id.btnAccountCard);
+            for (Map.Entry<Integer, String> entry : accountTypesByButtonId.entrySet()) {
+                if (entry.getValue().equals(normalized)) {
+                    toggleAccountType.check(entry.getKey());
+                    updateAccountTypeUi();
+                    return;
+                }
+            }
+            Integer first = null;
+            for (Integer id : accountTypesByButtonId.keySet()) {
+                first = id;
+                break;
+            }
+            if (first != null) toggleAccountType.check(first);
         }
         updateAccountTypeUi();
     }
 
     private void updateAccountTypeUi() {
-        boolean cash = "CASH".equals(resolveSelectedAccountType());
-        styleToggleButton(btnAccountCard, !cash);
-        styleToggleButton(btnAccountCash, cash);
+        if (toggleAccountType == null) return;
+        int checked = toggleAccountType.getCheckedButtonId();
+        for (int i = 0; i < toggleAccountType.getChildCount(); i++) {
+            View child = toggleAccountType.getChildAt(i);
+            if (child instanceof MaterialButton) {
+                styleToggleButton((MaterialButton) child, child.getId() == checked);
+            }
+        }
+    }
+
+    private void populateAccountTypeButtons(@Nullable String preferredAccountType) {
+        if (toggleAccountType == null || getContext() == null) return;
+        String preferred = SettingsService.normalizeAccountType(preferredAccountType == null ? selectedAccountType : preferredAccountType);
+        toggleAccountType.removeAllViews();
+        accountTypesByButtonId.clear();
+        addAccountTypeButton("CARD", getString(R.string.transaction_account_card), R.drawable.ic_card);
+        addAccountTypeButton("CASH", getString(R.string.transaction_account_cash), R.drawable.ic_cash);
+        for (FinancialAccount account : SettingsService.listFinancialAccounts(requireContext())) {
+            if (account == null || account.getName() == null || account.getName().trim().isEmpty()) continue;
+            addAccountTypeButton(account.getId(), account.getName(), R.drawable.ic_card);
+        }
+        setSelectedAccountType(preferred);
+    }
+
+    private void addAccountTypeButton(@NonNull String accountType, @NonNull String label, @DrawableRes int iconRes) {
+        MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        int id = View.generateViewId();
+        button.setId(id);
+        button.setText(label);
+        button.setSingleLine(true);
+        button.setAllCaps(false);
+        button.setIconResource(iconRes);
+        button.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+        button.setMinHeight(dp(48));
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setStrokeWidth(dp(1));
+        accountTypesByButtonId.put(id, SettingsService.normalizeAccountType(accountType));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48));
+        params.rightMargin = dp(8);
+        toggleAccountType.addView(button, params);
     }
 
     private void styleToggleButton(@Nullable MaterialButton button, boolean checked) {
@@ -531,6 +596,113 @@ public class NuevaTransaccionFragment extends Fragment {
         }
     }
 
+    private void showCategoryPickerSheet() {
+        if (visibles == null) return;
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(12), dp(20), dp(20));
+
+        TextView title = new TextView(requireContext());
+        title.setText(R.string.hint_categoria);
+        title.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        title.setTextSize(20f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(title);
+
+        TextInputEditText search = new TextInputEditText(requireContext());
+        search.setHint("Buscar categoría");
+        search.setSingleLine(true);
+        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        searchParams.topMargin = dp(12);
+        root.addView(search, searchParams);
+
+        LinearLayout list = new LinearLayout(requireContext());
+        list.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        listParams.topMargin = dp(10);
+        root.addView(list, listParams);
+
+        MaterialButton create = new MaterialButton(requireContext());
+        create.setText(R.string.pres_btn_agregar_categoria);
+        create.setAllCaps(false);
+        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        createParams.topMargin = dp(12);
+        root.addView(create, createParams);
+
+        Runnable renderAll = () -> renderCategoryPickerRows(list, "", dialog);
+        renderAll.run();
+        search.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                renderCategoryPickerRows(list, s == null ? "" : s.toString(), dialog);
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
+        create.setOnClickListener(v -> {
+            dialog.dismiss();
+            showCategoryManagerDialog();
+        });
+        dialog.setContentView(root);
+        dialog.show();
+    }
+
+    private void renderCategoryPickerRows(@NonNull LinearLayout list, @Nullable String filter, @NonNull BottomSheetDialog dialog) {
+        list.removeAllViews();
+        String normalizedFilter = normalize(filter);
+        for (Categoria categoria : visibles) {
+            if (categoria == null || isSpecialCategory(categoria)) continue;
+            if (!normalizedFilter.isEmpty() && !normalize(categoria.nombre).contains(normalizedFilter)) continue;
+
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(0, dp(10), 0, dp(10));
+            row.setClickable(true);
+            row.setFocusable(true);
+
+            int accent = CategoryVisuals.colorFor(requireContext(), categoria.nombre, categoria.esIngreso);
+            ImageView icon = new ImageView(requireContext());
+            icon.setImageResource(CategoryVisuals.iconFor(categoria.nombre, categoria.esIngreso));
+            icon.setColorFilter(accent);
+            GradientDrawable iconBg = new GradientDrawable();
+            iconBg.setShape(GradientDrawable.OVAL);
+            iconBg.setColor(LabelColorUtils.iconBackground(requireContext(), accent));
+            icon.setBackground(iconBg);
+            icon.setPadding(dp(10), dp(10), dp(10), dp(10));
+            row.addView(icon, new LinearLayout.LayoutParams(dp(50), dp(50)));
+
+            TextView name = new TextView(requireContext());
+            name.setText(categoria.nombre);
+            name.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+            name.setTextSize(16f);
+            name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            nameParams.leftMargin = dp(14);
+            row.addView(name, nameParams);
+
+            row.setOnClickListener(v -> {
+                actCategoria.setText(categoria.nombre, false);
+                tilCategoria.setError(null);
+                dialog.dismiss();
+            });
+
+            list.addView(row, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+        }
+    }
+
     private void showCategoryManagerDialog() {
         final boolean incomeFlow = isIncomeSelected();
         LinearLayout root = new LinearLayout(requireContext());
@@ -778,7 +950,8 @@ public class NuevaTransaccionFragment extends Fragment {
         }
         if (seleccionada == null) {
             tilCategoria.setError(getString(R.string.error_selecciona_categoria));
-            actCategoria.requestFocus(); actCategoria.showDropDown();
+            actCategoria.requestFocus();
+            showCategoryPickerSheet();
             return;
         }
 

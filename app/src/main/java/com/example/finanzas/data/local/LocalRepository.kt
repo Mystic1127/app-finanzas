@@ -64,7 +64,12 @@ class LocalRepository private constructor(
         private var instance: LocalRepository? = null
 
         private fun normalizeAccountTypeForMessage(value: String?): String {
-            return if ("CASH".equals(value, ignoreCase = true)) "CASH" else "CARD"
+            val normalized = SettingsService.normalizeAccountType(value)
+            return when (normalized) {
+                "CASH" -> "CASH"
+                "CARD" -> "CARD"
+                else -> "ACCOUNT"
+            }
         }
 
         @JvmStatic
@@ -97,10 +102,10 @@ class LocalRepository private constructor(
     }
 
     class InsufficientBalanceException(accountType: String) : IllegalStateException(
-        if (normalizeAccountTypeForMessage(accountType) == "CASH") {
-            "Saldo insuficiente en Efectivo"
-        } else {
-            "Saldo insuficiente en Tarjeta/Cuenta"
+        when (normalizeAccountTypeForMessage(accountType)) {
+            "CASH" -> "Saldo insuficiente en Efectivo"
+            "CARD" -> "Saldo insuficiente en Tarjeta/Cuenta"
+            else -> "Saldo insuficiente en la cuenta seleccionada"
         }
     )
 
@@ -252,6 +257,30 @@ class LocalRepository private constructor(
         SettingsService.markInitialBalanceConfigured(appContext, normalizedCurrency)
         bumpDataVersion()
         true
+    }
+
+    suspend fun createFinancialAccount(name: String, initialBalance: Double, currency: String): FinancialAccount = withContext(Dispatchers.IO) {
+        val cleanName = name.trim()
+        require(cleanName.isNotBlank()) { "Nombre de cuenta requerido" }
+        require(isValidAmount(initialBalance)) { "Monto invalido" }
+        val userId = currentUserId()
+        migrateLegacyInitialBalancesIfNeeded(userId)
+        val account = SettingsService.addFinancialAccount(appContext, cleanName)
+        if (initialBalance > 0.0) {
+            db.withTransaction {
+                val categoryId = ensureInitialBalanceCategory(userId)
+                insertInitialBalanceTransaction(
+                    userId = userId,
+                    categoryId = categoryId,
+                    amount = initialBalance,
+                    currency = CurrencyConverter.normalize(currency),
+                    accountType = account.id,
+                    note = "${Transaccion.INITIAL_BALANCE_ACCOUNT_NOTE_PREFIX} ${account.name}"
+                )
+            }
+        }
+        bumpDataVersion()
+        account
     }
 
     suspend fun listTransacciones(anio: Int, mes: Int, filtro: TransaccionFiltro? = null): List<Transaccion> = withContext(Dispatchers.IO) {
@@ -440,7 +469,7 @@ class LocalRepository private constructor(
                 .append(if (it.isEsIngreso) "Ingreso" else "Gasto").append(" | ")
                 .append(it.monto).append(" | ")
                 .append(it.moneda ?: baseCurrency()).append(" | ")
-                .append(if (it.isCash) "Efectivo" else "Tarjeta/Cuenta").append(" | ")
+                .append(SettingsService.getFinancialAccountName(appContext, it.accountType)).append(" | ")
                 .append(it.nota ?: "").append('\n')
         }
 
@@ -792,6 +821,7 @@ class LocalRepository private constructor(
             db.categoriaDao().deleteForUser(userId)
         }
         SettingsService.clearInitialBalances(appContext)
+        SettingsService.clearFinancialAccounts(appContext)
         Prefs.clearLastTransactionsPeriod(appContext)
         bumpDataVersion()
         true
@@ -987,6 +1017,32 @@ class LocalRepository private constructor(
         return clean.toDoubleOrNull() ?: 0.0
     }
 
+    private fun buildAccountBalances(transactionsInBase: List<Transaccion>): List<AccountBalance> {
+        val balances = linkedMapOf<String, Double>()
+        for (tx in transactionsInBase) {
+            val accountType = normalizeAccountType(tx.accountType)
+            if (accountType == "CASH") continue
+            val current = balances[accountType] ?: 0.0
+            balances[accountType] = current + if (tx.isEsIngreso) tx.monto else -tx.monto
+        }
+
+        val output = mutableListOf<AccountBalance>()
+        output.add(AccountBalance("CARD", "Tarjeta/Cuenta", balances["CARD"] ?: 0.0, true))
+
+        val known = mutableSetOf("CARD")
+        for (account in SettingsService.listFinancialAccounts(appContext)) {
+            val id = normalizeAccountType(account.id)
+            known.add(id)
+            output.add(AccountBalance(id, account.name, balances[id] ?: 0.0, false))
+        }
+
+        for ((id, balance) in balances) {
+            if (id == "CASH" || id in known) continue
+            output.add(AccountBalance(id, SettingsService.getFinancialAccountName(appContext, id), balance, false))
+        }
+        return output
+    }
+
     suspend fun buildHomeSummary(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {
         val summary = HomeSummary()
         summary.anio = anio
@@ -1006,7 +1062,8 @@ class LocalRepository private constructor(
         summary.balanceVisibleMes = summary.saldo
         summary.balanceOperativoMes = recurringIncome - gastos
 
-        val allTrans = listTodasTransacciones().map { it.toBaseCurrencyCopy(base, rate) }
+        val allRawTrans = listTodasTransacciones()
+        val allTrans = allRawTrans.map { it.toBaseCurrencyCopy(base, rate) }
         val initialCash = allTrans.sumOf { if (it.isInitialBalance && it.isCash) it.monto else 0.0 }
         val initialCard = allTrans.sumOf { if (it.isInitialBalance && !it.isCash) it.monto else 0.0 }
         val cashMovement = allTrans.sumOf { if (it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
@@ -1016,6 +1073,13 @@ class LocalRepository private constructor(
         summary.efectivo = cashMovement
         summary.tarjetaCuenta = cardMovement
         summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
+        summary.accountBalances.addAll(buildAccountBalances(allTrans))
+        summary.latestTransactions.addAll(
+            allRawTrans
+                .filter { !it.isInitialBalance }
+                .sortedByDescending { it.fecha?.time ?: 0L }
+                .take(5)
+        )
 
         val presMonto = getPresupuesto(anio, mes)
         summary.presupuestoMonto = presMonto
@@ -1071,6 +1135,22 @@ class LocalRepository private constructor(
         summary.balanceOperativoMes = recurringIncome - gastos
 
         val allTrans = db.transaccionDao().listAll(userId)
+        val categorias = db.categoriaDao().listForUser(userId).associateBy { it.id }
+        val allTransModels = allTrans
+            .map {
+                Transaccion(
+                    it.id,
+                    it.categoriaId,
+                    categorias[it.categoriaId]?.nombre ?: "",
+                    it.esIngreso == 1,
+                    convertToBase(it.monto, it.moneda, base, rate),
+                    base,
+                    Date(it.fecha),
+                    normalizeAccountType(it.accountType),
+                    it.nota
+                )
+            }
+            .sortedByDescending { it.fecha?.time ?: 0L }
         val initialCash = allTrans.sumOf {
             if (isInitialBalanceEntity(it, initialCategoryIds) && "CASH".equals(it.accountType, ignoreCase = true)) {
                 convertToBase(it.monto, it.moneda, base, rate)
@@ -1104,6 +1184,8 @@ class LocalRepository private constructor(
         summary.efectivo = cashMovement
         summary.tarjetaCuenta = cardMovement
         summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
+        summary.accountBalances.addAll(buildAccountBalances(allTransModels))
+        summary.latestTransactions.addAll(allTransModels.filter { !it.isInitialBalance }.take(5))
 
         val presMonto = findEffectivePresupuesto(userId, anio, mes)
             ?.let { convertToBase(it.monto, it.moneda, base, rate) }
@@ -1229,7 +1311,8 @@ class LocalRepository private constructor(
         val clean = note?.trim().orEmpty()
         return clean.equals(Transaccion.INITIAL_BALANCE_CASH_NOTE, ignoreCase = true) ||
             clean.equals(Transaccion.INITIAL_BALANCE_CARD_NOTE, ignoreCase = true) ||
-            clean.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true)
+            clean.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true) ||
+            clean.startsWith(Transaccion.INITIAL_BALANCE_ACCOUNT_NOTE_PREFIX, ignoreCase = true)
     }
 
     private fun isValidAmount(value: Double): Boolean {
@@ -1237,6 +1320,6 @@ class LocalRepository private constructor(
     }
 
     private fun normalizeAccountType(value: String?): String {
-        return if ("CASH".equals(value, ignoreCase = true)) "CASH" else "CARD"
+        return SettingsService.normalizeAccountType(value)
     }
 }
