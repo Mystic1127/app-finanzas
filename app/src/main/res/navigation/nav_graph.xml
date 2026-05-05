@@ -89,7 +89,7 @@
     <fragment
         android:id="@+id/nav_planning"
         android:name="com.example.finanzas.ui.PlanningFragment"
-        android:label="Metas"
+        android:label="PlanificaciÃ³n"
         tools:layout="@layout/fragment_planning" />
 
     <fragment
@@ -97,6 +97,12 @@
         android:name="com.example.finanzas.ui.SettingsFragment"
         android:label="Ajustes"
         tools:layout="@layout/fragment_settings" />
+
+    <fragment
+        android:id="@+id/nav_initial_balance"
+        android:name="com.example.finanzas.ui.InitialBalanceFragment"
+        android:label="@string/perfil_initial_balances_title"
+        tools:layout="@layout/fragment_initial_balance" />
 
     <fragment
         android:id="@+id/nav_reports"

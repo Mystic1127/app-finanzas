@@ -2,6 +2,7 @@ package com.example.finanzas.ui.adapter;
 
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -66,9 +67,12 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
 
         double mostrado = t.isEsIngreso() ? t.getMonto() : -t.getMonto();
         tvMonto.setText(Format.money(mostrado, t.getMoneda()));
+        tvMonto.setSingleLine(true);
+        tvMonto.setEllipsize(TextUtils.TruncateAt.END);
+        tvMonto.setMaxWidth(dp(132));
 
         int typeColor = CategoryVisuals.colorFor(getContext(), t.getCategoriaNombre(), t.isEsIngreso());
-        tvMonto.setTextColor(typeColor);
+        tvMonto.setTextColor(ContextCompat.getColor(getContext(), t.isEsIngreso() ? R.color.income : R.color.expense));
         tvTitulo.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurface));
         tvSub.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurfaceVariant));
 

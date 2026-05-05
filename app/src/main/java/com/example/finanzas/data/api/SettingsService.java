@@ -210,7 +210,7 @@ public class SettingsService {
     public static String getFinancialAccountName(Context ctx, String accountType) {
         String normalized = normalizeAccountType(accountType);
         if ("CASH".equals(normalized)) return "Efectivo";
-        if ("CARD".equals(normalized)) return "Tarjeta/Cuenta";
+        if ("CARD".equals(normalized)) return "Tarjeta";
         for (FinancialAccount account : listFinancialAccounts(ctx)) {
             if (normalized.equals(account.getId())) {
                 return account.getName();

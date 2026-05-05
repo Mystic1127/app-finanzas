@@ -14,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -72,7 +73,8 @@ public class NuevaTransaccionFragment extends Fragment {
     private TextInputLayout tilFecha, tilHora, tilCategoria, tilMoneda;
     private MaterialButtonToggleGroup toggleTipo, toggleAccountType;
     private MaterialButton btnTipoGasto, btnTipoIngreso;
-    private MaterialAutoCompleteTextView actCategoria, actMoneda;
+    private TextInputEditText actCategoria;
+    private MaterialAutoCompleteTextView actMoneda;
     private MaterialButton btnGuardar;
     private MaterialButton btnSugerir;
     private MaterialButton btnManageCategories;
@@ -85,7 +87,6 @@ public class NuevaTransaccionFragment extends Fragment {
     private Integer editingId = null;
     private List<Categoria> categorias;
     private List<Categoria> visibles;
-    private ArrayAdapter<String> catAdapter;
     private CategorySuggestion currentSuggestion;
     private Integer pendingSuggestedCategoryId;
     private final Map<Integer, String> accountTypesByButtonId = new HashMap<>();
@@ -136,11 +137,8 @@ public class NuevaTransaccionFragment extends Fragment {
         bindMontoErrorCleaner();
         UiFormUtils.clearErrorOnTextChange(etFecha, etHora, actCategoria);
 
-        actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) showCategoryPickerSheet(); });
         actCategoria.setOnClickListener(view -> showCategoryPickerSheet());
-
-        catAdapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, new ArrayList<>());
-        actCategoria.setAdapter(catAdapter);
+        tilCategoria.setEndIconOnClickListener(view -> showCategoryPickerSheet());
 
         if (btnSugerir != null) btnSugerir.setVisibility(View.GONE);
         btnManageCategories.setOnClickListener(v14 -> showCategoryManagerDialog());
@@ -295,8 +293,8 @@ public class NuevaTransaccionFragment extends Fragment {
         String preferred = SettingsService.normalizeAccountType(preferredAccountType == null ? selectedAccountType : preferredAccountType);
         toggleAccountType.removeAllViews();
         accountTypesByButtonId.clear();
-        addAccountTypeButton("CARD", getString(R.string.transaction_account_card), R.drawable.ic_card);
         addAccountTypeButton("CASH", getString(R.string.transaction_account_cash), R.drawable.ic_cash);
+        addAccountTypeButton("CARD", getString(R.string.transaction_account_card), R.drawable.ic_card);
         for (FinancialAccount account : SettingsService.listFinancialAccounts(requireContext())) {
             if (account == null || account.getName() == null || account.getName().trim().isEmpty()) continue;
             addAccountTypeButton(account.getId(), account.getName(), R.drawable.ic_card);
@@ -374,19 +372,15 @@ public class NuevaTransaccionFragment extends Fragment {
         List<String> nombres = new ArrayList<>();
         for (Categoria c : visibles) nombres.add(c.nombre);
 
-        catAdapter.clear();
-        catAdapter.addAll(nombres);
-        catAdapter.notifyDataSetChanged();
-
         String actual = actCategoria.getText() == null ? "" : actCategoria.getText().toString();
         if (preservarSeleccion) {
             if (categoriaDeseada != null && nombres.contains(categoriaDeseada)) {
-                actCategoria.setText(categoriaDeseada, false);
+                actCategoria.setText(categoriaDeseada);
             } else if (!actual.isEmpty() && !nombres.contains(actual)) {
-                actCategoria.setText("", false);
+                actCategoria.setText("");
             }
         } else if (!actual.isEmpty() && !nombres.contains(actual)) {
-            actCategoria.setText("", false);
+            actCategoria.setText("");
         }
     }
 
@@ -439,7 +433,7 @@ public class NuevaTransaccionFragment extends Fragment {
         if (sugerida == null) return;
         if (isIncomeSelected() != sugerida.esIngreso) setSelectedTransactionType(sugerida.esIngreso);
         aplicarFiltroYRefrescar(sugerida.esIngreso, true, sugerida.nombre);
-        actCategoria.setText(sugerida.nombre, false);
+        actCategoria.setText(sugerida.nombre);
         pendingSuggestedCategoryId = null;
     }
 
@@ -620,14 +614,20 @@ public class NuevaTransaccionFragment extends Fragment {
         searchParams.topMargin = dp(12);
         root.addView(search, searchParams);
 
+        ScrollView scroll = new ScrollView(requireContext());
+        scroll.setFillViewport(false);
         LinearLayout list = new LinearLayout(requireContext());
         list.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+        scroll.addView(list, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(360)
         );
         listParams.topMargin = dp(10);
-        root.addView(list, listParams);
+        root.addView(scroll, listParams);
 
         MaterialButton create = new MaterialButton(requireContext());
         create.setText(R.string.pres_btn_agregar_categoria);
@@ -691,7 +691,7 @@ public class NuevaTransaccionFragment extends Fragment {
             row.addView(name, nameParams);
 
             row.setOnClickListener(v -> {
-                actCategoria.setText(categoria.nombre, false);
+                actCategoria.setText(categoria.nombre);
                 tilCategoria.setError(null);
                 dialog.dismiss();
             });

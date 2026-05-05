@@ -107,15 +107,8 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.nav_home,
                 R.id.nav_analysis,
-                R.id.nav_list,
                 R.id.nav_budget,
                 R.id.nav_planning,
-                R.id.nav_settings,
-                R.id.nav_reports,
-                R.id.nav_goals,
-                R.id.nav_reminders,
-                R.id.nav_imports,
-                R.id.nav_perfil,
                 R.id.nav_welcome,
                 R.id.nav_login,
                 R.id.nav_register
@@ -139,6 +132,7 @@ public class MainActivity extends AppCompatActivity {
             boolean isWelcomeScreen = destId == R.id.nav_welcome;
             boolean hasLocalHeader = destId == R.id.nav_home
                     || destId == R.id.nav_analysis
+                    || destId == R.id.nav_budget
                     || destId == R.id.nav_settings
                     || destId == R.id.nav_planning;
             toolbar.setVisibility((isWelcomeScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
@@ -157,7 +151,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 toolbar.setNavigationIcon(null);
             } else {
-                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED);
+                drawerLayout.setDrawerLockMode(isDrawerDestination(destId)
+                        ? DrawerLayout.LOCK_MODE_UNLOCKED
+                        : DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                 }
@@ -294,6 +290,13 @@ public class MainActivity extends AppCompatActivity {
         return destId == R.id.nav_home
                 || destId == R.id.nav_analysis
                 || destId == R.id.nav_new
+                || destId == R.id.nav_budget
+                || destId == R.id.nav_planning;
+    }
+
+    private boolean isDrawerDestination(int destId) {
+        return destId == R.id.nav_home
+                || destId == R.id.nav_analysis
                 || destId == R.id.nav_budget
                 || destId == R.id.nav_planning;
     }

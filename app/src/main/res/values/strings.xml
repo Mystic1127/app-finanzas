@@ -19,7 +19,7 @@
     <string name="transaction_time_error">Selecciona una hora válida</string>
     <string name="transaction_account_type">Origen del dinero</string>
     <string name="transaction_account_cash">Efectivo</string>
-    <string name="transaction_account_card">Tarjeta/Cuenta</string>
+    <string name="transaction_account_card">Tarjeta</string>
     <string name="transaction_more_options">Ver más opciones</string>
     <string name="transaction_less_options">Ver menos opciones</string>
 
@@ -60,7 +60,7 @@
     <string name="home_balance">Balance mensual</string>
     <string name="home_total_current">Total actual</string>
     <string name="home_cash">Efectivo</string>
-    <string name="home_card_account">Tarjeta/Cuenta</string>
+    <string name="home_card_account">Tarjeta</string>
     <string name="home_budget_used">Presupuesto usado</string>
     <string name="home_budget_used_value">%1$d%%</string>
     <string name="home_budget_no_budget">Sin presupuesto</string>

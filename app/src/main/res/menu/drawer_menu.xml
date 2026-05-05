@@ -28,14 +28,9 @@
             android:icon="@drawable/ic_arrow_trending_24" />
 
         <item
-            android:id="@+id/nav_goals"
-            android:title="Metas"
-            android:icon="@drawable/ic_flag" />
-
-        <item
-            android:id="@+id/nav_reminders"
-            android:title="Recordatorios"
-            android:icon="@drawable/ic_notifications" />
+            android:id="@+id/nav_planning"
+            android:title="Planificación"
+            android:icon="@drawable/ic_goal" />
 
         <item
             android:id="@+id/nav_imports"

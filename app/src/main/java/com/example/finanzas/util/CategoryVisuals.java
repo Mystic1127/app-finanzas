@@ -32,7 +32,7 @@ public final class CategoryVisuals {
             return R.drawable.ic_income_other;
         }
 
-        if (contains(key, "salud", "medic", "clinica", "farmacia")) return R.drawable.medical_services;
+        if (contains(key, "salud", "medic", "clinica", "farmacia")) return R.drawable.ic_category_health;
         if (contains(key, "educacion", "curso", "universidad", "colegio")) return R.drawable.ic_category_education;
         if (contains(key, "servicio", "luz", "agua", "internet", "telefono")) return R.drawable.ic_category_services;
         if (contains(key, "super", "mercado", "alimentacion", "comida", "grocer")) return R.drawable.ic_category_groceries;

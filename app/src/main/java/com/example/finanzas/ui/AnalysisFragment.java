@@ -25,6 +25,8 @@ import com.example.finanzas.ui.view.TrendOverviewView;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -39,11 +41,14 @@ public class AnalysisFragment extends Fragment {
     private TextView tvInsight;
     private TextView tvSavingStatus;
     private TextView tvSaving;
+    private MaterialButton btnFinancialDetail;
+    private MaterialButton btnSavingDetail;
     private CategorySpendingChartView chartCategories;
     private TrendOverviewView chartTrend;
     private LinearLayout listCategories;
     private HomeViewModel viewModel;
     private String currencyCode = "PEN";
+    private HomeSummary lastSummary;
 
     @Nullable
     @Override
@@ -62,6 +67,8 @@ public class AnalysisFragment extends Fragment {
         tvInsight = view.findViewById(R.id.tvAnalysisInsight);
         tvSavingStatus = view.findViewById(R.id.tvAnalysisSavingStatus);
         tvSaving = view.findViewById(R.id.tvAnalysisSaving);
+        btnFinancialDetail = view.findViewById(R.id.btnAnalysisFinancialDetail);
+        btnSavingDetail = view.findViewById(R.id.btnAnalysisSavingDetail);
         chartCategories = view.findViewById(R.id.chartAnalysisCategories);
         chartTrend = view.findViewById(R.id.chartAnalysisTrend);
         listCategories = view.findViewById(R.id.listAnalysisCategories);
@@ -69,6 +76,8 @@ public class AnalysisFragment extends Fragment {
         currencyCode = SettingsService.getCurrencyCode(requireContext());
 
         swipe.setOnRefreshListener(() -> load(true));
+        btnFinancialDetail.setOnClickListener(v -> showFinancialDetail());
+        btnSavingDetail.setOnClickListener(v -> showSavingDetail());
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading ->
                 swipe.setRefreshing(Boolean.TRUE.equals(loading)));
         viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
@@ -95,6 +104,7 @@ public class AnalysisFragment extends Fragment {
     }
 
     private void render(@NonNull HomeSummary summary) {
+        lastSummary = summary;
         tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
         renderCategoryChart(summary.getChartCategorias());
         renderTrendChart(summary.getTendenciaMensual());
@@ -110,6 +120,43 @@ public class AnalysisFragment extends Fragment {
                 ? getString(R.string.home_smart_saving_suggested_value, Format.money(summary.getAhorroSugerido(), currencyCode))
                 : getString(R.string.home_smart_saving_not_recommended);
         tvSaving.setText(saving + "\n" + nonEmpty(summary.getRecomendacionAhorroMeta(), getString(R.string.home_smart_saving_goal_empty)));
+    }
+
+    private void showFinancialDetail() {
+        HomeSummary summary = lastSummary;
+        if (summary == null) return;
+        String message = "Score: " + summary.getScoreFinanciero() + "/100"
+                + "\nEstado: " + nonEmpty(summary.getScoreEstado(), getString(R.string.home_financial_missing))
+                + "\n\n" + nonEmpty(summary.getInsightPrincipal(), getString(R.string.home_financial_missing))
+                + "\n\n" + nonEmpty(summary.getScoreExplicacion(), "")
+                + "\nTendencia: " + nonEmpty(summary.getScoreTendencia(), getString(R.string.home_comparison_no_previous))
+                + "\nAlerta: " + nonEmpty(summary.getAlertaPrincipal(), getString(R.string.home_alerts_empty))
+                + "\nProyeccion fin de mes: " + Format.money(summary.getProyeccionFinMes(), currencyCode);
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.home_financial_detail_title)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void showSavingDetail() {
+        HomeSummary summary = lastSummary;
+        if (summary == null) return;
+        String suggested = summary.getAhorroSugerido() > 0
+                ? Format.money(summary.getAhorroSugerido(), currencyCode)
+                : getString(R.string.home_smart_saving_not_recommended);
+        String message = "Estado: " + nonEmpty(summary.getEstadoAhorro(), getString(R.string.home_smart_saving_status_adjusted))
+                + "\nAhorro sugerido: " + suggested
+                + "\n\n" + nonEmpty(summary.getAhorroSugeridoMensaje(), getString(R.string.home_smart_saving_goal_empty))
+                + "\n\n" + nonEmpty(summary.getRecomendacionAhorroMeta(), getString(R.string.home_smart_saving_goal_empty))
+                + "\nSaldo actual: " + Format.money(summary.getSaldoActualTotal(), currencyCode)
+                + "\nGasto proyectado: " + Format.money(summary.getGastoProyectado(), currencyCode)
+                + "\nSaldo estimado fin de mes: " + Format.money(summary.getProyeccionFinMes(), currencyCode);
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.home_smart_saving_detail_title)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void renderCategoryChart(@Nullable List<CategoryChartSlice> slices) {

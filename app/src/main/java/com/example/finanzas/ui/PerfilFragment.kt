@@ -80,8 +80,8 @@ class PerfilFragment : Fragment() {
     private var currencyLabel by mutableStateOf(CURRENCY_PEN)
     private var manualRateText by mutableStateOf("")
     private var initialCurrency by mutableStateOf("PEN")
-    private var initialCashText by mutableStateOf("0")
-    private var initialCardText by mutableStateOf("0")
+    private var initialCashText by mutableStateOf("")
+    private var initialCardText by mutableStateOf("")
     private var initialBalancesConfigured by mutableStateOf(false)
     private var themeMode by mutableStateOf(SettingsService.THEME_SYSTEM)
     private var hasPin by mutableStateOf(false)
@@ -244,8 +244,8 @@ class PerfilFragment : Fragment() {
                 manualRateText = if (rate > 0) String.format(Locale.US, "%.4f", rate) else ""
                 initialCurrency = CurrencyConverter.normalize(balancesCurrency)
                 initialBalancesConfigured = configured
-                initialCashText = if (!configured && cash > 0) String.format(Locale.US, "%.2f", cash) else "0"
-                initialCardText = if (!configured && card > 0) String.format(Locale.US, "%.2f", card) else "0"
+                initialCashText = if (!configured && cash > 0) String.format(Locale.US, "%.2f", cash) else ""
+                initialCardText = if (!configured && card > 0) String.format(Locale.US, "%.2f", card) else ""
                 themeMode = mode
                 currentUserId = Prefs.getCurrentUserId(appContext)
                 PerfLogger.logSince("PerfilFragment", "loadComplete", loadStartMs)
@@ -321,8 +321,8 @@ class PerfilFragment : Fragment() {
             if (saved) {
                 CategoryStore.clearCache()
                 initialBalancesConfigured = true
-                initialCashText = "0"
-                initialCardText = "0"
+                initialCashText = ""
+                initialCardText = ""
                 clearScopedViewModelCaches()
                 Toast.makeText(requireContext(), R.string.perfil_initial_balances_saved, Toast.LENGTH_SHORT).show()
             } else {
@@ -379,8 +379,8 @@ class PerfilFragment : Fragment() {
                 CategoryStore.clearCache()
                 clearScopedViewModelCaches()
                 initialBalancesConfigured = false
-                initialCashText = "0"
-                initialCardText = "0"
+                initialCashText = ""
+                initialCardText = ""
                 initialCashError = null
                 initialCardError = null
                 Toast.makeText(requireContext(), R.string.perfil_financial_data_deleted, Toast.LENGTH_SHORT).show()
@@ -576,146 +576,6 @@ private fun ProfileScreen(
                                 Text(stringResource(R.string.profile_account_switch))
                             }
                         }
-                    }
-                }
-            }
-
-            ProfileSection(title = stringResource(R.string.perfil_preferences)) {
-                Text(
-                    text = stringResource(R.string.perfil_currency_title),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                DropdownField(
-                    label = stringResource(R.string.perfil_currency_hint),
-                    value = currencyLabel,
-                    options = currencyOptions,
-                    onValueChange = onCurrencyChange,
-                    error = currencyError
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = manualRateText,
-                    onValueChange = onManualRateChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.perfil_currency_rate_hint)) },
-                    isError = manualRateError != null,
-                    supportingText = manualRateError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = profileFieldColors()
-                )
-                Button(
-                    onClick = onSaveCurrency,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp)
-                        .height(48.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = profilePrimaryButtonColors()
-                ) {
-                    Text(stringResource(R.string.perfil_currency_save))
-                }
-            }
-
-            ProfileSection(title = stringResource(R.string.perfil_appearance)) {
-                val themeSystem = stringResource(R.string.perfil_theme_system)
-                val themeLight = stringResource(R.string.perfil_theme_light)
-                val themeDark = stringResource(R.string.perfil_theme_dark)
-                val themeOptions = listOf(themeSystem, themeLight, themeDark)
-                val themeLabel = when (themeMode) {
-                    SettingsService.THEME_LIGHT -> themeLight
-                    SettingsService.THEME_DARK -> themeDark
-                    else -> themeSystem
-                }
-                Text(
-                    text = stringResource(R.string.perfil_theme_title),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                DropdownField(
-                    label = stringResource(R.string.perfil_theme_title),
-                    value = themeLabel,
-                    options = themeOptions,
-                    onValueChange = { selected ->
-                        onThemeModeChange(
-                            when (selected) {
-                                themeLight -> SettingsService.THEME_LIGHT
-                                themeDark -> SettingsService.THEME_DARK
-                                else -> SettingsService.THEME_SYSTEM
-                            }
-                        )
-                    }
-                )
-            }
-
-            ProfileSection(title = stringResource(R.string.perfil_initial_balances_title)) {
-                if (initialBalancesConfigured) {
-                    Text(
-                        text = stringResource(R.string.perfil_initial_balances_configured),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = stringResource(R.string.perfil_initial_balances_locked_help),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.perfil_initial_balances_subtitle),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    DropdownField(
-                        label = stringResource(R.string.transaction_currency),
-                        value = initialCurrency,
-                        options = initialCurrencyOptions,
-                        onValueChange = onInitialCurrencyChange
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val symbol = SettingsService.getCurrencySymbol(initialCurrency)
-                    OutlinedTextField(
-                        value = initialCashText,
-                        onValueChange = onInitialCashChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("${stringResource(R.string.perfil_initial_cash_hint)} ($symbol)") },
-                        isError = initialCashError != null,
-                        supportingText = initialCashError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = profileFieldColors()
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = initialCardText,
-                        onValueChange = onInitialCardChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("${stringResource(R.string.perfil_initial_card_hint)} ($symbol)") },
-                        isError = initialCardError != null,
-                        supportingText = initialCardError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = profileFieldColors()
-                    )
-                    Button(
-                        onClick = onSaveInitialBalances,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = profilePrimaryButtonColors()
-                    ) {
-                        Text(stringResource(R.string.perfil_initial_balances_save))
                     }
                 }
             }

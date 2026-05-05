@@ -29,8 +29,8 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     private val _categoryBudgets = MutableLiveData<List<CategoryBudgetInput>>(emptyList())
     val categoryBudgets: LiveData<List<CategoryBudgetInput>> = _categoryBudgets
 
-    private val _message = MutableLiveData<Int>()
-    val message: LiveData<Int> = _message
+    private val _message = MutableLiveData<Int?>()
+    val message: LiveData<Int?> = _message
 
     private var loadedYear = 0
     private var loadedMonth = 0
@@ -133,6 +133,10 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun consumeMessage() {
+        _message.value = null
+    }
+
     fun clearCacheIfUserChanged() {
         val currentUserId = Prefs.getCurrentUserId(getApplication())
         if (loadedUserId > 0 && loadedUserId != currentUserId) {
@@ -147,6 +151,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
         loadedVersion = -1L
         _budget.value = null
         _categoryBudgets.value = emptyList()
+        _message.value = null
         _loading.value = false
     }
 }

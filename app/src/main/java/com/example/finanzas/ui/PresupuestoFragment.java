@@ -159,7 +159,7 @@ public class PresupuestoFragment extends Fragment {
             }
         });
         viewModel.getBudget().observe(getViewLifecycleOwner(), monto -> {
-            if (monto != null) etPresupuesto.setText(String.valueOf(monto));
+            if (monto != null) etPresupuesto.setText(monto > 0.0 ? String.valueOf(monto) : "");
         });
         viewModel.getCategoryBudgets().observe(getViewLifecycleOwner(), items -> {
             if (!firstRenderLogged) {
@@ -172,7 +172,10 @@ public class PresupuestoFragment extends Fragment {
             }
         });
         viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
-            if (msgRes != null) Snackbar.make(requireView(), msgRes, Snackbar.LENGTH_SHORT).show();
+            if (msgRes != null) {
+                Snackbar.make(requireView(), msgRes, Snackbar.LENGTH_SHORT).show();
+                viewModel.consumeMessage();
+            }
         });
     }
 

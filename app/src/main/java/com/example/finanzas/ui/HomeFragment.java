@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
+import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -20,6 +21,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
+import androidx.core.widget.TextViewCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
@@ -41,11 +43,13 @@ import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.TransactionLabelStore;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONObject;
 
@@ -68,7 +72,7 @@ public class HomeFragment extends Fragment {
     private View btnCustomize;
     private View btnSettings;
     private View cardAddAccount;
-    private LinearLayout listAccounts;
+    private GridLayout listAccounts;
     private TextView tvBudgetMissing;
     private MaterialCardView cardBudget;
     private TextView tvBudgetPercent;
@@ -83,6 +87,7 @@ public class HomeFragment extends Fragment {
     private boolean showAccounts = true;
     private boolean showBudget = true;
     private boolean showLatest = true;
+    private boolean hasDynamicAccounts;
     private boolean testerThanksDialogShowing;
 
     @Nullable
@@ -194,9 +199,15 @@ public class HomeFragment extends Fragment {
 
     private void renderAccounts(@Nullable List<AccountBalance> balances) {
         listAccounts.removeAllViews();
-        if (balances == null || balances.isEmpty()) return;
+        hasDynamicAccounts = false;
+        if (balances == null || balances.isEmpty()) {
+            listAccounts.setVisibility(View.GONE);
+            return;
+        }
         for (AccountBalance account : balances) {
             if (account == null) continue;
+            if (account.isPrimary()) continue;
+            hasDynamicAccounts = true;
             MaterialCardView card = new MaterialCardView(requireContext());
             card.setCardBackgroundColor(color(R.color.md_theme_surface));
             card.setStrokeColor(color(R.color.md_theme_outlineVariant));
@@ -206,23 +217,32 @@ public class HomeFragment extends Fragment {
 
             LinearLayout body = new LinearLayout(requireContext());
             body.setOrientation(LinearLayout.VERTICAL);
-            body.setPadding(dp(14), dp(12), dp(14), dp(12));
+            body.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            body.setPadding(dp(14), dp(10), dp(14), dp(10));
             TextView name = new TextView(requireContext());
             name.setText(account.getName());
             name.setTextColor(color(R.color.md_theme_onSurfaceVariant));
             name.setTextSize(13f);
+            name.setSingleLine(true);
+            name.setEllipsize(TextUtils.TruncateAt.END);
             TextView amount = new TextView(requireContext());
             amount.setText(Format.money(account.getBalance(), currencyCode));
             amount.setTextColor(color(account.isPrimary() ? R.color.chartBalance : R.color.md_theme_primary));
             amount.setTextSize(18f);
             amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            amount.setMaxLines(2);
+            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(amount, 12, 18, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
             body.addView(name);
             body.addView(amount);
             card.addView(body);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(170), ViewGroup.LayoutParams.WRAP_CONTENT);
-            params.rightMargin = dp(10);
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = 0;
+            params.height = dp(86);
+            params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+            params.setMargins(dp(4), dp(4), dp(4), dp(4));
             listAccounts.addView(card, params);
         }
+        listAccounts.setVisibility(showAccounts && hasDynamicAccounts ? View.VISIBLE : View.GONE);
     }
 
     private void renderBudget(@NonNull HomeSummary summary) {
@@ -260,7 +280,7 @@ public class HomeFragment extends Fragment {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setPadding(dp(14), dp(12), dp(12), dp(12));
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(8));
+        bg.setCornerRadius(dp(18));
         int accent = label != null ? label.colorInt() : CategoryVisuals.colorFor(requireContext(), tx.getCategoriaNombre(), tx.isEsIngreso());
         bg.setColor(label != null ? LabelColorUtils.cardBackground(requireContext(), accent) : color(R.color.md_theme_surface));
         bg.setStroke(dp(1), label != null ? LabelColorUtils.cardStroke(requireContext(), accent) : color(R.color.md_theme_outlineVariant));
@@ -308,45 +328,80 @@ public class HomeFragment extends Fragment {
         double shown = tx.isEsIngreso() ? tx.getMonto() : -tx.getMonto();
         amount.setText(Format.money(shown, tx.getMoneda()));
         amount.setTextColor(color(tx.isEsIngreso() ? R.color.income : R.color.expense));
-        amount.setTextSize(15f);
+        amount.setTextSize(14f);
         amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        amount.setSingleLine(true);
+        amount.setEllipsize(TextUtils.TruncateAt.END);
         row.addView(amount);
         return row;
     }
 
     private void showCreateAccountDialog() {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(8), dp(20), 0);
+        root.setPadding(dp(20), dp(18), dp(20), dp(20));
 
+        TextView title = new TextView(requireContext());
+        title.setText("Agregar cuenta bancaria o tarjeta");
+        title.setTextColor(color(R.color.md_theme_onSurface));
+        title.setTextSize(20f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(title);
+
+        TextView subtitle = new TextView(requireContext());
+        subtitle.setText("Se agregara como origen del dinero y tendra su propio saldo.");
+        subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        subtitle.setTextSize(14f);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = dp(6);
+        root.addView(subtitle, subtitleParams);
+
+        TextInputLayout tilName = new TextInputLayout(requireContext());
+        tilName.setHint("Nombre de la cuenta o tarjeta");
         TextInputEditText etName = new TextInputEditText(requireContext());
-        etName.setHint("Nombre de la cuenta o tarjeta");
         etName.setSingleLine(true);
-        root.addView(etName, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        tilName.addView(etName, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        nameParams.topMargin = dp(16);
+        root.addView(tilName, nameParams);
 
+        TextInputLayout tilBalance = new TextInputLayout(requireContext());
+        tilBalance.setHint("Saldo inicial");
         TextInputEditText etBalance = new TextInputEditText(requireContext());
-        etBalance.setHint("Saldo inicial");
+        etBalance.setHint("0.00");
         etBalance.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        tilBalance.addView(etBalance, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams balanceParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        balanceParams.topMargin = dp(10);
-        root.addView(etBalance, balanceParams);
+        balanceParams.topMargin = dp(12);
+        root.addView(tilBalance, balanceParams);
 
+        TextInputLayout tilCurrency = new TextInputLayout(requireContext());
+        tilCurrency.setHint("Moneda");
         MaterialAutoCompleteTextView actCurrency = new MaterialAutoCompleteTextView(requireContext());
         actCurrency.setInputType(0);
         actCurrency.setText(currencyCode, false);
         actCurrency.setAdapter(new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, com.example.finanzas.util.CurrencyConverter.supportedCurrencies()));
         actCurrency.setOnClickListener(v -> actCurrency.showDropDown());
+        tilCurrency.addView(actCurrency, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams currencyParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        currencyParams.topMargin = dp(10);
-        root.addView(actCurrency, currencyParams);
+        currencyParams.topMargin = dp(12);
+        root.addView(tilCurrency, currencyParams);
 
-        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Agregar cuenta bancaria o tarjeta")
-                .setView(root)
-                .setPositiveButton(R.string.btn_guardar, null)
-                .setNegativeButton(android.R.string.cancel, null)
-                .create();
-        dialog.setOnShowListener(d -> dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+        com.google.android.material.button.MaterialButton save = new com.google.android.material.button.MaterialButton(requireContext());
+        save.setText(R.string.btn_guardar);
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
+        saveParams.topMargin = dp(18);
+        root.addView(save, saveParams);
+
+        com.google.android.material.button.MaterialButton cancel = new com.google.android.material.button.MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        cancel.setText(android.R.string.cancel);
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        cancelParams.topMargin = dp(8);
+        root.addView(cancel, cancelParams);
+
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        save.setOnClickListener(v -> {
             String name = etName.getText() == null ? "" : etName.getText().toString().trim();
             double initial = parseAmount(etBalance.getText() == null ? "" : etBalance.getText().toString());
             String currency = com.example.finanzas.util.CurrencyConverter.normalize(actCurrency.getText() == null ? currencyCode : actCurrency.getText().toString());
@@ -354,7 +409,7 @@ public class HomeFragment extends Fragment {
                 etName.setError("Ingresa un nombre");
                 return;
             }
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            save.setEnabled(false);
             AccountService.create(requireContext(), name, initial, currency, new AccountService.CreateCb() {
                 @Override
                 public void onOk(@NonNull FinancialAccount account) {
@@ -369,11 +424,12 @@ public class HomeFragment extends Fragment {
                 @Override
                 public void onError(@Nullable String message) {
                     if (!isAdded()) return;
-                    dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+                    save.setEnabled(true);
                     UiFormUtils.showMessage(requireView(), TextUtils.isEmpty(message) ? "No se pudo crear la cuenta" : message);
                 }
             });
-        }));
+        });
+        dialog.setContentView(root);
         dialog.show();
     }
 
@@ -425,7 +481,7 @@ public class HomeFragment extends Fragment {
     private void applyHomePrefs() {
         int accountVisibility = showAccounts ? View.VISIBLE : View.GONE;
         cardAddAccount.setVisibility(accountVisibility);
-        listAccounts.setVisibility(accountVisibility);
+        listAccounts.setVisibility(showAccounts && hasDynamicAccounts ? View.VISIBLE : View.GONE);
         tvBudgetMissing.setVisibility(showBudget ? tvBudgetMissing.getVisibility() : View.GONE);
         cardBudget.setVisibility(showBudget ? cardBudget.getVisibility() : View.GONE);
         listLatest.setVisibility(showLatest ? View.VISIBLE : View.GONE);

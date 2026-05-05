@@ -16,6 +16,7 @@ import org.json.JSONObject
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
+import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -60,6 +61,32 @@ class LocalRepository private constructor(
         private const val BALANCE_EPSILON = 0.005
         private val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         private val dataVersion = AtomicLong(0L)
+        private val DEFAULT_CATEGORIES = listOf(
+            DefaultCategory("Salud", false),
+            DefaultCategory("Educaci\u00f3n", false),
+            DefaultCategory("Servicios", false),
+            DefaultCategory("Compras", false),
+            DefaultCategory("Supermercado", false),
+            DefaultCategory("Ropa", false),
+            DefaultCategory("Tecnolog\u00eda", false),
+            DefaultCategory("Viajes", false),
+            DefaultCategory("Mascotas", false),
+            DefaultCategory("Familia", false),
+            DefaultCategory("Deudas", false),
+            DefaultCategory("Ahorro", false),
+            DefaultCategory("Regalos", false),
+            DefaultCategory("Trabajo", false),
+            DefaultCategory("Impuestos", false),
+            DefaultCategory("Otros", false),
+            DefaultCategory("Sueldo", true),
+            DefaultCategory("Freelance", true),
+            DefaultCategory("Negocio", true),
+            DefaultCategory("Inversiones", true),
+            DefaultCategory("Regalo recibido", true),
+            DefaultCategory("Reembolso", true),
+            DefaultCategory("Venta", true),
+            DefaultCategory("Otros ingresos", true)
+        )
         @Volatile
         private var instance: LocalRepository? = null
 
@@ -104,7 +131,7 @@ class LocalRepository private constructor(
     class InsufficientBalanceException(accountType: String) : IllegalStateException(
         when (normalizeAccountTypeForMessage(accountType)) {
             "CASH" -> "Saldo insuficiente en Efectivo"
-            "CARD" -> "Saldo insuficiente en Tarjeta/Cuenta"
+        "CARD" -> "Saldo insuficiente en Tarjeta"
             else -> "Saldo insuficiente en la cuenta seleccionada"
         }
     )
@@ -119,6 +146,8 @@ class LocalRepository private constructor(
         val categoriaNombre: String?,
         val nota: String?
     )
+
+    private data class DefaultCategory(val name: String, val income: Boolean)
 
     suspend fun registerUser(nombre: String, email: String, password: String, outId: IntArray?): Boolean = withContext(Dispatchers.IO) {
         val id = db.userDao().insert(UserEntity(nombre = nombre, email = email, password = PasswordSecurity.hashPassword(password)))
@@ -169,6 +198,7 @@ class LocalRepository private constructor(
 
     suspend fun listCategorias(): List<Categoria> = withContext(Dispatchers.IO) {
         val userId = currentUserId()
+        ensureDefaultCategories(userId)
         db.categoriaDao().listForUser(userId).map {
             Categoria(
                 it.id,
@@ -178,6 +208,36 @@ class LocalRepository private constructor(
                 it.userId == userId && !it.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true)
             )
         }
+    }
+
+    @Synchronized
+    private fun ensureDefaultCategories(userId: Int) {
+        val dao = db.categoriaDao()
+        val existing = dao.listForUser(userId)
+        val existingKeys = existing
+            .map { categoryKey(it.nombre, it.esIngreso == 1) }
+            .toMutableSet()
+        var nextId = (dao.listAll().maxOfOrNull { it.id } ?: 0) + 1
+        for (category in DEFAULT_CATEGORIES) {
+            val key = categoryKey(category.name, category.income)
+            if (key in existingKeys) continue
+            dao.insert(
+                CategoriaEntity(
+                    id = nextId++,
+                    userId = 0,
+                    nombre = category.name,
+                    esIngreso = if (category.income) 1 else 0
+                )
+            )
+            existingKeys.add(key)
+        }
+    }
+
+    private fun categoryKey(name: String?, income: Boolean): String {
+        val raw = name?.trim().orEmpty().lowercase(Locale.ROOT)
+        val normalized = Normalizer.normalize(raw, Normalizer.Form.NFD)
+            .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+        return "${if (income) "I" else "E"}:$normalized"
     }
 
     suspend fun updateCategoria(id: Int, nombre: String, esIngreso: Boolean): Boolean = withContext(Dispatchers.IO) {
@@ -1027,7 +1087,7 @@ class LocalRepository private constructor(
         }
 
         val output = mutableListOf<AccountBalance>()
-        output.add(AccountBalance("CARD", "Tarjeta/Cuenta", balances["CARD"] ?: 0.0, true))
+        output.add(AccountBalance("CARD", "Tarjeta", balances["CARD"] ?: 0.0, true))
 
         val known = mutableSetOf("CARD")
         for (account in SettingsService.listFinancialAccounts(appContext)) {
@@ -1067,12 +1127,25 @@ class LocalRepository private constructor(
         val initialCash = allTrans.sumOf { if (it.isInitialBalance && it.isCash) it.monto else 0.0 }
         val initialCard = allTrans.sumOf { if (it.isInitialBalance && !it.isCash) it.monto else 0.0 }
         val cashMovement = allTrans.sumOf { if (it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
-        val cardMovement = allTrans.sumOf { if (!it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
+        val cardMovement = allTrans.sumOf {
+            if (normalizeAccountType(it.accountType) == "CARD") {
+                if (it.isEsIngreso) it.monto else -it.monto
+            } else {
+                0.0
+            }
+        }
+        val nonCashMovement = allTrans.sumOf {
+            if (!it.isCash) {
+                if (it.isEsIngreso) it.monto else -it.monto
+            } else {
+                0.0
+            }
+        }
         summary.initialCashBalance = initialCash
         summary.initialCardBalance = initialCard
         summary.efectivo = cashMovement
         summary.tarjetaCuenta = cardMovement
-        summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
+        summary.saldoActualTotal = summary.efectivo + nonCashMovement
         summary.accountBalances.addAll(buildAccountBalances(allTrans))
         summary.latestTransactions.addAll(
             allRawTrans
@@ -1173,7 +1246,14 @@ class LocalRepository private constructor(
             }
         }
         val cardMovement = allTrans.sumOf {
-            if (!"CASH".equals(it.accountType, ignoreCase = true)) {
+            if ("CARD".equals(normalizeAccountType(it.accountType), ignoreCase = true)) {
+                if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
+            } else {
+                0.0
+            }
+        }
+        val nonCashMovement = allTrans.sumOf {
+            if (!"CASH".equals(normalizeAccountType(it.accountType), ignoreCase = true)) {
                 if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
             } else {
                 0.0
@@ -1183,7 +1263,7 @@ class LocalRepository private constructor(
         summary.initialCardBalance = initialCard
         summary.efectivo = cashMovement
         summary.tarjetaCuenta = cardMovement
-        summary.saldoActualTotal = summary.efectivo + summary.tarjetaCuenta
+        summary.saldoActualTotal = summary.efectivo + nonCashMovement
         summary.accountBalances.addAll(buildAccountBalances(allTransModels))
         summary.latestTransactions.addAll(allTransModels.filter { !it.isInitialBalance }.take(5))
 

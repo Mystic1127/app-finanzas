@@ -28,8 +28,13 @@ public class Format {
             String code = CurrencyConverter.normalize(currencyCode);
             Currency.getInstance(code);
             DecimalFormat nf = (DecimalFormat) NumberFormat.getNumberInstance(LOCALE);
-            nf.setMinimumFractionDigits(2);
-            nf.setMaximumFractionDigits(2);
+            if ("CLP".equals(code)) {
+                nf.setMinimumFractionDigits(0);
+                nf.setMaximumFractionDigits(0);
+            } else {
+                nf.setMinimumFractionDigits(2);
+                nf.setMaximumFractionDigits(2);
+            }
             return CurrencyConverter.symbol(code) + " " + nf.format(v);
         } catch (Exception e) {
             return money(v);

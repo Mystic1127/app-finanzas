@@ -96,7 +96,12 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
+                    android:autoSizeMaxTextSize="54sp"
+                    android:autoSizeMinTextSize="28sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
                     android:includeFontPadding="false"
+                    android:maxLines="1"
                     android:textColor="@color/md_theme_onSurface"
                     android:textSize="54sp"
                     android:textStyle="bold"
@@ -114,28 +119,28 @@
                         android:id="@+id/cardIncome"
                         layout="@layout/item_home_metric"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="108dp"
                         android:layout_columnWeight="1" />
 
                     <include
                         android:id="@+id/cardExpense"
                         layout="@layout/item_home_metric"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="108dp"
                         android:layout_columnWeight="1" />
 
                     <include
                         android:id="@+id/cardCash"
                         layout="@layout/item_home_metric"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="108dp"
                         android:layout_columnWeight="1" />
 
                     <include
                         android:id="@+id/cardCard"
                         layout="@layout/item_home_metric"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="108dp"
                         android:layout_columnWeight="1" />
                 </GridLayout>
 
@@ -143,86 +148,81 @@
                     android:id="@+id/cardAddAccount"
                     style="@style/Widget.Finanzas.Card.HomeMetric"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_height="64dp"
+                    android:layout_marginTop="10dp"
                     android:clickable="true"
                     android:focusable="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="18dp">
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp">
 
                         <ImageView
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:src="@drawable/ic_add_card"
                             android:tint="@color/md_theme_primary" />
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
+                            android:layout_marginStart="14dp"
                             android:layout_weight="1"
                             android:text="Agregar cuenta bancaria o tarjeta"
                             android:textColor="@color/md_theme_onSurface"
-                            android:textSize="16sp" />
+                            android:textSize="14sp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
 
                         <ImageView
-                            android:layout_width="26dp"
-                            android:layout_height="26dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:src="@drawable/ic_chevron_right"
                             android:tint="@color/md_theme_onSurface" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <HorizontalScrollView
-                    android:id="@+id/scrollAccounts"
+                <GridLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:clipToPadding="false"
-                    android:overScrollMode="never"
-                    android:scrollbars="none">
-
-                    <LinearLayout
-                        android:id="@+id/listHomeAccounts"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal" />
-                </HorizontalScrollView>
+                    android:layout_marginTop="10dp"
+                    android:columnCount="2"
+                    android:id="@+id/listHomeAccounts"
+                    android:useDefaultMargins="true" />
 
                 <TextView
                     android:id="@+id/tvHomeBudgetMissing"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="16dp"
                     android:text="@string/home_budget_missing_hint"
                     android:textColor="@color/md_theme_onSurfaceVariant"
-                    android:textSize="16sp" />
+                    android:textSize="14sp" />
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardHomeBudget"
                     style="@style/Widget.Finanzas.Card.HomeMetric"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp">
+                    android:layout_marginTop="10dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="18dp">
+                        android:padding="14dp">
 
                         <TextView
                             android:id="@+id/tvHomeBudgetPercent"
-                            android:layout_width="92dp"
+                            android:layout_width="82dp"
                             android:layout_height="wrap_content"
                             android:textColor="@color/md_theme_primary"
-                            android:textSize="34sp"
+                            android:textSize="30sp"
                             android:textStyle="bold"
                             tools:text="45%" />
 
@@ -263,7 +263,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="26dp"
+                    android:layout_marginTop="20dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 

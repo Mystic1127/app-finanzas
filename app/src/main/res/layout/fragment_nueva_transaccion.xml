@@ -149,22 +149,25 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilCategoria"
-                    style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
+                    style="@style/Widget.Finanzas.TextInputLayout"
                     android:hint="@string/hint_categoria"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
+                    app:endIconDrawable="@drawable/ic_chevron_right"
+                    app:endIconMode="custom"
                     app:hintEnabled="true">
 
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/actCategoria"
-                        style="@style/Widget.Finanzas.AutoCompleteTextView"
-                        android:inputType="none"
-                        android:contentDescription="@string/categoria_cd"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textColorHint="?attr/colorOnSurfaceVariant"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:contentDescription="@string/categoria_cd"
+                        android:focusable="false"
+                        android:inputType="none"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <LinearLayout

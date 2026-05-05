@@ -162,6 +162,15 @@
                         android:layout_marginTop="8dp"
                         android:textColor="@color/md_theme_onSurfaceVariant"
                         android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAnalysisFinancialDetail"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/home_view_detail" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -206,6 +215,15 @@
                         android:layout_marginTop="8dp"
                         android:textColor="@color/md_theme_onSurfaceVariant"
                         android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAnalysisSavingDetail"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/home_view_detail" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
