@@ -7,5 +7,5 @@
 
     <path
         android:fillColor="#000000"
-        android:pathData="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z" />
+        android:pathData="M140-220-60-60 300-300 160 160 284-320 56 56-340 384-160-160-240 240Z" />
 </vector>
