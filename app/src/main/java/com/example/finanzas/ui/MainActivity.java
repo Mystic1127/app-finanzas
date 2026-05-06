@@ -37,6 +37,7 @@ import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.ui.viewmodel.ReportsViewModel;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Prefs;
+import com.example.finanzas.util.RecurringTransactionStore;
 import com.example.finanzas.util.PinSession;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
@@ -65,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         PinSession.lock();
+        RecurringTransactionStore.processDueAsync(this);
 
 
         toolbar = findViewById(R.id.toolbar);
@@ -223,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
 
             PinSession.lock();
 
-            Toast.makeText(this, "Sesión cerrada", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.nav_logout_done, Toast.LENGTH_SHORT).show();
 
             NavOptions out = new NavOptions.Builder()
                     .setPopUpTo(navController.getGraph().getId(), true)

@@ -90,6 +90,19 @@ object TransService {
             .updateTransaccion(id.toInt(), categoriaId.toInt(), esIngreso, monto, nota, fecha, moneda, accountType)
     }
 
+    suspend fun createTransfer(
+        ctx: Context,
+        originAccountType: String,
+        destinationAccountType: String,
+        monto: Double,
+        nota: String,
+        fecha: Long,
+        moneda: String
+    ): Int = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx)
+            .createTransfer(originAccountType, destinationAccountType, monto, nota, fecha, moneda)
+    }
+
     suspend fun delete(ctx: Context, id: Long): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).deleteTransaccion(id.toInt())
     }
@@ -145,6 +158,15 @@ object TransService {
             runCatching { update(ctx, id, categoriaId, esIngreso, monto, nota, fecha, moneda, accountType) }
                 .onSuccess { if (it) cb.onOk() else cb.onError("No se pudo actualizar") }
                 .onFailure { cb.onError(transactionErrorMessage(it, "No se pudo actualizar")) }
+        }
+    }
+
+    @JvmStatic
+    fun createTransfer(ctx: Context, originAccountType: String, destinationAccountType: String, monto: Double, nota: String, fecha: Long, moneda: String, cb: SimpleCb) {
+        scope.launch {
+            runCatching { createTransfer(ctx, originAccountType, destinationAccountType, monto, nota, fecha, moneda) }
+                .onSuccess(cb::onOk)
+                .onFailure { cb.onError(transactionErrorMessage(it, "No se pudo crear la transferencia")) }
         }
     }
 

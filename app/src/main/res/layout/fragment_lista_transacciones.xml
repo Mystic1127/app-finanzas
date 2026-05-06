@@ -28,55 +28,103 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Movimientos recientes"
+                    android:text="@string/transactions_recent_title"
                     android:textColor="@color/md_theme_onSurface"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnFiltros"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="48dp"
+                    android:id="@+id/btnChangeMonth"
+                    style="@style/Widget.Finanzas.Button.Secondary"
+                    android:layout_width="wrap_content"
                     android:layout_height="48dp"
-                    android:contentDescription="@string/transactions_filter_cd"
-                    android:insetLeft="0dp"
+                    android:contentDescription="@string/transaction_date"
+                    android:insetLeft="12dp"
                     android:insetTop="0dp"
-                    android:insetRight="0dp"
+                    android:insetRight="12dp"
                     android:insetBottom="0dp"
                     android:minWidth="48dp"
                     android:padding="12dp"
+                    android:text="@string/transactions_change_month"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_calendar"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp" />
+            </LinearLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilTransactionSearch"
+                style="@style/Widget.Finanzas.TextInputLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="@string/transactions_search_hint"
+                app:startIconDrawable="@drawable/ic_search">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etTransactionSearch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:singleLine="true"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textColorHint="?attr/colorOnSurfaceVariant" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrdenar"
+                    style="@style/Widget.Finanzas.Button.Secondary"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="@string/transactions_sort"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_ordenar" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnFiltros"
+                    style="@style/Widget.Finanzas.Button.Secondary"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:contentDescription="@string/transactions_filter_cd"
+                    android:text="@string/transactions_filters"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_filtros" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAddTransactionColor"
+                    style="@style/Widget.Finanzas.Button.Secondary"
+                    android:layout_width="48dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/transaction_visual_label"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
+                    android:minWidth="48dp"
                     android:text=""
-                    app:icon="@drawable/ic_filter"
+                    app:icon="@drawable/ic_etiqueta"
                     app:iconGravity="textStart"
                     app:iconPadding="0dp" />
             </LinearLayout>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Un vistazo limpio a tu actividad"
-                android:textColor="@color/md_theme_onSurfaceVariant" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAddTransactionColor"
-                style="@style/Widget.Finanzas.Button.Tonal"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/transactions_add_color" />
-
             <HorizontalScrollView
-                android:id="@+id/scrollTransactionLabels"
+                android:id="@+id/scrollQuickFilters"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="10dp"
                 android:overScrollMode="never"
-                android:scrollbars="none"
-                android:visibility="gone">
+                android:scrollbars="none">
 
                 <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chipTransactionLabels"
+                    android:id="@+id/chipQuickFilters"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:singleSelection="true" />
@@ -113,6 +161,40 @@
                         android:textColor="@color/md_theme_onSurfaceVariant"
                         android:visibility="gone" />
                 </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardVisibleTotal"
+                style="@style/Widget.Finanzas.Card.HomeMetric"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="10dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp">
+
+                    <TextView
+                        android:id="@+id/tvVisibleCount"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvVisibleTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/md_theme_onSurface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

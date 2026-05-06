@@ -23,7 +23,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnTipoGasto"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/Widget.Finanzas.Button.Secondary"
                 android:layout_width="0dp"
                 android:layout_height="52dp"
                 android:layout_weight="1"
@@ -33,8 +33,19 @@
                 app:iconGravity="textStart" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnTipoTransferencia"
+                style="@style/Widget.Finanzas.Button.Secondary"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="@string/tipo_transferencia"
+                android:textAllCaps="false"
+                app:icon="@drawable/ic_transferencia"
+                app:iconGravity="textStart" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnTipoIngreso"
-                style="@style/Widget.Material3.Button.OutlinedButton"
+                style="@style/Widget.Finanzas.Button.Secondary"
                 android:layout_width="0dp"
                 android:layout_height="52dp"
                 android:layout_weight="1"
@@ -170,50 +181,41 @@
                         android:textColorHint="?attr/colorOnSurfaceVariant" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <LinearLayout
+                <TextView
+                    android:id="@+id/tvTransferHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnManageCategories"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="start|center_vertical"
-                        android:minHeight="40dp"
-                        android:text="@string/category_manage" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSugerir"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="end|center_vertical"
-                        android:minHeight="40dp"
-                        android:text="@string/suggest_category"
-                        android:visibility="gone" />
-                </LinearLayout>
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipSugerencia"
-                    style="@style/Widget.Finanzas.Chip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:text="@string/transfer_destination_hint"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:textSize="13sp"
                     android:visibility="gone"
-                    android:text="@string/suggest_chip_placeholder"
-                    app:closeIconVisible="true" />
+                    tools:visibility="visible" />
+
+                <HorizontalScrollView
+                    android:id="@+id/scrollTransferDestination"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:overScrollMode="never"
+                    android:scrollbars="none"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <com.google.android.material.button.MaterialButtonToggleGroup
+                        android:id="@+id/toggleDestinationAccount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:selectionRequired="true"
+                        app:singleSelection="true" />
+                </HorizontalScrollView>
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Finanzas.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:hint="@string/hint_nota_opcional"
+                    android:hint="@string/hint_nota"
                     app:hintEnabled="true">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -223,12 +225,34 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilEtiquetaVisual"
+                    style="@style/Widget.Finanzas.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/transaction_visual_label"
+                    app:endIconDrawable="@drawable/ic_chevron_right"
+                    app:endIconMode="custom"
+                    app:startIconDrawable="@drawable/ic_etiqueta">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etEtiquetaVisual"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:inputType="none"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnMoreOptions"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.Finanzas.Button.Secondary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
@@ -267,6 +291,60 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilRecurrence"
+                    style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
+                    android:hint="@string/transaction_recurrence"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    app:hintEnabled="true">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/actRecurrence"
+                        style="@style/Widget.Finanzas.AutoCompleteTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:id="@+id/layoutCustomRecurrenceDays"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/transaction_recurrence_custom_days"
+                        android:textColor="@color/md_theme_onSurface"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipCustomRecurrenceDays"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        app:singleSelection="false" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnClearRecurrence"
+                    style="@style/Widget.Finanzas.Button.Secondary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/transaction_recurrence_clear"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/tilFecha"
@@ -316,7 +394,7 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="16dp"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="104dp" />
 
     </LinearLayout>
 </ScrollView>

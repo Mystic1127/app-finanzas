@@ -12,11 +12,14 @@ import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
+import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.text.TextUtils;
+import android.text.Editable;
+import android.text.TextWatcher;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -38,6 +41,7 @@ import com.example.finanzas.ui.adapter.TransaccionAdapter;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.LabelColorUtils;
+import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.TransactionLabelStore;
@@ -75,15 +79,21 @@ public class ListaTransaccionesFragment extends Fragment {
     private long loadStartMs;
     private boolean firstRenderLogged;
     private MaterialButton btnFiltros;
+    private MaterialButton btnOrdenar;
+    private MaterialButton btnChangeMonth;
     private MaterialButton btnAddTransactionColor;
-    private View scrollTransactionLabels;
-    private ChipGroup chipTransactionLabels;
+    private TextInputEditText etTransactionSearch;
+    private ChipGroup chipQuickFilters;
+    private TextView tvVisibleCount;
+    private TextView tvVisibleTotal;
+    private View cardVisibleTotal;
     private TransaccionFiltro filtroActual;
     private List<Categoria> categorias;
     private final List<Transaccion> masterTransactions = new ArrayList<>();
     private List<TransactionLabelStore.Label> transactionLabels = new ArrayList<>();
     private Map<Integer, String> labelAssignments = new HashMap<>();
     private String selectedLabelId = null;
+    private TransaccionFiltro.Tipo quickType = TransaccionFiltro.Tipo.TODAS;
     private TransactionsViewModel viewModel;
 
     @Nullable
@@ -106,9 +116,14 @@ public class ListaTransaccionesFragment extends Fragment {
         progress = v.findViewById(R.id.progressLista);
         swipeRefreshLayout = v.findViewById(R.id.swipeTransacciones);
         btnFiltros = v.findViewById(R.id.btnFiltros);
+        btnOrdenar = v.findViewById(R.id.btnOrdenar);
+        btnChangeMonth = v.findViewById(R.id.btnChangeMonth);
         btnAddTransactionColor = v.findViewById(R.id.btnAddTransactionColor);
-        scrollTransactionLabels = v.findViewById(R.id.scrollTransactionLabels);
-        chipTransactionLabels = v.findViewById(R.id.chipTransactionLabels);
+        etTransactionSearch = v.findViewById(R.id.etTransactionSearch);
+        chipQuickFilters = v.findViewById(R.id.chipQuickFilters);
+        tvVisibleCount = v.findViewById(R.id.tvVisibleCount);
+        tvVisibleTotal = v.findViewById(R.id.tvVisibleTotal);
+        cardVisibleTotal = v.findViewById(R.id.cardVisibleTotal);
         viewModel = new ViewModelProvider(requireActivity()).get(TransactionsViewModel.class);
         viewModel.clearCacheIfUserChanged();
         adapter = new TransaccionAdapter(requireContext(), new ArrayList<>());
@@ -127,9 +142,10 @@ public class ListaTransaccionesFragment extends Fragment {
             args.putInt(NuevaTransaccionFragment.EXTRA_CAT_ID, t.getCategoriaId());
             args.putString(NuevaTransaccionFragment.EXTRA_CAT_NOMBRE, t.getCategoriaNombre());
             args.putBoolean(NuevaTransaccionFragment.EXTRA_ES_INGRESO, t.isEsIngreso());
+            args.putBoolean(NuevaTransaccionFragment.EXTRA_IS_TRANSFER, t.isTransfer());
             args.putDouble(NuevaTransaccionFragment.EXTRA_MONTO, t.getMonto());
             args.putString(NuevaTransaccionFragment.EXTRA_NOTA,
-                    t.getNota() == null ? "" : t.getNota());
+                    t.getDisplayNote() == null ? "" : t.getDisplayNote());
             args.putString(NuevaTransaccionFragment.EXTRA_MONEDA,
                     t.getMoneda() == null ? "PEN" : t.getMoneda());
             args.putString(NuevaTransaccionFragment.EXTRA_ACCOUNT_TYPE, t.getAccountType());
@@ -137,6 +153,7 @@ public class ListaTransaccionesFragment extends Fragment {
                 args.putLong(NuevaTransaccionFragment.EXTRA_FECHA, t.getFecha().getTime());
             }
 
+            viewModel.clearTransientEvents();
             Navigation.findNavController(view).navigate(R.id.nav_new, args);
         });
 
@@ -169,9 +186,25 @@ public class ListaTransaccionesFragment extends Fragment {
         if (btnFiltros != null) {
             btnFiltros.setOnClickListener(v12 -> mostrarDialogoFiltros());
         }
+        if (btnOrdenar != null) {
+            btnOrdenar.setOnClickListener(v12 -> showSortDialog());
+        }
+        if (btnChangeMonth != null) {
+            btnChangeMonth.setOnClickListener(v12 -> showMonthDialog());
+        }
         if (btnAddTransactionColor != null) {
             btnAddTransactionColor.setOnClickListener(v13 -> showLabelPickerDialog());
         }
+        if (etTransactionSearch != null) {
+            etTransactionSearch.addTextChangedListener(new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    applySearchText(s == null ? "" : s.toString());
+                }
+                @Override public void afterTextChanged(Editable s) { }
+            });
+        }
+        renderQuickFilters();
         loadTransactionLabels();
         observeViewModel();
         PerfLogger.logSince("ListaTransaccionesFragment", "onViewCreated", perfStartMs);
@@ -220,7 +253,7 @@ public class ListaTransaccionesFragment extends Fragment {
     private void actualizarPeriodoLabel(int anio, int mes) {
         if (tvPeriodo == null) return;
         tvPeriodo.setVisibility(View.VISIBLE);
-        tvPeriodo.setText(getString(R.string.transactions_period_label, Format.monthYear(anio, mes)));
+        tvPeriodo.setText(Format.monthYear(anio, mes));
 
         Calendar cal = Calendar.getInstance();
         int actualYear = cal.get(Calendar.YEAR);
@@ -252,50 +285,44 @@ public class ListaTransaccionesFragment extends Fragment {
         transactionLabels = TransactionLabelStore.listLabels(requireContext());
         labelAssignments = TransactionLabelStore.listAssignments(requireContext());
         adapter.setLabels(TransactionLabelStore.assignedLabelDetails(requireContext()));
-        renderLabelChips();
+        if (selectedLabelId != null) {
+            boolean selectedStillExists = false;
+            for (TransactionLabelStore.Label label : transactionLabels) {
+                if (selectedLabelId.equals(label.id)) {
+                    selectedStillExists = true;
+                    break;
+                }
+            }
+            if (!selectedStillExists) selectedLabelId = null;
+        }
         renderTransactionList();
     }
 
-    private void renderLabelChips() {
-        if (chipTransactionLabels == null || scrollTransactionLabels == null) return;
-        chipTransactionLabels.removeAllViews();
-        if (transactionLabels.isEmpty()) {
-            scrollTransactionLabels.setVisibility(View.GONE);
-            selectedLabelId = null;
-            return;
-        }
-        scrollTransactionLabels.setVisibility(View.VISIBLE);
-
+    private void renderFilterLabelChips(@NonNull ChipGroup group, @NonNull String[] pendingSelection) {
+        group.removeAllViews();
         Chip all = new Chip(requireContext());
         all.setText(R.string.transactions_labels_all);
         all.setCheckable(true);
-        all.setChecked(selectedLabelId == null);
-        styleNeutralLabelChip(all, selectedLabelId == null);
+        all.setChecked(pendingSelection[0] == null);
+        styleNeutralLabelChip(all, pendingSelection[0] == null);
         all.setOnClickListener(v -> {
-            selectedLabelId = null;
-            renderLabelChips();
-            renderTransactionList();
+            pendingSelection[0] = null;
+            renderFilterLabelChips(group, pendingSelection);
         });
-        chipTransactionLabels.addView(all);
+        group.addView(all);
 
-        boolean selectedStillExists = false;
         for (TransactionLabelStore.Label label : transactionLabels) {
             Chip chip = new Chip(requireContext());
             chip.setText(label.name);
             chip.setCheckable(true);
-            chip.setChecked(label.id.equals(selectedLabelId));
-            styleColoredLabelChip(chip, label);
-            if (label.id.equals(selectedLabelId)) selectedStillExists = true;
+            boolean selected = label.id.equals(pendingSelection[0]);
+            chip.setChecked(selected);
+            styleColoredLabelChip(chip, label, selected);
             chip.setOnClickListener(v -> {
-                selectedLabelId = label.id;
-                renderLabelChips();
-                renderTransactionList();
+                pendingSelection[0] = label.id;
+                renderFilterLabelChips(group, pendingSelection);
             });
-            chipTransactionLabels.addView(chip);
-        }
-        if (selectedLabelId != null && !selectedStillExists) {
-            selectedLabelId = null;
-            renderLabelChips();
+            group.addView(chip);
         }
     }
 
@@ -316,8 +343,7 @@ public class ListaTransaccionesFragment extends Fragment {
         chip.setChipStrokeWidth(dp(1));
     }
 
-    private void styleColoredLabelChip(@NonNull Chip chip, @NonNull TransactionLabelStore.Label label) {
-        boolean selected = label.id.equals(selectedLabelId);
+    private void styleColoredLabelChip(@NonNull Chip chip, @NonNull TransactionLabelStore.Label label, boolean selected) {
         int labelColor = label.colorInt();
         int background = LabelColorUtils.chipBackground(requireContext(), labelColor, selected);
         int accent = LabelColorUtils.accentOnSurface(requireContext(), labelColor);
@@ -344,6 +370,7 @@ public class ListaTransaccionesFragment extends Fragment {
         List<Transaccion> visible = new ArrayList<>();
         for (Transaccion tx : masterTransactions) {
             if (tx == null) continue;
+            if (!matchesQuickType(tx)) continue;
             if (selectedLabelId == null || selectedLabelId.equals(labelAssignments.get(tx.getId()))) {
                 visible.add(tx);
             }
@@ -352,6 +379,76 @@ public class ListaTransaccionesFragment extends Fragment {
         adapter.addAll(visible);
         adapter.notifyDataSetChanged();
         if (tvEmpty != null) tvEmpty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
+        updateVisibleTotal(visible);
+    }
+
+    private boolean matchesQuickType(@NonNull Transaccion tx) {
+        if (quickType == TransaccionFiltro.Tipo.INGRESOS) return tx.isEsIngreso() && !tx.isTransfer() && !tx.isInitialBalance();
+        if (quickType == TransaccionFiltro.Tipo.GASTOS) return !tx.isEsIngreso() && !tx.isTransfer();
+        if (quickType == TransaccionFiltro.Tipo.TRANSFERENCIAS) return tx.isTransfer();
+        return true;
+    }
+
+    private void updateVisibleTotal(@NonNull List<Transaccion> visible) {
+        double total = 0.0;
+        String currency = com.example.finanzas.data.api.SettingsService.getCurrencyCode(requireContext());
+        double manualRate = com.example.finanzas.data.api.SettingsService.getManualRate(requireContext());
+        for (Transaccion tx : visible) {
+            if (tx == null || tx.isTransfer()) continue;
+            double converted = CurrencyConverter.convert(tx.getMonto(), tx.getMoneda(), currency, currency, manualRate);
+            total += tx.isEsIngreso() ? converted : -converted;
+        }
+        boolean showTotal = hasActiveTransactionFilter();
+        if (cardVisibleTotal != null) {
+            cardVisibleTotal.setVisibility(showTotal ? View.VISIBLE : View.GONE);
+        }
+        if (tvVisibleCount != null) tvVisibleCount.setText(getString(R.string.transactions_total_label, visible.size()));
+        if (tvVisibleTotal != null) {
+            tvVisibleTotal.setText(Format.money(total, currency));
+            tvVisibleTotal.setTextColor(ContextCompat.getColor(requireContext(), total >= 0 ? R.color.income : R.color.expense));
+        }
+    }
+
+    private boolean hasActiveTransactionFilter() {
+        if (selectedLabelId != null) return true;
+        if (quickType != TransaccionFiltro.Tipo.TODAS) return true;
+        if (filtroActual == null) return false;
+        if (!TextUtils.isEmpty(filtroActual.getTexto())) return true;
+        if (filtroActual.getFechaInicio() != null || filtroActual.getFechaFin() != null) return true;
+        if (filtroActual.getCategoriaId() != null) return true;
+        if (filtroActual.getTipo() != null && filtroActual.getTipo() != TransaccionFiltro.Tipo.TODAS) return true;
+        if (!TextUtils.isEmpty(filtroActual.getAccountType())) return true;
+        return filtroActual.getMontoMin() != null || filtroActual.getMontoMax() != null;
+    }
+
+    private void renderQuickFilters() {
+        if (chipQuickFilters == null) return;
+        chipQuickFilters.removeAllViews();
+        addQuickChip(R.string.transactions_quick_all, TransaccionFiltro.Tipo.TODAS);
+        addQuickChip(R.string.transactions_quick_income, TransaccionFiltro.Tipo.INGRESOS);
+        addQuickChip(R.string.transactions_quick_expense, TransaccionFiltro.Tipo.GASTOS);
+        addQuickChip(R.string.transactions_quick_transfer, TransaccionFiltro.Tipo.TRANSFERENCIAS);
+    }
+
+    private void addQuickChip(int labelRes, TransaccionFiltro.Tipo type) {
+        Chip chip = new Chip(requireContext());
+        chip.setText(labelRes);
+        chip.setCheckable(true);
+        chip.setChecked(quickType == type);
+        chip.setOnClickListener(v -> {
+            quickType = type;
+            renderQuickFilters();
+            renderTransactionList();
+        });
+        styleNeutralLabelChip(chip, quickType == type);
+        chipQuickFilters.addView(chip);
+    }
+
+    private void applySearchText(@NonNull String raw) {
+        if (filtroActual == null) filtroActual = new TransaccionFiltro();
+        String clean = raw.trim();
+        filtroActual.setTexto(clean.isEmpty() ? null : clean);
+        cargarTransacciones();
     }
 
     private void showLabelPickerDialog() {
@@ -373,12 +470,80 @@ public class ListaTransaccionesFragment extends Fragment {
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.transactions_add_color)
                 .setSingleChoiceItems(names, 0, (dialog, which) -> selected[0] = which)
-                .setNeutralButton(R.string.transaction_label_create, (dialog, which) ->
-                        showCreateLabelDialog(() -> showLabelPickerDialog()))
+                .setNeutralButton(R.string.transaction_label_manage, (dialog, which) -> showManageLabelsDialog())
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.transaction_label_next, (dialog, which) ->
                         showTransactionSelectionDialog(transactionLabels.get(selected[0])))
                 .show();
+    }
+
+    private void showManageLabelsDialog() {
+        loadTransactionLabels();
+        String[] names = new String[transactionLabels.size() + 1];
+        names[0] = getString(R.string.transaction_label_create);
+        for (int i = 0; i < transactionLabels.size(); i++) names[i + 1] = transactionLabels.get(i).name;
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transaction_label_manage)
+                .setItems(names, (dialog, which) -> {
+                    if (which == 0) {
+                        showCreateLabelDialog(this::showManageLabelsDialog);
+                    } else {
+                        showEditLabelDialog(transactionLabels.get(which - 1));
+                    }
+                })
+                .show();
+    }
+
+    private void showEditLabelDialog(@NonNull TransactionLabelStore.Label label) {
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
+        TextInputEditText input = content.findViewById(R.id.etSimple);
+        input.setHint(R.string.transaction_label_name);
+        input.setText(label.name);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(8), dp(20), dp(8));
+        root.addView(content);
+
+        TextInputEditText hex = new TextInputEditText(requireContext());
+        hex.setHint(R.string.transaction_label_hex);
+        hex.setSingleLine(true);
+        hex.setText(label.colorHex);
+        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hexParams.topMargin = dp(10);
+        root.addView(hex, hexParams);
+        root.addView(buildColorPalette(hex));
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transaction_label_manage)
+                .setView(root)
+                .setNeutralButton(R.string.btn_eliminar, null)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.btn_guardar, null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                TransactionLabelStore.deleteLabel(requireContext(), label.id);
+                dialog.dismiss();
+                loadTransactionLabels();
+            });
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String name = input.getText() == null ? "" : input.getText().toString().trim();
+                String color = hex.getText() == null ? "" : hex.getText().toString().trim();
+                if (name.isEmpty()) {
+                    input.setError(getString(R.string.transaction_label_name_error));
+                    return;
+                }
+                if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
+                    hex.setError(getString(R.string.transaction_label_hex_error));
+                    return;
+                }
+                TransactionLabelStore.updateLabel(requireContext(), label.id, name, color);
+                dialog.dismiss();
+                loadTransactionLabels();
+            });
+        });
+        dialog.show();
     }
 
     private void showCreateLabelDialog(@Nullable Runnable onSaved) {
@@ -402,21 +567,7 @@ public class ListaTransaccionesFragment extends Fragment {
         hexParams.topMargin = dp(10);
         root.addView(hex, hexParams);
 
-        LinearLayout palette = new LinearLayout(requireContext());
-        palette.setOrientation(LinearLayout.HORIZONTAL);
-        int[] colors = new int[]{0xFFE53935, 0xFF43A047, 0xFF1E88E5, 0xFFF9A825, 0xFF8E24AA};
-        for (int color : colors) {
-            View swatch = new View(requireContext());
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(color);
-            bg.setCornerRadius(dp(6));
-            swatch.setBackground(bg);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(34), dp(34));
-            params.setMargins(0, dp(12), dp(8), 0);
-            palette.addView(swatch, params);
-            swatch.setOnClickListener(v -> hex.setText(String.format("#%06X", (0xFFFFFF & color))));
-        }
-        root.addView(palette);
+        root.addView(buildColorPalette(hex));
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.transaction_label_create)
@@ -441,6 +592,64 @@ public class ListaTransaccionesFragment extends Fragment {
             if (onSaved != null) onSaved.run();
         }));
         dialog.show();
+    }
+
+    private View buildColorPalette(@NonNull TextInputEditText hex) {
+        LinearLayout wrapper = new LinearLayout(requireContext());
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams wrapperParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        wrapperParams.topMargin = dp(12);
+        wrapper.setLayoutParams(wrapperParams);
+
+        TextView label = new TextView(requireContext());
+        label.setText("Paleta de colores");
+        label.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        label.setTextSize(13f);
+        label.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        wrapper.addView(label);
+
+        GridLayout palette = new GridLayout(requireContext());
+        palette.setColumnCount(6);
+        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        gridParams.topMargin = dp(8);
+        wrapper.addView(palette, gridParams);
+
+        String selectedHex = TransactionLabelStore.normalizeHex(hex.getText() == null ? "#4FA37A" : hex.getText().toString());
+        for (String colorHex : TransactionLabelStore.paletteColors()) {
+            int color = android.graphics.Color.parseColor(colorHex);
+            View swatch = new View(requireContext());
+            swatch.setTag(colorHex);
+            applyColorSwatchBackground(swatch, color, colorHex.equals(selectedHex));
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = dp(34);
+            params.height = dp(34);
+            params.setMargins(0, 0, dp(12), dp(12));
+            palette.addView(swatch, params);
+            swatch.setOnClickListener(v -> {
+                hex.setText(colorHex);
+                for (int i = 0; i < palette.getChildCount(); i++) {
+                    View child = palette.getChildAt(i);
+                    String childHex = child.getTag() == null ? "" : child.getTag().toString();
+                    applyColorSwatchBackground(child, android.graphics.Color.parseColor(childHex), colorHex.equals(childHex));
+                }
+            });
+        }
+        return wrapper;
+    }
+
+    private void applyColorSwatchBackground(@NonNull View view, int color, boolean selected) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setColor(color);
+        bg.setCornerRadius(dp(9));
+        bg.setStroke(dp(selected ? 3 : 1), ContextCompat.getColor(requireContext(), selected ? R.color.md_theme_onSurface : R.color.md_theme_outline));
+        view.setBackground(bg);
     }
 
     private void showTransactionSelectionDialog(@NonNull TransactionLabelStore.Label label) {
@@ -483,6 +692,51 @@ public class ListaTransaccionesFragment extends Fragment {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    private void showSortDialog() {
+        String[] options = new String[]{
+                getString(R.string.transactions_sort_recent),
+                getString(R.string.transactions_sort_oldest),
+                getString(R.string.transactions_sort_amount_desc),
+                getString(R.string.transactions_sort_amount_asc)
+        };
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transactions_sort)
+                .setItems(options, (dialog, which) -> {
+                    if (filtroActual == null) filtroActual = new TransaccionFiltro();
+                    if (which == 0) {
+                        filtroActual.setOrden(TransaccionFiltro.Orden.FECHA);
+                        filtroActual.setAscendente(false);
+                    } else if (which == 1) {
+                        filtroActual.setOrden(TransaccionFiltro.Orden.FECHA);
+                        filtroActual.setAscendente(true);
+                    } else if (which == 2) {
+                        filtroActual.setOrden(TransaccionFiltro.Orden.MONTO);
+                        filtroActual.setAscendente(false);
+                    } else {
+                        filtroActual.setOrden(TransaccionFiltro.Orden.MONTO);
+                        filtroActual.setAscendente(true);
+                    }
+                    cargarTransacciones();
+                })
+                .show();
+    }
+
+    private void showMonthDialog() {
+        Calendar current = Calendar.getInstance();
+        String[] months = new String[12];
+        for (int i = 0; i < 12; i++) {
+            months[i] = Format.monthYear(current.get(Calendar.YEAR), i + 1);
+        }
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transactions_change_month)
+                .setItems(months, (dialog, which) -> {
+                    selectedYear = current.get(Calendar.YEAR);
+                    selectedMonth = which + 1;
+                    cargarTransacciones();
+                })
+                .show();
+    }
+
     private void mostrarDialogoFiltros() {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_filtro_transacciones, null, false);
         TextInputEditText etTexto = content.findViewById(R.id.etFiltroTexto);
@@ -494,7 +748,11 @@ public class ListaTransaccionesFragment extends Fragment {
         MaterialButton btnCancel = content.findViewById(R.id.btnFilterCancel);
         MaterialButton btnClear = content.findViewById(R.id.btnFilterClear);
         MaterialButton btnApply = content.findViewById(R.id.btnFilterApply);
+        ChipGroup chipFiltroEtiquetas = content.findViewById(R.id.chipFiltroEtiquetas);
+        View scrollFiltroEtiquetas = content.findViewById(R.id.scrollFiltroEtiquetas);
+        TextView tvFiltroEtiqueta = content.findViewById(R.id.tvFiltroEtiqueta);
         final String allCategoriesLabel = getString(R.string.transactions_filter_all_categories);
+        final String[] pendingLabelSelection = new String[]{selectedLabelId};
 
         UiFormUtils.bindDatePicker(requireContext(), etInicio);
         UiFormUtils.bindDatePicker(requireContext(), etFin);
@@ -505,6 +763,16 @@ public class ListaTransaccionesFragment extends Fragment {
         actCategoria.setText(allCategoriesLabel, false);
         actCategoria.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
         actCategoria.setOnClickListener(view -> actCategoria.showDropDown());
+
+        if (chipFiltroEtiquetas != null) {
+            if (transactionLabels.isEmpty()) {
+                if (scrollFiltroEtiquetas != null) scrollFiltroEtiquetas.setVisibility(View.GONE);
+                if (tvFiltroEtiqueta != null) tvFiltroEtiqueta.setVisibility(View.GONE);
+                pendingLabelSelection[0] = null;
+            } else {
+                renderFilterLabelChips(chipFiltroEtiquetas, pendingLabelSelection);
+            }
+        }
 
         CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
             @Override
@@ -562,7 +830,9 @@ public class ListaTransaccionesFragment extends Fragment {
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         btnClear.setOnClickListener(v -> {
             filtroActual = null;
+            selectedLabelId = null;
             cargarTransacciones();
+            renderTransactionList();
             dialog.dismiss();
         });
         btnApply.setOnClickListener(v -> {
@@ -600,7 +870,9 @@ public class ListaTransaccionesFragment extends Fragment {
             filtro.setAscendente(swAsc.isChecked());
 
             filtroActual = filtro;
+            selectedLabelId = pendingLabelSelection[0];
             cargarTransacciones();
+            renderTransactionList();
             dialog.dismiss();
         });
         dialog.show();
@@ -730,9 +1002,13 @@ public class ListaTransaccionesFragment extends Fragment {
             } else if (ok != null) {
                 UiFormUtils.showMessage(requireView(), R.string.error_eliminar_transaccion);
             }
+            if (ok != null) viewModel.clearTransientEvents();
         });
         viewModel.getError().observe(getViewLifecycleOwner(), message -> {
-            if (message != null && !message.isEmpty()) {
+            if (message == null) {
+                return;
+            }
+            if (!message.isEmpty()) {
                 UiFormUtils.showMessage(requireView(), message);
             } else {
                 UiFormUtils.showMessage(requireView(), R.string.error_cargar_transacciones);

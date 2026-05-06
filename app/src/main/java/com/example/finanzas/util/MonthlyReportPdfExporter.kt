@@ -158,11 +158,12 @@ class MonthlyReportPdfExporter(private val context: Context) {
             drawWrapped(writer, "Sin transacciones recientes en este periodo.", body)
         } else {
             report.recentTransactions.forEach { tx ->
-                val type = if (tx.isEsIngreso) "Ingreso" else "Gasto"
+                val type = if (tx.isTransfer) "Transferencia" else if (tx.isEsIngreso) "Ingreso" else "Gasto"
                 val name = tx.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoria"
-                val note = tx.nota?.takeIf { it.isNotBlank() }?.let { " - $it" } ?: ""
+                val note = tx.displayNote?.takeIf { it.isNotBlank() }?.let { " - $it" } ?: ""
                 val account = SettingsService.getFinancialAccountName(context, tx.accountType)
-                val amount = Format.money(if (tx.isEsIngreso) tx.monto else -tx.monto, report.currencyCode)
+                val signed = if (tx.isTransfer) tx.monto else if (tx.isEsIngreso) tx.monto else -tx.monto
+                val amount = Format.money(signed, report.currencyCode)
                 drawWrapped(writer, "${Format.date(tx.fecha)} - $type - $name - $account$note - $amount", body)
             }
         }

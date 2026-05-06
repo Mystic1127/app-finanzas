@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -28,20 +29,22 @@ import androidx.navigation.fragment.NavHostFragment;
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.CategoryStore;
 import com.example.finanzas.data.api.SettingsService;
-import com.example.finanzas.data.api.SuggestionService;
 import com.example.finanzas.data.api.TransService;
-import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.data.local.room.RecurringTransactionEntity;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.LabelColorUtils;
+import com.example.finanzas.util.RecurringTransactionStore;
+import com.example.finanzas.util.TransactionLabelStore;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
@@ -67,19 +70,25 @@ public class NuevaTransaccionFragment extends Fragment {
     public static final String EXTRA_FECHA      = "EXTRA_FECHA";
     public static final String EXTRA_MONEDA     = "EXTRA_MONEDA";
     public static final String EXTRA_ACCOUNT_TYPE = "EXTRA_ACCOUNT_TYPE";
+    public static final String EXTRA_IS_TRANSFER = "EXTRA_IS_TRANSFER";
 
     private EditText etMonto;
     private TextInputEditText etNota, etFecha, etHora;
     private TextInputLayout tilFecha, tilHora, tilCategoria, tilMoneda;
     private MaterialButtonToggleGroup toggleTipo, toggleAccountType;
-    private MaterialButton btnTipoGasto, btnTipoIngreso;
+    private MaterialButton btnTipoGasto, btnTipoTransferencia, btnTipoIngreso;
     private TextInputEditText actCategoria;
-    private MaterialAutoCompleteTextView actMoneda;
+    private MaterialAutoCompleteTextView actMoneda, actRecurrence;
+    private MaterialButtonToggleGroup toggleDestinationAccount;
+    private TextView tvTransferHint;
+    private View scrollTransferDestination;
+    private TextInputLayout tilEtiquetaVisual;
+    private TextInputEditText etEtiquetaVisual;
+    private View layoutCustomRecurrenceDays;
+    private ChipGroup chipCustomRecurrenceDays;
+    private MaterialButton btnClearRecurrence;
     private MaterialButton btnGuardar;
-    private MaterialButton btnSugerir;
-    private MaterialButton btnManageCategories;
     private MaterialButton btnMoreOptions;
-    private Chip chipSugerencia;
     private View layoutMoreOptions;
     private TextView tvMontoCurrency, tvMontoError;
     private boolean moreOptionsExpanded = false;
@@ -87,10 +96,13 @@ public class NuevaTransaccionFragment extends Fragment {
     private Integer editingId = null;
     private List<Categoria> categorias;
     private List<Categoria> visibles;
-    private CategorySuggestion currentSuggestion;
-    private Integer pendingSuggestedCategoryId;
     private final Map<Integer, String> accountTypesByButtonId = new HashMap<>();
+    private final Map<Integer, String> destinationTypesByButtonId = new HashMap<>();
     private String selectedAccountType = "CARD";
+    private String selectedDestinationAccountType = "CASH";
+    private String selectedLabelId = null;
+    private List<TransactionLabelStore.Label> transactionLabels = new ArrayList<>();
+    private final Map<Integer, Integer> recurrenceDayByChipId = new HashMap<>();
 
     @Nullable
     @Override
@@ -115,20 +127,30 @@ public class NuevaTransaccionFragment extends Fragment {
         etHora        = v.findViewById(R.id.etHora);
         toggleTipo    = v.findViewById(R.id.toggleTipo);
         toggleAccountType = v.findViewById(R.id.toggleAccountType);
+        toggleDestinationAccount = v.findViewById(R.id.toggleDestinationAccount);
+        tvTransferHint = v.findViewById(R.id.tvTransferHint);
+        scrollTransferDestination = v.findViewById(R.id.scrollTransferDestination);
         btnTipoGasto  = v.findViewById(R.id.btnTipoGasto);
+        btnTipoTransferencia = v.findViewById(R.id.btnTipoTransferencia);
         btnTipoIngreso = v.findViewById(R.id.btnTipoIngreso);
         actCategoria  = v.findViewById(R.id.actCategoria);
         actMoneda     = v.findViewById(R.id.actMoneda);
+        actRecurrence = v.findViewById(R.id.actRecurrence);
+        tilEtiquetaVisual = v.findViewById(R.id.tilEtiquetaVisual);
+        etEtiquetaVisual = v.findViewById(R.id.etEtiquetaVisual);
+        layoutCustomRecurrenceDays = v.findViewById(R.id.layoutCustomRecurrenceDays);
+        chipCustomRecurrenceDays = v.findViewById(R.id.chipCustomRecurrenceDays);
+        btnClearRecurrence = v.findViewById(R.id.btnClearRecurrence);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
-        btnSugerir    = v.findViewById(R.id.btnSugerir);
-        btnManageCategories = v.findViewById(R.id.btnManageCategories);
         btnMoreOptions = v.findViewById(R.id.btnMoreOptions);
-        chipSugerencia = v.findViewById(R.id.chipSugerencia);
         layoutMoreOptions = v.findViewById(R.id.layoutMoreOptions);
 
         setupTransactionTypeSelector();
         setupCurrencySelector();
         setupAccountTypeSelector();
+        setupDestinationAccountSelector();
+        setupRecurrenceSelector();
+        setupLabelSelector();
         setMoreOptionsExpanded(false);
         updateCurrencyPrefix();
 
@@ -140,14 +162,7 @@ public class NuevaTransaccionFragment extends Fragment {
         actCategoria.setOnClickListener(view -> showCategoryPickerSheet());
         tilCategoria.setEndIconOnClickListener(view -> showCategoryPickerSheet());
 
-        if (btnSugerir != null) btnSugerir.setVisibility(View.GONE);
-        btnManageCategories.setOnClickListener(v14 -> showCategoryManagerDialog());
         btnMoreOptions.setOnClickListener(v15 -> setMoreOptionsExpanded(!moreOptionsExpanded));
-        chipSugerencia.setOnClickListener(v12 -> aplicarSugerenciaActual());
-        chipSugerencia.setOnCloseIconClickListener(v13 -> {
-            chipSugerencia.setVisibility(View.GONE);
-            currentSuggestion = null;
-        });
 
         precargarDesdeArgs();
         cargarCategoriasYRefrescar();
@@ -167,6 +182,8 @@ public class NuevaTransaccionFragment extends Fragment {
         super.onResume();
         updateCurrencyPrefix();
         populateAccountTypeButtons(selectedAccountType);
+        populateDestinationAccountButtons(selectedDestinationAccountType);
+        loadLabels();
     }
 
     private void updateCurrencyPrefix() {
@@ -213,13 +230,22 @@ public class NuevaTransaccionFragment extends Fragment {
         toggleTipo.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (!isChecked) return;
             updateTransactionTypeUi();
-            aplicarFiltroYRefrescar(isIncomeSelected(), false, null);
+            if (!isTransferSelected()) {
+                aplicarFiltroYRefrescar(isIncomeSelected(), false, null);
+            } else if (actCategoria != null) {
+                actCategoria.setText(Transaccion.TRANSFER_CATEGORY);
+                tilCategoria.setError(null);
+            }
         });
         setSelectedTransactionType(false);
     }
 
     private boolean isIncomeSelected() {
         return toggleTipo != null && toggleTipo.getCheckedButtonId() == R.id.btnTipoIngreso;
+    }
+
+    private boolean isTransferSelected() {
+        return toggleTipo != null && toggleTipo.getCheckedButtonId() == R.id.btnTipoTransferencia;
     }
 
     private void setSelectedTransactionType(boolean income) {
@@ -230,8 +256,14 @@ public class NuevaTransaccionFragment extends Fragment {
     }
 
     private void updateTransactionTypeUi() {
-        styleToggleButton(btnTipoGasto, !isIncomeSelected());
+        styleToggleButton(btnTipoGasto, !isIncomeSelected() && !isTransferSelected());
+        styleToggleButton(btnTipoTransferencia, isTransferSelected());
         styleToggleButton(btnTipoIngreso, isIncomeSelected());
+        boolean transfer = isTransferSelected();
+        if (tilCategoria != null) tilCategoria.setVisibility(transfer ? View.GONE : View.VISIBLE);
+        if (tvTransferHint != null) tvTransferHint.setVisibility(transfer ? View.VISIBLE : View.GONE);
+        if (scrollTransferDestination != null) scrollTransferDestination.setVisibility(transfer ? View.VISIBLE : View.GONE);
+        updateDestinationAccountUi();
     }
 
     private String resolveSelectedCurrency() {
@@ -248,8 +280,84 @@ public class NuevaTransaccionFragment extends Fragment {
             String type = accountTypesByButtonId.get(checkedId);
             if (type != null) selectedAccountType = type;
             updateAccountTypeUi();
+            populateDestinationAccountButtons(selectedDestinationAccountType);
         });
         populateAccountTypeButtons("CARD");
+    }
+
+    private void setupDestinationAccountSelector() {
+        if (toggleDestinationAccount == null) return;
+        toggleDestinationAccount.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+            String type = destinationTypesByButtonId.get(checkedId);
+            if (type != null) selectedDestinationAccountType = type;
+            updateDestinationAccountUi();
+        });
+        populateDestinationAccountButtons("CASH");
+    }
+
+    private void setupRecurrenceSelector() {
+        if (actRecurrence == null) return;
+        renderCustomRecurrenceDayChips(0);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                requireContext(),
+                R.layout.item_dropdown,
+                new String[]{
+                        getString(R.string.transaction_recurrence_weekdays),
+                        getString(R.string.transaction_recurrence_everyday),
+                        getString(R.string.transaction_recurrence_custom)
+                }
+        );
+        actRecurrence.setAdapter(adapter);
+        actRecurrence.setText("", false);
+        actRecurrence.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actRecurrence.showDropDown(); });
+        actRecurrence.setOnClickListener(view -> actRecurrence.showDropDown());
+        actRecurrence.setOnItemClickListener((parent, view, position, id) -> updateCustomRecurrenceVisibility());
+        if (btnClearRecurrence != null) {
+            btnClearRecurrence.setOnClickListener(v -> {
+                actRecurrence.setText("", false);
+                renderCustomRecurrenceDayChips(0);
+                updateCustomRecurrenceVisibility();
+            });
+        }
+        updateCustomRecurrenceVisibility();
+    }
+
+    private void renderCustomRecurrenceDayChips(int selectedMask) {
+        if (chipCustomRecurrenceDays == null) return;
+        chipCustomRecurrenceDays.removeAllViews();
+        recurrenceDayByChipId.clear();
+        int[] days = new int[]{
+                Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+                Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY
+        };
+        String[] labels = new String[]{"L", "M", "X", "J", "V", "S", "D"};
+        for (int i = 0; i < days.length; i++) {
+            Chip chip = new Chip(requireContext());
+            int id = View.generateViewId();
+            chip.setId(id);
+            chip.setText(labels[i]);
+            chip.setCheckable(true);
+            chip.setChecked((selectedMask & RecurringTransactionStore.bitForCalendarDay(days[i])) != 0);
+            chip.setEnsureMinTouchTargetSize(true);
+            chip.setMinHeight(dp(40));
+            recurrenceDayByChipId.put(id, days[i]);
+            chipCustomRecurrenceDays.addView(chip);
+        }
+    }
+
+    private void updateCustomRecurrenceVisibility() {
+        if (layoutCustomRecurrenceDays == null || actRecurrence == null || actRecurrence.getText() == null) return;
+        String recurrence = actRecurrence.getText().toString();
+        boolean custom = recurrence.equals(getString(R.string.transaction_recurrence_custom));
+        layoutCustomRecurrenceDays.setVisibility(custom ? View.VISIBLE : View.GONE);
+        if (btnClearRecurrence != null) btnClearRecurrence.setVisibility(recurrence.trim().isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    private void setupLabelSelector() {
+        loadLabels();
+        if (etEtiquetaVisual != null) etEtiquetaVisual.setOnClickListener(v -> showLabelSheet());
+        if (tilEtiquetaVisual != null) tilEtiquetaVisual.setEndIconOnClickListener(v -> showLabelSheet());
     }
 
     private String resolveSelectedAccountType() {
@@ -302,6 +410,20 @@ public class NuevaTransaccionFragment extends Fragment {
         setSelectedAccountType(preferred);
     }
 
+    private void populateDestinationAccountButtons(@Nullable String preferredAccountType) {
+        if (toggleDestinationAccount == null || getContext() == null) return;
+        String preferred = SettingsService.normalizeAccountType(preferredAccountType == null ? selectedDestinationAccountType : preferredAccountType);
+        toggleDestinationAccount.removeAllViews();
+        destinationTypesByButtonId.clear();
+        addDestinationAccountButton("CASH", getString(R.string.transaction_account_cash), R.drawable.ic_cash);
+        addDestinationAccountButton("CARD", getString(R.string.transaction_account_card), R.drawable.ic_card);
+        for (FinancialAccount account : SettingsService.listFinancialAccounts(requireContext())) {
+            if (account == null || account.getName() == null || account.getName().trim().isEmpty()) continue;
+            addDestinationAccountButton(account.getId(), account.getName(), R.drawable.ic_card);
+        }
+        setSelectedDestinationAccountType(preferred);
+    }
+
     private void addAccountTypeButton(@NonNull String accountType, @NonNull String label, @DrawableRes int iconRes) {
         MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
         int id = View.generateViewId();
@@ -319,6 +441,59 @@ public class NuevaTransaccionFragment extends Fragment {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48));
         params.rightMargin = dp(8);
         toggleAccountType.addView(button, params);
+    }
+
+    private void addDestinationAccountButton(@NonNull String accountType, @NonNull String label, @DrawableRes int iconRes) {
+        MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        int id = View.generateViewId();
+        button.setId(id);
+        button.setText(label);
+        button.setSingleLine(true);
+        button.setAllCaps(false);
+        button.setIconResource(iconRes);
+        button.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+        button.setMinHeight(dp(48));
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setStrokeWidth(dp(1));
+        destinationTypesByButtonId.put(id, SettingsService.normalizeAccountType(accountType));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48));
+        params.rightMargin = dp(8);
+        toggleDestinationAccount.addView(button, params);
+    }
+
+    private void setSelectedDestinationAccountType(@Nullable String accountType) {
+        String normalized = SettingsService.normalizeAccountType(accountType);
+        selectedDestinationAccountType = normalized;
+        if (toggleDestinationAccount != null) {
+            for (Map.Entry<Integer, String> entry : destinationTypesByButtonId.entrySet()) {
+                if (entry.getValue().equals(normalized)) {
+                    toggleDestinationAccount.check(entry.getKey());
+                    updateDestinationAccountUi();
+                    return;
+                }
+            }
+            for (Integer id : destinationTypesByButtonId.keySet()) {
+                toggleDestinationAccount.check(id);
+                break;
+            }
+        }
+        updateDestinationAccountUi();
+    }
+
+    private void updateDestinationAccountUi() {
+        if (toggleDestinationAccount == null) return;
+        int checked = toggleDestinationAccount.getCheckedButtonId();
+        String origin = resolveSelectedAccountType();
+        for (int i = 0; i < toggleDestinationAccount.getChildCount(); i++) {
+            View child = toggleDestinationAccount.getChildAt(i);
+            if (child instanceof MaterialButton) {
+                String type = destinationTypesByButtonId.get(child.getId());
+                boolean sameAsOrigin = type != null && type.equals(origin);
+                child.setEnabled(!sameAsOrigin || !isTransferSelected());
+                styleToggleButton((MaterialButton) child, child.getId() == checked && child.isEnabled());
+            }
+        }
     }
 
     private void styleToggleButton(@Nullable MaterialButton button, boolean checked) {
@@ -351,7 +526,6 @@ public class NuevaTransaccionFragment extends Fragment {
                 boolean esIngreso = isIncomeSelected();
                 String catDeseada = getArguments() != null ? getArguments().getString(EXTRA_CAT_NOMBRE) : null;
                 aplicarFiltroYRefrescar(esIngreso, true, catDeseada);
-                tryApplyPendingSuggestion();
             }
 
             @Override
@@ -384,160 +558,10 @@ public class NuevaTransaccionFragment extends Fragment {
         }
     }
 
-    private void solicitarSugerencia() {
-        final double montoActual = parseMontoActual();
-        final boolean esIngreso = isIncomeSelected();
-        final String nota = etNota.getText() == null ? "" : etNota.getText().toString().trim();
-
-        btnSugerir.setEnabled(false);
-        btnSugerir.setText(R.string.suggest_loading);
-        chipSugerencia.setVisibility(View.GONE);
-
-        SuggestionService.suggest(requireContext(), nota, esIngreso, Math.abs(montoActual), new SuggestionService.Callback() {
-            @Override
-            public void onSuccess(CategorySuggestion suggestion) {
-                if (!isAdded()) return;
-                btnSugerir.setEnabled(true);
-                btnSugerir.setText(R.string.suggest_category);
-                showSuggestionResult(completeSuggestion(suggestion, nota));
-            }
-
-            @Override
-            public void onError() {
-                if (!isAdded()) return;
-                btnSugerir.setEnabled(true);
-                btnSugerir.setText(R.string.suggest_category);
-                showSuggestionResult(buildLocalSuggestion(nota));
-            }
-        });
-    }
-
-    private void aplicarSugerenciaActual() {
-        if (currentSuggestion == null || !currentSuggestion.hasSuggestion()) {
-            chipSugerencia.setVisibility(View.GONE);
-            return;
-        }
-        pendingSuggestedCategoryId = currentSuggestion.getCategoriaId();
-        tryApplyPendingSuggestion();
-    }
-
-    private void tryApplyPendingSuggestion() {
-        if (pendingSuggestedCategoryId == null || categorias == null) return;
-        Categoria sugerida = null;
-        for (Categoria c : categorias) {
-            if (c != null && c.id == pendingSuggestedCategoryId) {
-                sugerida = c;
-                break;
-            }
-        }
-        if (sugerida == null) return;
-        if (isIncomeSelected() != sugerida.esIngreso) setSelectedTransactionType(sugerida.esIngreso);
-        aplicarFiltroYRefrescar(sugerida.esIngreso, true, sugerida.nombre);
-        actCategoria.setText(sugerida.nombre);
-        pendingSuggestedCategoryId = null;
-    }
-
-    private int calcularPorcentaje(double confidence) {
-        if (confidence <= 0) return 0;
-        if (confidence > 1) {
-            return (int) Math.round(confidence);
-        }
-        return (int) Math.round(confidence * 100);
-    }
-
-    private void showSuggestionResult(@Nullable CategorySuggestion suggestion) {
-        currentSuggestion = suggestion;
-        if (suggestion != null && suggestion.hasSuggestion()) {
-            Categoria categoria = findCategoriaById(suggestion.getCategoriaId());
-            String nombre = suggestion.getCategoriaNombre();
-            if (TextUtils.isEmpty(nombre) && categoria != null) nombre = categoria.nombre;
-            if (TextUtils.isEmpty(nombre)) nombre = getString(R.string.hint_categoria);
-
-            int porcentaje = calcularPorcentaje(suggestion.getConfidence());
-            chipSugerencia.setText(getString(R.string.suggest_chip_with_confidence, nombre, porcentaje));
-            chipSugerencia.setVisibility(View.VISIBLE);
-            pendingSuggestedCategoryId = suggestion.getCategoriaId();
-            tryApplyPendingSuggestion();
-            UiFormUtils.showMessage(requireView(), getString(R.string.suggest_applied, nombre));
-            return;
-        }
-
-        chipSugerencia.setVisibility(View.GONE);
-        pendingSuggestedCategoryId = null;
-        UiFormUtils.showMessage(requireView(), R.string.suggest_not_found);
-    }
-
-    @Nullable
-    private CategorySuggestion completeSuggestion(@Nullable CategorySuggestion suggestion, @NonNull String nota) {
-        if (suggestion != null && suggestion.hasSuggestion()) {
-            Categoria categoria = findCategoriaById(suggestion.getCategoriaId());
-            if (categoria != null) {
-                suggestion.setCategoriaNombre(categoria.nombre);
-                return suggestion;
-            }
-        }
-        return buildLocalSuggestion(nota);
-    }
-
-    @Nullable
-    private CategorySuggestion buildLocalSuggestion(@Nullable String nota) {
-        if (categorias == null || categorias.isEmpty()) return null;
-        String text = normalize(nota);
-        if (text.isEmpty()) return null;
-
-        Categoria match = null;
-        if (containsAny(text, "comida", "restaurante", "mercado", "supermercado", "almuerzo", "cena", "desayuno")) {
-            match = findCategoriaByKeywords(false, "alimentacion", "comida", "mercado", "restaurante");
-        } else if (containsAny(text, "taxi", "bus", "gasolina", "combustible", "uber", "transporte", "pasaje")) {
-            match = findCategoriaByKeywords(false, "transporte", "taxi", "bus", "gasolina", "combustible");
-        } else if (containsAny(text, "netflix", "cine", "juego", "spotify", "entretenimiento", "ocio")) {
-            match = findCategoriaByKeywords(false, "entretenimiento", "cine", "juego", "netflix", "ocio");
-        } else if (containsAny(text, "luz", "agua", "internet", "telefono", "servicio", "servicios", "electricidad")) {
-            match = findCategoriaByKeywords(false, "servicios", "luz", "agua", "internet", "electricidad", "telefono");
-        } else if (containsAny(text, "salario", "sueldo", "pago", "nomina", "ingreso", "quincena")) {
-            match = findCategoriaByKeywords(true, "salario", "sueldo", "ingreso", "pago");
-        }
-
-        if (match == null) return null;
-        CategorySuggestion local = new CategorySuggestion();
-        local.setCategoriaId(match.id);
-        local.setCategoriaNombre(match.nombre);
-        local.setConfidence(0.7);
-        return local;
-    }
-
-    @Nullable
-    private Categoria findCategoriaById(@Nullable Integer id) {
-        if (id == null || categorias == null) return null;
-        for (Categoria categoria : categorias) {
-            if (categoria != null && categoria.id == id) return categoria;
-        }
-        return null;
-    }
-
     private boolean isSpecialCategory(@NonNull Categoria categoria) {
         return categoria.nombre != null
-                && categoria.nombre.equalsIgnoreCase(Transaccion.INITIAL_BALANCE_CATEGORY);
-    }
-
-    @Nullable
-    private Categoria findCategoriaByKeywords(boolean esIngreso, @NonNull String... keywords) {
-        if (categorias == null) return null;
-        for (Categoria categoria : categorias) {
-            if (categoria == null || categoria.esIngreso != esIngreso) continue;
-            String name = normalize(categoria.nombre);
-            for (String keyword : keywords) {
-                if (name.contains(keyword)) return categoria;
-            }
-        }
-        return null;
-    }
-
-    private boolean containsAny(@NonNull String text, @NonNull String... keywords) {
-        for (String keyword : keywords) {
-            if (text.contains(keyword)) return true;
-        }
-        return false;
+                && (categoria.nombre.equalsIgnoreCase(Transaccion.INITIAL_BALANCE_CATEGORY)
+                || categoria.nombre.equalsIgnoreCase(Transaccion.TRANSFER_CATEGORY));
     }
 
     @NonNull
@@ -545,11 +569,6 @@ public class NuevaTransaccionFragment extends Fragment {
         if (raw == null) return "";
         String clean = Normalizer.normalize(raw.toLowerCase(Locale.ROOT), Normalizer.Form.NFD);
         return clean.replaceAll("\\p{InCombiningDiacriticalMarks}+", "").trim();
-    }
-
-    private double parseMontoActual() {
-        String sMonto = etMonto.getText() == null ? "" : etMonto.getText().toString();
-        return parseMontoSeguro(sMonto);
     }
 
     private void precargarDesdeArgs() {
@@ -565,8 +584,14 @@ public class NuevaTransaccionFragment extends Fragment {
             String nota = args.getString(EXTRA_NOTA);
             if (nota != null) etNota.setText(nota);
 
+            boolean isTransfer = args.getBoolean(EXTRA_IS_TRANSFER, false);
             boolean esIngreso = args.getBoolean(EXTRA_ES_INGRESO, false);
-            setSelectedTransactionType(esIngreso);
+            if (isTransfer && toggleTipo != null) {
+                toggleTipo.check(R.id.btnTipoTransferencia);
+                updateTransactionTypeUi();
+            } else {
+                setSelectedTransactionType(esIngreso);
+            }
 
             long fechaMs = args.getLong(EXTRA_FECHA, -1L);
             if (fechaMs > 0) {
@@ -581,6 +606,9 @@ public class NuevaTransaccionFragment extends Fragment {
                 updateCurrencyPrefix();
             }
             setSelectedAccountType(args.getString(EXTRA_ACCOUNT_TYPE, "CARD"));
+            selectedLabelId = TransactionLabelStore.assignedLabelId(requireContext(), editingId);
+            updateSelectedLabelText();
+            loadExistingRecurrence(editingId);
 
             btnGuardar.setText(R.string.btn_guardar);
         } else {
@@ -629,16 +657,6 @@ public class NuevaTransaccionFragment extends Fragment {
         listParams.topMargin = dp(10);
         root.addView(scroll, listParams);
 
-        MaterialButton create = new MaterialButton(requireContext());
-        create.setText(R.string.pres_btn_agregar_categoria);
-        create.setAllCaps(false);
-        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        createParams.topMargin = dp(12);
-        root.addView(create, createParams);
-
         Runnable renderAll = () -> renderCategoryPickerRows(list, "", dialog);
         renderAll.run();
         search.addTextChangedListener(new TextWatcher() {
@@ -647,10 +665,6 @@ public class NuevaTransaccionFragment extends Fragment {
                 renderCategoryPickerRows(list, s == null ? "" : s.toString(), dialog);
             }
             @Override public void afterTextChanged(Editable s) { }
-        });
-        create.setOnClickListener(v -> {
-            dialog.dismiss();
-            showCategoryManagerDialog();
         });
         dialog.setContentView(root);
         dialog.show();
@@ -703,217 +717,308 @@ public class NuevaTransaccionFragment extends Fragment {
         }
     }
 
-    private void showCategoryManagerDialog() {
-        final boolean incomeFlow = isIncomeSelected();
-        LinearLayout root = new LinearLayout(requireContext());
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(12), dp(20), dp(8));
-
-        TextInputEditText etName = new TextInputEditText(requireContext());
-        etName.setHint(getString(incomeFlow ? R.string.category_new_income : R.string.category_new_expense));
-        etName.setSingleLine(true);
-        root.addView(etName, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        MaterialButton btnCreate = new MaterialButton(requireContext());
-        btnCreate.setText(R.string.pres_btn_agregar_categoria);
-        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        createParams.topMargin = dp(10);
-        root.addView(btnCreate, createParams);
-
-        LinearLayout list = new LinearLayout(requireContext());
-        list.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        listParams.topMargin = dp(12);
-        root.addView(list, listParams);
-
-        Runnable render = () -> renderCategoryRows(list, incomeFlow);
-        render.run();
-
-        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(incomeFlow ? R.string.category_manage_income : R.string.category_manage_expense)
-                .setView(root)
-                .setNegativeButton(android.R.string.cancel, null)
-                .create();
-
-        btnCreate.setOnClickListener(v -> {
-            String name = etName.getText() == null ? "" : etName.getText().toString().trim();
-            if (name.isEmpty()) {
-                etName.setError(getString(incomeFlow ? R.string.category_new_income : R.string.category_new_expense));
-                return;
-            }
-            btnCreate.setEnabled(false);
-            CategoryStore.createCategoria(requireContext(), name, incomeFlow, new CategoryStore.CreateCallback() {
-                @Override
-                public void onReady(@NonNull Categoria categoria) {
-                    if (!isAdded()) return;
-                    btnCreate.setEnabled(true);
-                    etName.setText("");
-                    CategoryStore.clearCache();
-                    cargarCategoriasYRefrescar();
-                    UiFormUtils.showMessage(requireView(), R.string.category_saved);
-                    CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
-                        @Override
-                        public void onReady(List<? extends Categoria> cats) {
-                            categorias = new ArrayList<>(cats);
-                            aplicarFiltroYRefrescar(incomeFlow, true, categoria.nombre);
-                            render.run();
-                        }
-
-                        @Override
-                        public void onError() { }
-                    });
-                }
-
-                @Override
-                public void onError() {
-                    if (!isAdded()) return;
-                    btnCreate.setEnabled(true);
-                    UiFormUtils.showMessage(requireView(), R.string.category_save_error);
-                }
-            });
-        });
-
-        dialog.show();
+    private void loadLabels() {
+        if (!isAdded()) return;
+        transactionLabels = TransactionLabelStore.listLabels(requireContext());
+        updateSelectedLabelText();
     }
 
-    private void renderCategoryRows(@NonNull LinearLayout list, boolean incomeFlow) {
-        list.removeAllViews();
-        if (categorias == null) return;
-        for (Categoria categoria : categorias) {
-            if (categoria == null || categoria.esIngreso != incomeFlow || isSpecialCategory(categoria)) continue;
-
-            LinearLayout row = new LinearLayout(requireContext());
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(0, dp(6), 0, dp(6));
-
-            TextView name = new TextView(requireContext());
-            name.setText(categoria.nombre);
-            name.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-            name.setTextSize(15f);
-            row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-            if (categoria.editable) {
-                MaterialButton edit = new MaterialButton(requireContext());
-                edit.setText(R.string.category_edit);
-                edit.setMinHeight(dp(40));
-                edit.setOnClickListener(v -> showEditCategoryDialog(categoria, incomeFlow, () ->
-                        reloadCategoriesForManager(list, incomeFlow, categoria.nombre)));
-                row.addView(edit, new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
-
-                MaterialButton delete = new MaterialButton(requireContext());
-                delete.setText(R.string.btn_eliminar);
-                delete.setMinHeight(dp(40));
-                delete.setOnClickListener(v -> confirmDeleteCategory(categoria, incomeFlow, () ->
-                        reloadCategoriesForManager(list, incomeFlow, null)));
-                LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-                deleteParams.leftMargin = dp(6);
-                row.addView(delete, deleteParams);
-            } else {
-                TextView protectedLabel = new TextView(requireContext());
-                protectedLabel.setText(R.string.category_protected);
-                protectedLabel.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-                protectedLabel.setTextSize(12f);
-                row.addView(protectedLabel);
-            }
-
-            list.addView(row, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            ));
+    private void updateSelectedLabelText() {
+        if (etEtiquetaVisual == null) return;
+        TransactionLabelStore.Label selected = TransactionLabelStore.findLabel(requireContext(), selectedLabelId);
+        etEtiquetaVisual.setText(selected == null ? getString(R.string.transaction_label_none) : selected.name);
+        if (tilEtiquetaVisual != null && getContext() != null) {
+            int tint = selected == null
+                    ? ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant)
+                    : selected.colorInt();
+            tilEtiquetaVisual.setStartIconTintList(ColorStateList.valueOf(tint));
         }
     }
 
-    private void reloadCategoriesForManager(@NonNull LinearLayout list, boolean incomeFlow, @Nullable String preferred) {
-        CategoryStore.loadOnce(requireContext(), new CategoryStore.Callback() {
-            @Override
-            public void onReady(List<? extends Categoria> cats) {
-                categorias = new ArrayList<>(cats);
-                aplicarFiltroYRefrescar(incomeFlow, true, preferred);
-                renderCategoryRows(list, incomeFlow);
-            }
-
-            @Override
-            public void onError() { }
-        });
+    private void loadExistingRecurrence(@Nullable Integer transactionId) {
+        if (transactionId == null || transactionId <= 0 || actRecurrence == null) return;
+        final android.content.Context appContext = requireContext().getApplicationContext();
+        new Thread(() -> {
+            RecurringTransactionEntity template = RecurringTransactionStore.findTemplateForSource(appContext, transactionId);
+            if (!isAdded() || template == null) return;
+            requireActivity().runOnUiThread(() -> applyExistingRecurrence(template));
+        }).start();
     }
 
-    private void showEditCategoryDialog(@NonNull Categoria categoria, boolean incomeFlow, @Nullable Runnable afterChange) {
-        TextInputEditText input = new TextInputEditText(requireContext());
-        input.setSingleLine(true);
-        input.setText(categoria.nombre);
-        input.setSelectAllOnFocus(true);
-        input.setPadding(dp(20), dp(8), dp(20), dp(8));
+    private void applyExistingRecurrence(@NonNull RecurringTransactionEntity template) {
+        if (template == null) return;
+        if (RecurringTransactionStore.FREQUENCY_WEEKDAYS.equals(template.getFrequency())) {
+            actRecurrence.setText(getString(R.string.transaction_recurrence_weekdays), false);
+        } else if (RecurringTransactionStore.FREQUENCY_EVERYDAY.equals(template.getFrequency())) {
+            actRecurrence.setText(getString(R.string.transaction_recurrence_everyday), false);
+        } else if (RecurringTransactionStore.FREQUENCY_CUSTOM.equals(template.getFrequency())) {
+            actRecurrence.setText(getString(R.string.transaction_recurrence_custom), false);
+            renderCustomRecurrenceDayChips(template.getDaysMask());
+        }
+        updateCustomRecurrenceVisibility();
+    }
+
+    private void showLabelSheet() {
+        loadLabels();
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(16), dp(20), dp(20));
+
+        TextView title = new TextView(requireContext());
+        title.setText(R.string.transaction_visual_label);
+        title.setTextSize(18f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        title.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        root.addView(title);
+
+        MaterialButton none = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        none.setText(R.string.transaction_label_none);
+        none.setAllCaps(false);
+        none.setIconResource(R.drawable.ic_etiqueta);
+        styleLabelOption(none, null, selectedLabelId == null);
+        none.setOnClickListener(v -> {
+            selectedLabelId = null;
+            updateSelectedLabelText();
+            dialog.dismiss();
+        });
+        LinearLayout.LayoutParams noneParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        noneParams.topMargin = dp(12);
+        root.addView(none, noneParams);
+
+        for (TransactionLabelStore.Label label : transactionLabels) {
+            MaterialButton row = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+            row.setText(label.name);
+            row.setAllCaps(false);
+            row.setIconResource(R.drawable.ic_etiqueta);
+            styleLabelOption(row, label, label.id.equals(selectedLabelId));
+            row.setOnClickListener(v -> {
+                selectedLabelId = label.id;
+                updateSelectedLabelText();
+                dialog.dismiss();
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+            params.topMargin = dp(8);
+            root.addView(row, params);
+        }
+
+        MaterialButton manage = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        manage.setText(R.string.transaction_label_manage);
+        manage.setAllCaps(false);
+        manage.setIconResource(R.drawable.ic_etiqueta);
+        manage.setOnClickListener(v -> {
+            dialog.dismiss();
+            showManageLabelsDialog();
+        });
+        LinearLayout.LayoutParams manageParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        manageParams.topMargin = dp(12);
+        root.addView(manage, manageParams);
+
+        MaterialButton create = new MaterialButton(requireContext());
+        create.setText(R.string.transaction_label_create);
+        create.setAllCaps(false);
+        create.setIconResource(R.drawable.ic_etiqueta);
+        create.setOnClickListener(v -> showCreateLabelDialog(() -> {
+            loadLabels();
+            dialog.dismiss();
+            showLabelSheet();
+        }));
+        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50));
+        createParams.topMargin = dp(12);
+        root.addView(create, createParams);
+
+        dialog.setContentView(root);
+        dialog.show();
+    }
+
+    private void showManageLabelsDialog() {
+        loadLabels();
+        String[] names = new String[transactionLabels.size() + 1];
+        names[0] = getString(R.string.transaction_label_create);
+        for (int i = 0; i < transactionLabels.size(); i++) names[i + 1] = transactionLabels.get(i).name;
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transaction_label_manage)
+                .setItems(names, (dialog, which) -> {
+                    if (which == 0) {
+                        showCreateLabelDialog(this::showManageLabelsDialog);
+                    } else {
+                        showEditLabelDialog(transactionLabels.get(which - 1));
+                    }
+                })
+                .show();
+    }
+
+    private void showEditLabelDialog(@NonNull TransactionLabelStore.Label label) {
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
+        TextInputEditText input = content.findViewById(R.id.etSimple);
+        input.setHint(R.string.transaction_label_name);
+        input.setText(label.name);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(8), dp(20), dp(8));
+        root.addView(content);
+
+        TextInputEditText hex = new TextInputEditText(requireContext());
+        hex.setHint(R.string.transaction_label_hex);
+        hex.setSingleLine(true);
+        hex.setText(label.colorHex);
+        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hexParams.topMargin = dp(10);
+        root.addView(hex, hexParams);
+        root.addView(buildColorPalette(hex));
 
         androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.category_edit)
-                .setView(input)
-                .setPositiveButton(R.string.btn_guardar, null)
+                .setTitle(R.string.transaction_label_manage)
+                .setView(root)
+                .setNeutralButton(R.string.btn_eliminar, null)
                 .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.btn_guardar, null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                TransactionLabelStore.deleteLabel(requireContext(), label.id);
+                if (label.id.equals(selectedLabelId)) selectedLabelId = null;
+                dialog.dismiss();
+                loadLabels();
+            });
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String name = input.getText() == null ? "" : input.getText().toString().trim();
+                String color = hex.getText() == null ? "" : hex.getText().toString().trim();
+                if (name.isEmpty()) {
+                    input.setError(getString(R.string.transaction_label_name_error));
+                    return;
+                }
+                if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
+                    hex.setError(getString(R.string.transaction_label_hex_error));
+                    return;
+                }
+                TransactionLabelStore.updateLabel(requireContext(), label.id, name, color);
+                dialog.dismiss();
+                loadLabels();
+            });
+        });
+        dialog.show();
+    }
+
+    private void styleLabelOption(@NonNull MaterialButton button, @Nullable TransactionLabelStore.Label label, boolean selected) {
+        int accent = label == null
+                ? ContextCompat.getColor(requireContext(), R.color.md_theme_outline)
+                : label.colorInt();
+        int background = selected
+                ? LabelColorUtils.chipBackground(requireContext(), accent, true)
+                : ContextCompat.getColor(requireContext(), R.color.md_theme_surface);
+        int text = selected
+                ? LabelColorUtils.textOnTint(requireContext(), accent, background)
+                : ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface);
+        button.setBackgroundTintList(ColorStateList.valueOf(background));
+        button.setTextColor(text);
+        button.setStrokeColor(ColorStateList.valueOf(selected ? accent : ContextCompat.getColor(requireContext(), R.color.md_theme_outline)));
+        button.setIconTint(ColorStateList.valueOf(label == null ? text : accent));
+    }
+
+    private void showCreateLabelDialog(@Nullable Runnable onSaved) {
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
+        TextInputEditText input = content.findViewById(R.id.etSimple);
+        input.setHint(R.string.transaction_label_name);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(8), dp(20), dp(8));
+        root.addView(content);
+
+        TextInputEditText hex = new TextInputEditText(requireContext());
+        hex.setHint(R.string.transaction_label_hex);
+        hex.setSingleLine(true);
+        hex.setText("#4FA37A");
+        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hexParams.topMargin = dp(10);
+        root.addView(hex, hexParams);
+
+        root.addView(buildColorPalette(hex));
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.transaction_label_create)
+                .setView(root)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.btn_guardar, null)
                 .create();
         dialog.setOnShowListener(d -> dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = input.getText() == null ? "" : input.getText().toString().trim();
+            String color = hex.getText() == null ? "" : hex.getText().toString().trim();
             if (name.isEmpty()) {
-                input.setError(getString(R.string.category_save_error));
+                input.setError(getString(R.string.transaction_label_name_error));
                 return;
             }
-            Categoria updated = new Categoria(categoria.id, categoria.userId, name, incomeFlow, categoria.editable);
-            CategoryStore.updateCategoria(requireContext(), updated, new CategoryStore.SimpleCallback() {
-                @Override
-                public void onSuccess() {
-                    if (!isAdded()) return;
-                    dialog.dismiss();
-                    UiFormUtils.showMessage(requireView(), R.string.category_saved);
-                    CategoryStore.clearCache();
-                    cargarCategoriasYRefrescar();
-                    if (afterChange != null) afterChange.run();
-                }
-
-                @Override
-                public void onError() {
-                    if (isAdded()) UiFormUtils.showMessage(requireView(), R.string.category_save_error);
-                }
-            });
+            if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
+                hex.setError(getString(R.string.transaction_label_hex_error));
+                return;
+            }
+            TransactionLabelStore.Label label = TransactionLabelStore.createLabel(requireContext(), name, color);
+            selectedLabelId = label.id;
+            dialog.dismiss();
+            loadLabels();
+            if (onSaved != null) onSaved.run();
         }));
         dialog.show();
     }
 
-    private void confirmDeleteCategory(@NonNull Categoria categoria, boolean incomeFlow, @Nullable Runnable afterChange) {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setMessage(R.string.category_delete_confirm)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.btn_eliminar, (dialog, which) ->
-                        CategoryStore.deleteCategoria(requireContext(), categoria.id, new CategoryStore.SimpleCallback() {
-                            @Override
-                            public void onSuccess() {
-                                if (!isAdded()) return;
-                                UiFormUtils.showMessage(requireView(), R.string.category_deleted);
-                                CategoryStore.clearCache();
-                                cargarCategoriasYRefrescar();
-                                if (afterChange != null) afterChange.run();
-                            }
+    private View buildColorPalette(@NonNull TextInputEditText hex) {
+        LinearLayout wrapper = new LinearLayout(requireContext());
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams wrapperParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        wrapperParams.topMargin = dp(12);
+        wrapper.setLayoutParams(wrapperParams);
 
-                            @Override
-                            public void onError() {
-                                if (isAdded()) UiFormUtils.showMessage(requireView(), R.string.category_in_use_error);
-                            }
-                        }))
-                .show();
+        TextView label = new TextView(requireContext());
+        label.setText("Paleta de colores");
+        label.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        label.setTextSize(13f);
+        label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        wrapper.addView(label);
+
+        GridLayout palette = new GridLayout(requireContext());
+        palette.setColumnCount(6);
+        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        gridParams.topMargin = dp(8);
+        wrapper.addView(palette, gridParams);
+
+        String selectedHex = TransactionLabelStore.normalizeHex(hex.getText() == null ? "#4FA37A" : hex.getText().toString());
+        for (String colorHex : TransactionLabelStore.paletteColors()) {
+            int color = android.graphics.Color.parseColor(colorHex);
+            View swatch = new View(requireContext());
+            swatch.setTag(colorHex);
+            applyColorSwatchBackground(swatch, color, colorHex.equals(selectedHex));
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = dp(34);
+            params.height = dp(34);
+            params.setMargins(0, 0, dp(12), dp(12));
+            palette.addView(swatch, params);
+            swatch.setOnClickListener(v -> {
+                hex.setText(colorHex);
+                for (int i = 0; i < palette.getChildCount(); i++) {
+                    View child = palette.getChildAt(i);
+                    String childHex = child.getTag() == null ? "" : child.getTag().toString();
+                    applyColorSwatchBackground(child, android.graphics.Color.parseColor(childHex), colorHex.equals(childHex));
+                }
+            });
+        }
+        return wrapper;
+    }
+
+    private void applyColorSwatchBackground(@NonNull View view, int color, boolean selected) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setColor(color);
+        bg.setCornerRadius(dp(9));
+        bg.setStroke(dp(selected ? 3 : 1), ContextCompat.getColor(requireContext(), selected ? R.color.md_theme_onSurface : R.color.md_theme_outline));
+        view.setBackground(bg);
     }
 
     private void onGuardar(View view) {
@@ -941,14 +1046,15 @@ public class NuevaTransaccionFragment extends Fragment {
         tilHora.setError(null);
         final long fechaMs = combineDateAndTime(fechaSeleccionada, sHora);
 
+        final boolean transferLocal = isTransferSelected();
         String nombreSel = actCategoria.getText() == null ? "" : actCategoria.getText().toString().trim();
         Categoria seleccionada = null;
-        if (visibles != null) {
+        if (!transferLocal && visibles != null) {
             for (Categoria c : visibles) {
                 if (c != null && c.nombre != null && c.nombre.equals(nombreSel)) { seleccionada = c; break; }
             }
         }
-        if (seleccionada == null) {
+        if (!transferLocal && seleccionada == null) {
             tilCategoria.setError(getString(R.string.error_selecciona_categoria));
             actCategoria.requestFocus();
             showCategoryPickerSheet();
@@ -971,16 +1077,51 @@ public class NuevaTransaccionFragment extends Fragment {
         setMontoError(null);
         final boolean esIngresoLocal = isIncomeSelected();
         final String accountTypeLocal = resolveSelectedAccountType();
+        final String destinationTypeLocal = SettingsService.normalizeAccountType(selectedDestinationAccountType);
+        if (transferLocal && accountTypeLocal.equals(destinationTypeLocal)) {
+            UiFormUtils.showMessage(requireView(), R.string.transfer_same_account_error);
+            return;
+        }
         final String notaLocal = etNota.getText() == null ? "" : etNota.getText().toString().trim();
+        final String recurrenceLocal = resolveRecurrenceCode();
+        final int recurrenceDaysMaskLocal = selectedCustomRecurrenceDaysMask();
+        if (RecurringTransactionStore.FREQUENCY_CUSTOM.equals(recurrenceLocal) && recurrenceDaysMaskLocal == 0) {
+            UiFormUtils.showMessage(requireView(), R.string.transaction_recurrence_custom_error);
+            setMoreOptionsExpanded(true);
+            return;
+        }
         final Categoria catSel = seleccionada;
         final Integer editingIdLocal = editingId;
 
         UiFormUtils.setActionLoading(btnGuardar, true);
 
-        if (editingIdLocal == null || editingIdLocal < 0) {
+        if (transferLocal) {
+            if (editingIdLocal != null && editingIdLocal > 0) {
+                UiFormUtils.showMessage(requireView(), R.string.error_guardar_transaccion);
+                UiFormUtils.setActionLoading(btnGuardar, false);
+                return;
+            }
+            TransService.createTransfer(requireContext(), accountTypeLocal, destinationTypeLocal, montoLocal, notaLocal, fechaMs, monedaLocal,
+                    new TransService.SimpleCb() {
+                        @Override public void onOk(int newId) {
+                            persistOptionalLabel(newId);
+                            persistOptionalRecurrence(newId, true, accountTypeLocal, destinationTypeLocal, montoLocal, notaLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
+                            UiFormUtils.setActionLoading(btnGuardar, false);
+                            UiFormUtils.showMessage(requireView(), R.string.trans_saved);
+                            finishAfterCreate();
+                        }
+                        @Override public void onError(@Nullable String message) {
+                            UiFormUtils.setActionLoading(btnGuardar, false);
+                            UiFormUtils.showMessage(requireView(), !TextUtils.isEmpty(message) ? message : getString(R.string.error_guardar_transaccion));
+                        }
+                    });
+
+        } else if (editingIdLocal == null || editingIdLocal < 0) {
             TransService.create(requireContext(), catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs, monedaLocal, accountTypeLocal,
                     new TransService.SimpleCb() {
                         @Override public void onOk(int newId) {
+                            persistOptionalLabel(newId);
+                            persistOptionalRecurrence(newId, false, accountTypeLocal, null, montoLocal, notaLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
                             UiFormUtils.setActionLoading(btnGuardar, false);
                             UiFormUtils.showMessage(requireView(), R.string.trans_saved);
                             finishAfterCreate();
@@ -999,6 +1140,8 @@ public class NuevaTransaccionFragment extends Fragment {
             TransService.update(requireContext(), editingIdLocal, catSel.id, esIngresoLocal, montoLocal, notaLocal, fechaMs, monedaLocal, accountTypeLocal,
                     new TransService.VoidCb() {
                         @Override public void onOk() {
+                            persistOptionalLabel(editingIdLocal);
+                            persistOptionalRecurrence(editingIdLocal, false, accountTypeLocal, null, montoLocal, notaLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
                             UiFormUtils.setActionLoading(btnGuardar, false);
                             UiFormUtils.showMessage(requireView(), R.string.trans_updated);
                             NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
@@ -1055,6 +1198,79 @@ public class NuevaTransaccionFragment extends Fragment {
         if (!controller.popBackStack(R.id.nav_home, false)) {
             controller.navigate(R.id.nav_home);
         }
+    }
+
+    private void persistOptionalLabel(int transactionId) {
+        if (transactionId <= 0) return;
+        TransactionLabelStore.setLabel(requireContext(), transactionId, selectedLabelId);
+    }
+
+    private void persistOptionalRecurrence(
+            int transactionId,
+            boolean isTransfer,
+            @NonNull String accountType,
+            @Nullable String destinationType,
+            double amount,
+            @NonNull String note,
+            long firstDate,
+            @NonNull String currency,
+            @Nullable String recurrence,
+            int recurrenceDaysMask
+    ) {
+        if (TextUtils.isEmpty(recurrence)) {
+            RecurringTransactionStore.deleteTemplateForSource(requireContext(), transactionId);
+            return;
+        }
+        int categoryId = 0;
+        boolean income = isIncomeSelected();
+        if (!isTransfer && visibles != null) {
+            String selectedName = actCategoria.getText() == null ? "" : actCategoria.getText().toString().trim();
+            for (Categoria c : visibles) {
+                if (c != null && selectedName.equals(c.nombre)) {
+                    categoryId = c.id;
+                    break;
+                }
+            }
+        }
+        RecurringTransactionStore.saveTemplate(
+                requireContext(),
+                transactionId,
+                recurrence,
+                recurrenceDaysMask,
+                isTransfer,
+                categoryId,
+                income,
+                amount,
+                note,
+                firstDate,
+                currency,
+                accountType,
+                destinationType,
+                selectedLabelId
+        );
+    }
+
+    @Nullable
+    private String resolveRecurrenceCode() {
+        if (actRecurrence == null || actRecurrence.getText() == null) return null;
+        String value = actRecurrence.getText().toString();
+        if (value.equals(getString(R.string.transaction_recurrence_weekdays))) return RecurringTransactionStore.FREQUENCY_WEEKDAYS;
+        if (value.equals(getString(R.string.transaction_recurrence_everyday))) return RecurringTransactionStore.FREQUENCY_EVERYDAY;
+        if (value.equals(getString(R.string.transaction_recurrence_custom))) return RecurringTransactionStore.FREQUENCY_CUSTOM;
+        return null;
+    }
+
+    private int selectedCustomRecurrenceDaysMask() {
+        if (chipCustomRecurrenceDays == null) return 0;
+        int mask = 0;
+        for (int i = 0; i < chipCustomRecurrenceDays.getChildCount(); i++) {
+            View child = chipCustomRecurrenceDays.getChildAt(i);
+            if (child instanceof Chip && ((Chip) child).isChecked()) {
+                Integer day = recurrenceDayByChipId.get(child.getId());
+                if (day != null) mask |= RecurringTransactionStore.bitForCalendarDay(day);
+            }
+        }
+        return mask;
     }
 
     private long combineDateAndTime(@NonNull Date date, @NonNull String time) {

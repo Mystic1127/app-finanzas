@@ -39,6 +39,7 @@
         <item name="colorError">@color/md_theme_error</item>
         <item name="colorOutline">@color/md_theme_outline</item>
         <item name="materialButtonStyle">@style/Widget.Finanzas.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.Finanzas.Button.Secondary</item>
         <item name="materialCardViewStyle">@style/Widget.Finanzas.Card</item>
         <item name="textInputStyle">@style/Widget.Finanzas.TextInputLayout</item>
         <item name="autoCompleteTextViewStyle">@style/Widget.Finanzas.AutoCompleteTextView</item>

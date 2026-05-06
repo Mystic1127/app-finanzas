@@ -5,7 +5,6 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/nav_welcome">
 
-    <!-- LOGOUT GLOBAL -->
     <action
         android:id="@+id/action_global_logout"
         app:destination="@id/nav_welcome"
@@ -18,22 +17,20 @@
         android:label="@string/app_name_spendly"
         tools:layout="@layout/fragment_welcome" />
 
-    <!-- LOGIN -->
     <fragment
         android:id="@+id/nav_login"
         android:name="com.example.finanzas.ui.LoginFragment"
-        android:label="Iniciar sesión"
+        android:label="@string/auth_titulo_login"
         tools:layout="@layout/fragment_login">
         <action
             android:id="@+id/action_login_to_register"
             app:destination="@id/nav_register" />
     </fragment>
 
-    <!-- REGISTRO -->
     <fragment
         android:id="@+id/nav_register"
         android:name="com.example.finanzas.ui.RegisterFragment"
-        android:label="Crear cuenta"
+        android:label="@string/auth_titulo_registro"
         tools:layout="@layout/fragment_register">
         <action
             android:id="@+id/action_register_to_login"
@@ -42,11 +39,10 @@
             app:popUpToInclusive="true" />
     </fragment>
 
-    <!-- HOME -->
     <fragment
         android:id="@+id/nav_home"
         android:name="com.example.finanzas.ui.HomeFragment"
-        android:label="Inicio"
+        android:label="@string/nav_home_title"
         tools:layout="@layout/fragment_home">
         <action
             android:id="@+id/action_home_to_list"
@@ -65,37 +61,35 @@
     <fragment
         android:id="@+id/nav_analysis"
         android:name="com.example.finanzas.ui.AnalysisFragment"
-        android:label="Análisis"
+        android:label="@string/nav_analysis_title"
         tools:layout="@layout/fragment_analysis" />
 
-    <!-- LISTA -->
     <fragment
         android:id="@+id/nav_list"
         android:name="com.example.finanzas.ui.ListaTransaccionesFragment"
-        android:label="Transacciones"
+        android:label="@string/nav_transactions_title"
         tools:layout="@layout/fragment_lista_transacciones">
         <action
             android:id="@+id/action_list_to_new"
             app:destination="@id/nav_new" />
     </fragment>
 
-    <!-- PRESUPUESTO -->
     <fragment
         android:id="@+id/nav_budget"
         android:name="com.example.finanzas.ui.PresupuestoFragment"
-        android:label="Presupuesto"
+        android:label="@string/nav_budget_title"
         tools:layout="@layout/fragment_presupuesto" />
 
     <fragment
         android:id="@+id/nav_planning"
         android:name="com.example.finanzas.ui.PlanningFragment"
-        android:label="PlanificaciÃ³n"
+        android:label="@string/nav_planning_title"
         tools:layout="@layout/fragment_planning" />
 
     <fragment
         android:id="@+id/nav_settings"
         android:name="com.example.finanzas.ui.SettingsFragment"
-        android:label="Ajustes"
+        android:label="@string/nav_settings_title"
         tools:layout="@layout/fragment_settings" />
 
     <fragment
@@ -113,22 +107,21 @@
     <fragment
         android:id="@+id/nav_goals"
         android:name="com.example.finanzas.ui.GoalsFragment"
-        android:label="Metas"
+        android:label="@string/home_goals"
         tools:layout="@layout/fragment_goals" />
 
     <fragment
         android:id="@+id/nav_reminders"
         android:name="com.example.finanzas.ui.RemindersFragment"
-        android:label="Recordatorios"
+        android:label="@string/home_reminders"
         tools:layout="@layout/fragment_reminders" />
 
     <fragment
         android:id="@+id/nav_imports"
         android:name="com.example.finanzas.ui.ImportFragment"
-        android:label="Importaciones"
+        android:label="@string/nav_imports_title"
         tools:layout="@layout/fragment_imports" />
 
-    <!-- NUEVA TRANSACCIÓN -->
     <fragment
         android:id="@+id/nav_receipt_scan"
         android:name="com.example.finanzas.ui.ReceiptScanFragment"
@@ -138,14 +131,13 @@
     <fragment
         android:id="@+id/nav_new"
         android:name="com.example.finanzas.ui.NuevaTransaccionFragment"
-        android:label="Nueva transacción"
+        android:label="@string/nav_new_transaction_title"
         tools:layout="@layout/fragment_nueva_transaccion" />
 
-    <!-- PERFIL -->
     <fragment
         android:id="@+id/nav_perfil"
         android:name="com.example.finanzas.ui.PerfilFragment"
-        android:label="Perfil"
+        android:label="@string/nav_profile_title"
         tools:layout="@layout/fragment_perfil">
         <action
             android:id="@+id/action_perfil_to_change_pass"
@@ -155,11 +147,10 @@
             app:destination="@id/nav_pin_setup" />
     </fragment>
 
-    <!-- CAMBIAR CONTRASEÑA -->
     <fragment
         android:id="@+id/nav_change_password"
         android:name="com.example.finanzas.ui.ChangePasswordFragment"
-        android:label="Cambiar contraseña"
+        android:label="@string/nav_change_password_title"
         tools:layout="@layout/fragment_change_password" />
 
     <fragment

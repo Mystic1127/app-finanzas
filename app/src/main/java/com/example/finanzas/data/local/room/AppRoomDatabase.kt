@@ -15,13 +15,14 @@ import com.example.finanzas.util.PasswordSecurity
         TransaccionEntity::class,
         PresupuestoEntity::class,
         PresupuestoCategoriaEntity::class,
+        RecurringTransactionEntity::class,
         MetaEntity::class,
         MetaHitoEntity::class,
         RecordatorioEntity::class,
         ImportJobEntity::class,
         ImportRuleEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppRoomDatabase : RoomDatabase() {
@@ -30,6 +31,7 @@ abstract class AppRoomDatabase : RoomDatabase() {
     abstract fun transaccionDao(): TransaccionDao
     abstract fun presupuestoDao(): PresupuestoDao
     abstract fun presupuestoCategoriaDao(): PresupuestoCategoriaDao
+    abstract fun recurringTransactionDao(): RecurringTransactionDao
     abstract fun metaDao(): MetaDao
     abstract fun metaHitoDao(): MetaHitoDao
     abstract fun recordatorioDao(): RecordatorioDao
@@ -291,7 +293,7 @@ abstract class AppRoomDatabase : RoomDatabase() {
         @JvmStatic
         fun build(context: Context): AppRoomDatabase {
             return Room.databaseBuilder(context, AppRoomDatabase::class.java, "finanzas_local.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
@@ -354,6 +356,37 @@ abstract class AppRoomDatabase : RoomDatabase() {
                     db.execSQL("ALTER TABLE recordatorios ADD COLUMN moneda TEXT NOT NULL DEFAULT 'PEN'")
                 }
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transacciones_account_type ON transacciones(account_type)")
+            }
+        }
+
+        @JvmStatic
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS transacciones_recurrentes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        source_transaction_id INTEGER NOT NULL,
+                        frequency TEXT NOT NULL,
+                        days_mask INTEGER NOT NULL DEFAULT 0,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        is_transfer INTEGER NOT NULL,
+                        category_id INTEGER NOT NULL,
+                        is_income INTEGER NOT NULL,
+                        amount REAL NOT NULL,
+                        currency TEXT NOT NULL DEFAULT 'PEN',
+                        account_type TEXT NOT NULL DEFAULT 'CARD',
+                        destination_account_type TEXT,
+                        note TEXT,
+                        label_id TEXT,
+                        first_date INTEGER NOT NULL,
+                        last_generated_day TEXT
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transacciones_recurrentes_user_id ON transacciones_recurrentes(user_id)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_transacciones_recurrentes_source_transaction_id ON transacciones_recurrentes(source_transaction_id)")
             }
         }
 

@@ -87,6 +87,30 @@ interface TransaccionDao {
 }
 
 @Dao
+interface RecurringTransactionDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsert(entity: RecurringTransactionEntity): Long
+
+    @Query("SELECT * FROM transacciones_recurrentes WHERE user_id=:userId AND is_active=1 ORDER BY id ASC")
+    fun listActive(userId: Int): List<RecurringTransactionEntity>
+
+    @Query("SELECT * FROM transacciones_recurrentes WHERE user_id=:userId AND source_transaction_id=:sourceTransactionId LIMIT 1")
+    fun findBySource(userId: Int, sourceTransactionId: Int): RecurringTransactionEntity?
+
+    @Query("UPDATE transacciones_recurrentes SET last_generated_day=:day WHERE id=:id AND user_id=:userId")
+    fun updateLastGeneratedDay(id: Int, userId: Int, day: String): Int
+
+    @Query("UPDATE transacciones_recurrentes SET is_active=:active WHERE id=:id AND user_id=:userId")
+    fun setActive(id: Int, userId: Int, active: Int): Int
+
+    @Query("DELETE FROM transacciones_recurrentes WHERE user_id=:userId AND source_transaction_id=:sourceTransactionId")
+    fun deleteBySource(userId: Int, sourceTransactionId: Int): Int
+
+    @Query("SELECT COUNT(*) FROM transacciones WHERE user_id=:userId AND nota LIKE '%' || :marker || '%'")
+    fun countGeneratedMarker(userId: Int, marker: String): Int
+}
+
+@Dao
 interface PresupuestoDao {
     @Query("SELECT * FROM presupuestos WHERE user_id=:userId AND anio=:anio AND mes=:mes")
     fun find(userId: Int, anio: Int, mes: Int): PresupuestoEntity?

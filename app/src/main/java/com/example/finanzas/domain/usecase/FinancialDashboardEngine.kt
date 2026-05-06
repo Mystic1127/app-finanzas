@@ -95,7 +95,7 @@ class FinancialDashboardEngine(
         if (top != null && top.gastado > 0) {
             insights.add("Tu mayor gasto es ${top.categoriaNombre}")
             val previousByCategory = previousTx
-                .filter { !it.isEsIngreso && it.categoriaNombre == top.categoriaNombre }
+                .filter { !it.isEsIngreso && !it.isTransfer && it.categoriaNombre == top.categoriaNombre }
                 .sumOf { it.monto }
             if (previousByCategory > 0) {
                 val change = ((top.gastado - previousByCategory) / previousByCategory) * 100.0
@@ -134,8 +134,8 @@ class FinancialDashboardEngine(
         currentTx: List<Transaccion>,
         previousTx: List<Transaccion>
     ) {
-        val currentExpenses = currentTx.filter { !it.isEsIngreso }.sumOf { it.monto }
-        val previousExpenses = previousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
+        val currentExpenses = currentTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
+        val previousExpenses = previousTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
         val incomeForAnalysis = (summary.ingresos - currentTx.filter { it.isInitialBalance }.sumOf { it.monto })
             .coerceAtLeast(0.0)
         summary.ingresosRecurrentes = incomeForAnalysis
@@ -167,8 +167,8 @@ class FinancialDashboardEngine(
         previousTx: List<Transaccion>
     ) {
         val unusualExpense = findUnusualExpense(currentTx, previousTx)
-        val currentExpenses = currentTx.filter { !it.isEsIngreso }.sumOf { it.monto }
-        val previousExpenses = previousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
+        val currentExpenses = currentTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
+        val previousExpenses = previousTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
         val daysInMonth = daysInMonth(summary.anio, summary.mes)
         val elapsedDays = elapsedDaysForMonth(summary.anio, summary.mes, daysInMonth)
         val dailyAverage = currentExpenses / elapsedDays.coerceAtLeast(1)
@@ -319,7 +319,7 @@ class FinancialDashboardEngine(
     private fun buildCategoryExpenseChart(currentTx: List<Transaccion>): List<CategoryChartSlice> {
         return currentTx
             .asSequence()
-            .filter { !it.isEsIngreso && it.monto > 0 }
+            .filter { !it.isEsIngreso && !it.isTransfer && it.monto > 0 }
             .groupBy { tx -> tx.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoría" }
             .map { (name, items) ->
                 CategoryChartSlice().apply {
@@ -354,8 +354,8 @@ class FinancialDashboardEngine(
             alerts.add("Estás cerca de superar el presupuesto de $name")
         }
 
-        val currentExpenses = currentTx.filter { !it.isEsIngreso }.sumOf { it.monto }
-        val previousExpenses = previousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
+        val currentExpenses = currentTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
+        val previousExpenses = previousTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
         if (previousExpenses > 0) {
             val change = ((currentExpenses - previousExpenses) / previousExpenses) * 100.0
             if (change >= 15.0) {
@@ -404,7 +404,7 @@ class FinancialDashboardEngine(
     ): Transaccion? {
         val recentExpenses = (currentTx + previousTx)
             .asSequence()
-            .filter { !it.isEsIngreso && it.monto > 0 }
+            .filter { !it.isEsIngreso && !it.isTransfer && it.monto > 0 }
             .sortedByDescending { it.fecha?.time ?: 0L }
             .take(12)
             .toList()
@@ -413,7 +413,7 @@ class FinancialDashboardEngine(
         val average = recentExpenses.map { it.monto }.average()
         if (average <= 0.0) return null
         return currentTx
-            .filter { !it.isEsIngreso && it.monto >= average * 2.0 }
+            .filter { !it.isEsIngreso && !it.isTransfer && it.monto >= average * 2.0 }
             .maxByOrNull { it.monto }
     }
 

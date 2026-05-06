@@ -70,7 +70,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:maxLines="1"
-                    android:text="Inicio"
+                    android:text="@string/nav_home_title"
                     android:textSize="12sp" />
 
                 <View
@@ -105,7 +105,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:maxLines="1"
-                    android:text="Análisis"
+                    android:text="@string/nav_analysis_title"
                     android:textSize="12sp" />
 
                 <View
@@ -174,7 +174,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:maxLines="1"
-                    android:text="Presupuestos"
+                    android:text="@string/nav_budget_title"
                     android:textSize="11sp" />
 
                 <View
@@ -209,7 +209,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:maxLines="1"
-                    android:text="Planificación"
+                    android:text="@string/nav_planning_title"
                     android:textSize="10sp" />
 
                 <View

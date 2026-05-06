@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -23,14 +24,14 @@ import com.example.finanzas.data.model.MonthlyTrendPoint;
 import com.example.finanzas.ui.view.CategorySpendingChartView;
 import com.example.finanzas.ui.view.TrendOverviewView;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
-import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 public class AnalysisFragment extends Fragment {
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
@@ -125,18 +126,20 @@ public class AnalysisFragment extends Fragment {
     private void showFinancialDetail() {
         HomeSummary summary = lastSummary;
         if (summary == null) return;
-        String message = "Score: " + summary.getScoreFinanciero() + "/100"
-                + "\nEstado: " + nonEmpty(summary.getScoreEstado(), getString(R.string.home_financial_missing))
-                + "\n\n" + nonEmpty(summary.getInsightPrincipal(), getString(R.string.home_financial_missing))
-                + "\n\n" + nonEmpty(summary.getScoreExplicacion(), "")
-                + "\nTendencia: " + nonEmpty(summary.getScoreTendencia(), getString(R.string.home_comparison_no_previous))
-                + "\nAlerta: " + nonEmpty(summary.getAlertaPrincipal(), getString(R.string.home_alerts_empty))
-                + "\nProyeccion fin de mes: " + Format.money(summary.getProyeccionFinMes(), currencyCode);
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.home_financial_detail_title)
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
+        showInsightDialog(
+                getString(R.string.home_financial_detail_title),
+                nonEmpty(summary.getScoreEstado(), getString(R.string.home_financial_missing)),
+                nonEmpty(summary.getInsightPrincipal(), getString(R.string.home_financial_missing)),
+                "Score",
+                summary.getScoreFinanciero() + "/100",
+                "Saldo estimado",
+                Format.money(summary.getProyeccionFinMes(), currencyCode),
+                "Tendencia",
+                nonEmpty(summary.getScoreTendencia(), getString(R.string.home_comparison_no_previous)),
+                nonEmpty(summary.getScoreExplicacion(), ""),
+                nonEmpty(summary.getAlertaPrincipal(), getString(R.string.home_alerts_empty)),
+                true
+        );
     }
 
     private void showSavingDetail() {
@@ -145,31 +148,205 @@ public class AnalysisFragment extends Fragment {
         String suggested = summary.getAhorroSugerido() > 0
                 ? Format.money(summary.getAhorroSugerido(), currencyCode)
                 : getString(R.string.home_smart_saving_not_recommended);
-        String message = "Estado: " + nonEmpty(summary.getEstadoAhorro(), getString(R.string.home_smart_saving_status_adjusted))
-                + "\nAhorro sugerido: " + suggested
-                + "\n\n" + nonEmpty(summary.getAhorroSugeridoMensaje(), getString(R.string.home_smart_saving_goal_empty))
-                + "\n\n" + nonEmpty(summary.getRecomendacionAhorroMeta(), getString(R.string.home_smart_saving_goal_empty))
-                + "\nSaldo actual: " + Format.money(summary.getSaldoActualTotal(), currencyCode)
-                + "\nGasto proyectado: " + Format.money(summary.getGastoProyectado(), currencyCode)
-                + "\nSaldo estimado fin de mes: " + Format.money(summary.getProyeccionFinMes(), currencyCode);
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.home_smart_saving_detail_title)
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
+        showInsightDialog(
+                getString(R.string.home_smart_saving_detail_title),
+                nonEmpty(summary.getEstadoAhorro(), getString(R.string.home_smart_saving_status_adjusted)),
+                nonEmpty(summary.getAhorroSugeridoMensaje(), getString(R.string.home_smart_saving_goal_empty)),
+                "Ahorro sugerido",
+                suggested,
+                "Saldo actual",
+                Format.money(summary.getSaldoActualTotal(), currencyCode),
+                "Saldo final",
+                Format.money(summary.getProyeccionFinMes(), currencyCode),
+                nonEmpty(summary.getRecomendacionAhorroMeta(), getString(R.string.home_smart_saving_goal_empty)),
+                "Gasto proyectado: " + Format.money(summary.getGastoProyectado(), currencyCode),
+                false
+        );
+    }
+
+    private void showInsightDialog(
+            @NonNull String title,
+            @NonNull String status,
+            @NonNull String hero,
+            @NonNull String metricOneLabel,
+            @NonNull String metricOneValue,
+            @NonNull String metricTwoLabel,
+            @NonNull String metricTwoValue,
+            @NonNull String metricThreeLabel,
+            @NonNull String metricThreeValue,
+            @NonNull String recommendation,
+            @NonNull String brief,
+            boolean showActionable
+    ) {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        ScrollView scroll = new ScrollView(requireContext());
+        scroll.setFillViewport(false);
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(10), dp(20), dp(24));
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        View handle = new View(requireContext());
+        GradientDrawable handleBg = new GradientDrawable();
+        handleBg.setColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        handleBg.setCornerRadius(dp(3));
+        handle.setBackground(handleBg);
+        LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dp(52), dp(5));
+        handleParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        root.addView(handle, handleParams);
+
+        TextView titleView = new TextView(requireContext());
+        titleView.setText(title);
+        titleView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        titleView.setTextSize(24f);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(titleView, fullWidthParams(28));
+
+        root.addView(heroCard(status, hero), fullWidthParams(24));
+
+        LinearLayout metrics = new LinearLayout(requireContext());
+        metrics.setOrientation(LinearLayout.HORIZONTAL);
+        metrics.addView(metricView(metricOneLabel, metricOneValue), weightedMetricParams(0));
+        metrics.addView(metricView(metricTwoLabel, metricTwoValue), weightedMetricParams(12));
+        root.addView(metrics, fullWidthParams(22));
+        root.addView(metricView(metricThreeLabel, metricThreeValue), halfWidthParams(12));
+
+        root.addView(sectionText("Recomendacion principal", recommendation, true), fullWidthParams(24));
+        root.addView(sectionText("Lectura breve", brief, false), fullWidthParams(18));
+        if (showActionable) {
+            root.addView(sectionText("Aviso accionable", recommendation, true), fullWidthParams(18));
+        }
+
+        MaterialButton accept = new MaterialButton(requireContext());
+        accept.setText(R.string.home_detail_accept);
+        accept.setAllCaps(false);
+        accept.setOnClickListener(v -> dialog.dismiss());
+        LinearLayout.LayoutParams acceptParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
+        acceptParams.topMargin = dp(28);
+        root.addView(accept, acceptParams);
+
+        dialog.setContentView(scroll);
+        dialog.setOnShowListener(d -> {
+            View sheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (sheet != null) {
+                sheet.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_surface));
+                ViewGroup.LayoutParams params = sheet.getLayoutParams();
+                params.height = (int) (getResources().getDisplayMetrics().heightPixels * 0.92f);
+                sheet.setLayoutParams(params);
+                com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet).setState(
+                        com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+                );
+            }
+        });
+        dialog.show();
+    }
+
+    private View heroCard(@NonNull String status, @NonNull String hero) {
+        LinearLayout card = cardContainer(true);
+        TextView statusView = new TextView(requireContext());
+        statusView.setText(status);
+        statusView.setTextColor(ContextCompat.getColor(requireContext(), R.color.risk_medium_text));
+        statusView.setTextSize(14f);
+        statusView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        statusView.setPadding(dp(12), dp(7), dp(12), dp(7));
+        GradientDrawable chipBg = new GradientDrawable();
+        chipBg.setColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
+        chipBg.setStroke(dp(1), ContextCompat.getColor(requireContext(), R.color.risk_medium_text));
+        chipBg.setCornerRadius(dp(12));
+        statusView.setBackground(chipBg);
+        card.addView(statusView, wrapParams(0));
+
+        TextView heroView = new TextView(requireContext());
+        heroView.setText(hero);
+        heroView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        heroView.setTextSize(20f);
+        heroView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        LinearLayout.LayoutParams heroParams = fullWidthParams(20);
+        card.addView(heroView, heroParams);
+        return card;
+    }
+
+    private TextView metricView(@NonNull String label, @NonNull String value) {
+        TextView view = new TextView(requireContext());
+        view.setText(label + "\n" + value);
+        view.setTextSize(14f);
+        view.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        view.setPadding(dp(14), dp(14), dp(14), dp(14));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
+        bg.setStroke(dp(1), ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        bg.setCornerRadius(dp(18));
+        view.setBackground(bg);
+        return view;
+    }
+
+    private TextView sectionText(@NonNull String label, @NonNull String value, boolean highlighted) {
+        TextView view = new TextView(requireContext());
+        view.setText(label + "\n" + value);
+        view.setTextSize(highlighted ? 16f : 15f);
+        view.setTextColor(ContextCompat.getColor(requireContext(), highlighted ? R.color.risk_medium_text : R.color.md_theme_onSurfaceVariant));
+        if (highlighted) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        view.setPadding(dp(16), dp(16), dp(16), dp(16));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(ContextCompat.getColor(requireContext(), highlighted ? R.color.risk_medium_bg : R.color.dialog_surface));
+        bg.setStroke(highlighted ? 0 : dp(1), ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        bg.setCornerRadius(dp(20));
+        view.setBackground(bg);
+        return view;
+    }
+
+    private LinearLayout cardContainer(boolean highlighted) {
+        LinearLayout card = new LinearLayout(requireContext());
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(18), dp(16), dp(18));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(ContextCompat.getColor(requireContext(), highlighted ? R.color.risk_medium_bg : R.color.md_theme_surface));
+        bg.setStroke(dp(1), ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        bg.setCornerRadius(dp(22));
+        card.setBackground(bg);
+        return card;
+    }
+
+    private LinearLayout.LayoutParams fullWidthParams(int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = dp(topMargin);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams weightedMetricParams(int leftMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(102), 1f);
+        params.leftMargin = dp(leftMargin);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams halfWidthParams(int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams((int) (getResources().getDisplayMetrics().widthPixels * 0.46f), dp(102));
+        params.topMargin = dp(topMargin);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams wrapParams(int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = dp(topMargin);
+        return params;
     }
 
     private void renderCategoryChart(@Nullable List<CategoryChartSlice> slices) {
         List<CategoryChartSlice> safe = slices == null ? new ArrayList<>() : slices;
         ArrayList<CategorySpendingChartView.Slice> entries = new ArrayList<>();
         double total = 0.0;
+        int colorIndex = 0;
         for (CategoryChartSlice slice : safe) {
             if (slice == null || slice.getGastado() <= 0) continue;
             String name = safeLabel(slice.getCategoriaNombre());
             entries.add(new CategorySpendingChartView.Slice(
                     name,
                     (float) slice.getGastado(),
-                    CategoryVisuals.colorFor(requireContext(), name, false)
+                    colorForCategoryChart(colorIndex++, name)
             ));
             total += slice.getGastado();
         }
@@ -232,6 +409,18 @@ public class AnalysisFragment extends Fragment {
         value.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         row.addView(value);
         listCategories.addView(row);
+    }
+
+    private int colorForCategoryChart(int index, @NonNull String name) {
+        int[] palette = new int[]{
+                R.color.chart_pie_1, R.color.chart_pie_2, R.color.chart_pie_3, R.color.chart_pie_4,
+                R.color.chart_pie_5, R.color.chart_pie_6, R.color.chart_pie_7, R.color.chart_pie_8,
+                R.color.chart_pie_9, R.color.chart_pie_10, R.color.chart_pie_11, R.color.chart_pie_12,
+                R.color.chart_pie_13, R.color.chart_pie_14, R.color.chart_pie_15, R.color.chart_pie_16
+        };
+        if (index < palette.length) return ContextCompat.getColor(requireContext(), palette[index]);
+        int stable = Math.abs(name.toLowerCase(Locale.ROOT).hashCode());
+        return ContextCompat.getColor(requireContext(), palette[stable % palette.length]);
     }
 
     private String safeLabel(@Nullable String value) {

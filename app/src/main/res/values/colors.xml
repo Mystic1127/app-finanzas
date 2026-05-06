@@ -58,6 +58,14 @@
     <color name="chart_pie_6">#2C7A7B</color>
     <color name="chart_pie_7">#8C5C35</color>
     <color name="chart_pie_8">#5E7D3B</color>
+    <color name="chart_pie_9">#D05A3A</color>
+    <color name="chart_pie_10">#2E8F9E</color>
+    <color name="chart_pie_11">#A14C7C</color>
+    <color name="chart_pie_12">#6E8E23</color>
+    <color name="chart_pie_13">#D06B9A</color>
+    <color name="chart_pie_14">#397FBD</color>
+    <color name="chart_pie_15">#9A6A16</color>
+    <color name="chart_pie_16">#426B5B</color>
 
     <color name="risk_low_bg">#D8F0E3</color>
     <color name="risk_low_text">#1F6E4C</color>

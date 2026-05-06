@@ -7,6 +7,10 @@ public class Transaccion {
     public static final String INITIAL_BALANCE_CASH_NOTE = "Saldo inicial efectivo";
     public static final String INITIAL_BALANCE_CARD_NOTE = "Saldo inicial tarjeta/cuenta";
     public static final String INITIAL_BALANCE_ACCOUNT_NOTE_PREFIX = "Saldo inicial cuenta:";
+    public static final String TRANSFER_CATEGORY = "Transferencia";
+    public static final String TRANSFER_NOTE_PREFIX = "[transfer:";
+    public static final String TRANSFER_NOTE_SEPARATOR = "] ";
+    public static final String RECURRENT_NOTE_PREFIX = "[recurrent:";
 
     private int id;
     private int categoriaId;
@@ -127,6 +131,45 @@ public class Transaccion {
         return specialCategory && specialNote;
     }
 
+    public boolean isTransfer() {
+        String cleanCategory = categoriaNombre == null ? "" : categoriaNombre.trim();
+        String cleanNote = nota == null ? "" : nota.trim();
+        return TRANSFER_CATEGORY.equalsIgnoreCase(cleanCategory)
+                || cleanNote.toLowerCase(java.util.Locale.ROOT).startsWith(TRANSFER_NOTE_PREFIX);
+    }
+
+    public String getTransferDestinationAccountType() {
+        String cleanNote = nota == null ? "" : nota.trim();
+        String lower = cleanNote.toLowerCase(java.util.Locale.ROOT);
+        if (!lower.startsWith(TRANSFER_NOTE_PREFIX)) return "";
+        int close = cleanNote.indexOf(']');
+        if (close <= TRANSFER_NOTE_PREFIX.length()) return "";
+        String inside = cleanNote.substring(TRANSFER_NOTE_PREFIX.length(), close);
+        return normalizeAccountType(inside);
+    }
+
+    public String getDisplayNote() {
+        String cleanNote = stripRecurringMarker(nota);
+        if (!isTransfer()) return cleanNote;
+        int close = cleanNote.indexOf(']');
+        if (close < 0 || close + 1 >= cleanNote.length()) return "";
+        return cleanNote.substring(close + 1).trim();
+    }
+
+    private static String stripRecurringMarker(String raw) {
+        String clean = raw == null ? "" : raw.trim();
+        if (!clean.toLowerCase(java.util.Locale.ROOT).startsWith(RECURRENT_NOTE_PREFIX)) return raw;
+        int close = clean.indexOf(']');
+        if (close < 0 || close + 1 >= clean.length()) return "";
+        return clean.substring(close + 1).trim();
+    }
+
+    public static String buildTransferNote(String destinationAccountType, String userNote) {
+        String destination = normalizeStaticAccountType(destinationAccountType);
+        String cleanNote = userNote == null ? "" : userNote.trim();
+        return TRANSFER_NOTE_PREFIX + destination + TRANSFER_NOTE_SEPARATOR + cleanNote;
+    }
+
     public String getNota() {
         return nota;
     }
@@ -152,6 +195,10 @@ public class Transaccion {
     }
 
     private String normalizeAccountType(String value) {
+        return normalizeStaticAccountType(value);
+    }
+
+    private static String normalizeStaticAccountType(String value) {
         if (value == null) return "CARD";
         String clean = value.trim();
         if (clean.isEmpty()) return "CARD";

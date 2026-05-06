@@ -8,6 +8,7 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.animation.ValueAnimator;
 import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
@@ -51,8 +52,6 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
-import org.json.JSONObject;
-
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -69,7 +68,6 @@ public class HomeFragment extends Fragment {
     private View cardExpense;
     private View cardCash;
     private View cardCard;
-    private View btnCustomize;
     private View btnSettings;
     private View cardAddAccount;
     private GridLayout listAccounts;
@@ -84,11 +82,9 @@ public class HomeFragment extends Fragment {
     private HomeViewModel viewModel;
     private String currencyCode = "PEN";
     private HomeSummary lastSummary;
-    private boolean showAccounts = true;
-    private boolean showBudget = true;
-    private boolean showLatest = true;
     private boolean hasDynamicAccounts;
     private boolean testerThanksDialogShowing;
+    private Double lastRenderedBalance = null;
 
     @Nullable
     @Override
@@ -107,7 +103,6 @@ public class HomeFragment extends Fragment {
         cardExpense = view.findViewById(R.id.cardExpense);
         cardCash = view.findViewById(R.id.cardCash);
         cardCard = view.findViewById(R.id.cardCard);
-        btnCustomize = view.findViewById(R.id.btnCustomizeHome);
         btnSettings = view.findViewById(R.id.btnHomeSettings);
         cardAddAccount = view.findViewById(R.id.cardAddAccount);
         listAccounts = view.findViewById(R.id.listHomeAccounts);
@@ -122,7 +117,6 @@ public class HomeFragment extends Fragment {
         viewModel = new ViewModelProvider(requireActivity()).get(HomeViewModel.class);
         currencyCode = SettingsService.getCurrencyCode(requireContext());
 
-        loadHomePrefs();
         setupNavigation(view);
         swipe.setOnRefreshListener(() -> loadSummary(true));
         observeViewModel();
@@ -138,7 +132,6 @@ public class HomeFragment extends Fragment {
 
     private void setupNavigation(@NonNull View root) {
         btnSettings.setOnClickListener(v -> Navigation.findNavController(v).navigate(R.id.nav_settings));
-        btnCustomize.setOnClickListener(v -> showHomeCustomizeDialog());
         cardAddAccount.setOnClickListener(v -> showCreateAccountDialog());
         btnSeeTransactions.setOnClickListener(v -> Navigation.findNavController(root).navigate(R.id.nav_list));
     }
@@ -169,7 +162,7 @@ public class HomeFragment extends Fragment {
     private void render(@NonNull HomeSummary summary) {
         lastSummary = summary;
         tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
-        tvBalanceTotal.setText(Format.money(summary.getSaldoActualTotal(), currencyCode));
+        renderAnimatedBalance(summary.getSaldoActualTotal());
         styleMetric(cardIncome, R.string.home_ingresos, Format.money(summary.getIngresos(), currencyCode), R.drawable.ic_income, color(R.color.income));
         styleMetric(cardExpense, R.string.home_gastos, Format.money(summary.getGastos(), currencyCode), R.drawable.ic_expense, color(R.color.expense));
         styleMetric(cardCash, R.string.home_cash, Format.money(summary.getEfectivo(), currencyCode), R.drawable.ic_cash, color(R.color.income));
@@ -177,7 +170,6 @@ public class HomeFragment extends Fragment {
         renderAccounts(summary.getAccountBalances());
         renderBudget(summary);
         renderLatest(summary.getLatestTransactions());
-        applyHomePrefs();
         FinancialAlertNotifier.maybeNotifyImportantAlert(requireContext(), summary, currencyCode);
     }
 
@@ -242,7 +234,35 @@ public class HomeFragment extends Fragment {
             params.setMargins(dp(4), dp(4), dp(4), dp(4));
             listAccounts.addView(card, params);
         }
-        listAccounts.setVisibility(showAccounts && hasDynamicAccounts ? View.VISIBLE : View.GONE);
+        listAccounts.setVisibility(hasDynamicAccounts ? View.VISIBLE : View.GONE);
+    }
+
+    private void renderAnimatedBalance(double newBalance) {
+        if (tvBalanceTotal == null) return;
+        if (lastRenderedBalance == null || Math.abs(lastRenderedBalance - newBalance) < 0.005) {
+            tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
+            lastRenderedBalance = newBalance;
+            return;
+        }
+        double from = lastRenderedBalance;
+        int defaultColor = color(R.color.md_theme_onSurface);
+        int pulseColor = newBalance > from ? color(R.color.income) : color(R.color.expense);
+        ValueAnimator animator = ValueAnimator.ofFloat((float) from, (float) newBalance);
+        animator.setDuration(650L);
+        animator.addUpdateListener(animation -> {
+            double value = ((Float) animation.getAnimatedValue()).doubleValue();
+            tvBalanceTotal.setText(Format.money(value, currencyCode));
+            tvBalanceTotal.setTextColor(pulseColor);
+        });
+        animator.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
+                tvBalanceTotal.setTextColor(defaultColor);
+                lastRenderedBalance = newBalance;
+            }
+        });
+        animator.start();
     }
 
     private void renderBudget(@NonNull HomeSummary summary) {
@@ -281,7 +301,9 @@ public class HomeFragment extends Fragment {
         row.setPadding(dp(14), dp(12), dp(12), dp(12));
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(18));
-        int accent = label != null ? label.colorInt() : CategoryVisuals.colorFor(requireContext(), tx.getCategoriaNombre(), tx.isEsIngreso());
+        int accent = label != null ? label.colorInt() : (tx.isTransfer()
+                ? color(R.color.chartAccent)
+                : CategoryVisuals.colorFor(requireContext(), tx.getCategoriaNombre(), tx.isEsIngreso()));
         bg.setColor(label != null ? LabelColorUtils.cardBackground(requireContext(), accent) : color(R.color.md_theme_surface));
         bg.setStroke(dp(1), label != null ? LabelColorUtils.cardStroke(requireContext(), accent) : color(R.color.md_theme_outlineVariant));
         row.setBackground(bg);
@@ -290,7 +312,7 @@ public class HomeFragment extends Fragment {
         row.setLayoutParams(rowParams);
 
         ImageView icon = new ImageView(requireContext());
-        icon.setImageResource(CategoryVisuals.iconFor(tx.getCategoriaNombre(), tx.isEsIngreso()));
+        icon.setImageResource(tx.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(tx.getCategoriaNombre(), tx.isEsIngreso()));
         icon.setColorFilter(accent);
         GradientDrawable iconBg = new GradientDrawable();
         iconBg.setShape(GradientDrawable.OVAL);
@@ -302,12 +324,19 @@ public class HomeFragment extends Fragment {
         LinearLayout textColumn = new LinearLayout(requireContext());
         textColumn.setOrientation(LinearLayout.VERTICAL);
         TextView title = new TextView(requireContext());
-        title.setText(nonEmpty(tx.getCategoriaNombre(), getString(R.string.home_uncategorized)));
+        title.setText(tx.isTransfer() ? getString(R.string.tipo_transferencia) : nonEmpty(tx.getCategoriaNombre(), getString(R.string.home_uncategorized)));
         title.setTextColor(color(R.color.md_theme_onSurface));
         title.setTextSize(16f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         TextView subtitle = new TextView(requireContext());
-        subtitle.setText(Format.date(tx.getFecha()) + " " + formatTime(tx.getFecha()) + " - " + SettingsService.getFinancialAccountName(requireContext(), tx.getAccountType()));
+        if (tx.isTransfer()) {
+            subtitle.setText(Format.date(tx.getFecha()) + " " + formatTime(tx.getFecha()) + " - "
+                    + SettingsService.getFinancialAccountName(requireContext(), tx.getAccountType())
+                    + " -> "
+                    + SettingsService.getFinancialAccountName(requireContext(), tx.getTransferDestinationAccountType()));
+        } else {
+            subtitle.setText(Format.date(tx.getFecha()) + " " + formatTime(tx.getFecha()) + " - " + SettingsService.getFinancialAccountName(requireContext(), tx.getAccountType()));
+        }
         subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
         subtitle.setTextSize(13f);
         textColumn.addView(title);
@@ -325,9 +354,9 @@ public class HomeFragment extends Fragment {
         row.addView(textColumn, textParams);
 
         TextView amount = new TextView(requireContext());
-        double shown = tx.isEsIngreso() ? tx.getMonto() : -tx.getMonto();
+        double shown = tx.isTransfer() ? tx.getMonto() : (tx.isEsIngreso() ? tx.getMonto() : -tx.getMonto());
         amount.setText(Format.money(shown, tx.getMoneda()));
-        amount.setTextColor(color(tx.isEsIngreso() ? R.color.income : R.color.expense));
+        amount.setTextColor(color(tx.isTransfer() ? R.color.chartAccent : (tx.isEsIngreso() ? R.color.income : R.color.expense)));
         amount.setTextSize(14f);
         amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         amount.setSingleLine(true);
@@ -431,62 +460,6 @@ public class HomeFragment extends Fragment {
         });
         dialog.setContentView(root);
         dialog.show();
-    }
-
-    private void showHomeCustomizeDialog() {
-        String[] labels = new String[] { "Cuentas y tarjetas", "Presupuesto", "Ultimas transacciones" };
-        boolean[] checked = new boolean[] { showAccounts, showBudget, showLatest };
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.dashboard_customize_title)
-                .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
-                .setPositiveButton(R.string.dashboard_customize_save, (dialog, which) -> {
-                    showAccounts = checked[0];
-                    showBudget = checked[1];
-                    showLatest = checked[2];
-                    saveHomePrefs();
-                    applyHomePrefs();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
-    }
-
-    private void loadHomePrefs() {
-        try {
-            JSONObject body = new JSONObject(SettingsService.getDashboardRaw(requireContext()));
-            showAccounts = body.optBoolean("home_accounts", true);
-            showBudget = body.optBoolean("home_budget", true);
-            showLatest = body.optBoolean("home_latest", true);
-        } catch (Exception ignored) {
-            showAccounts = true;
-            showBudget = true;
-            showLatest = true;
-        }
-    }
-
-    private void saveHomePrefs() {
-        try {
-            JSONObject body = new JSONObject(SettingsService.getDashboardRaw(requireContext()));
-            body.put("home_accounts", showAccounts);
-            body.put("home_budget", showBudget);
-            body.put("home_latest", showLatest);
-            SettingsService.saveDashboard(requireContext(), body, new SettingsService.SaveCb() {
-                @Override public void onSuccess() { if (isAdded()) UiFormUtils.showMessage(requireView(), R.string.dashboard_customize_saved); }
-                @Override public void onFail() { if (isAdded()) UiFormUtils.showMessage(requireView(), R.string.dashboard_customize_error); }
-            });
-        } catch (Exception e) {
-            UiFormUtils.showMessage(requireView(), R.string.dashboard_customize_error);
-        }
-    }
-
-    private void applyHomePrefs() {
-        int accountVisibility = showAccounts ? View.VISIBLE : View.GONE;
-        cardAddAccount.setVisibility(accountVisibility);
-        listAccounts.setVisibility(showAccounts && hasDynamicAccounts ? View.VISIBLE : View.GONE);
-        tvBudgetMissing.setVisibility(showBudget ? tvBudgetMissing.getVisibility() : View.GONE);
-        cardBudget.setVisibility(showBudget ? cardBudget.getVisibility() : View.GONE);
-        listLatest.setVisibility(showLatest ? View.VISIBLE : View.GONE);
-        tvLatestEmpty.setVisibility(showLatest ? tvLatestEmpty.getVisibility() : View.GONE);
-        btnSeeTransactions.setVisibility(showLatest ? View.VISIBLE : View.GONE);
     }
 
     private void maybeShowInitialCurrencyDialog() {

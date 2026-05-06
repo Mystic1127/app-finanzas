@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#0B8F68</color>
-    <color name="colorOnPrimary">#F4FFF9</color>
-    <color name="colorAccent">#159970</color>
+    <color name="colorPrimary">#06402B</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorAccent">#06402B</color>
     <color name="danger">#FF7A8A</color>
     <color name="bg">#02070D</color>
 
-    <color name="md_theme_primary">#0B8F68</color>
-    <color name="md_theme_onPrimary">#F4FFF9</color>
-    <color name="md_theme_primaryContainer">#00342B</color>
-    <color name="md_theme_onPrimaryContainer">#A7EBCB</color>
+    <color name="md_theme_primary">#06402B</color>
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryContainer">#06402B</color>
+    <color name="md_theme_onPrimaryContainer">#FFFFFF</color>
 
     <color name="md_theme_secondary">#82B6A3</color>
     <color name="md_theme_onSecondary">#071812</color>
-    <color name="md_theme_secondaryContainer">#071C18</color>
+    <color name="md_theme_secondaryContainer">#060D16</color>
     <color name="md_theme_onSecondaryContainer">#D2E9DE</color>
 
     <color name="md_theme_tertiary">#8BCDD1</color>
@@ -25,16 +25,16 @@
     <color name="md_theme_onBackground">#F0F5F7</color>
     <color name="md_theme_surface">#060D16</color>
     <color name="md_theme_onSurface">#F0F5F7</color>
-    <color name="md_theme_surfaceVariant">#0B1624</color>
+    <color name="md_theme_surfaceVariant">#060D16</color>
     <color name="md_theme_onSurfaceVariant">#ACB8C7</color>
     <color name="md_theme_surfaceDim">#01060A</color>
     <color name="md_theme_surfaceBright">#18283A</color>
     <color name="md_theme_surfaceContainerLowest">#01050A</color>
-    <color name="md_theme_surfaceContainerLow">#07111C</color>
-    <color name="md_theme_surfaceContainer">#0A1521</color>
-    <color name="md_theme_surfaceContainerHigh">#0F1E2F</color>
-    <color name="md_theme_surfaceContainerHighest">#17283B</color>
-    <color name="md_theme_outline">#3B5068</color>
+    <color name="md_theme_surfaceContainerLow">#060D16</color>
+    <color name="md_theme_surfaceContainer">#060D16</color>
+    <color name="md_theme_surfaceContainerHigh">#060D16</color>
+    <color name="md_theme_surfaceContainerHighest">#060D16</color>
+    <color name="md_theme_outline">#1A2A3D</color>
     <color name="md_theme_outlineVariant">#1A2A3D</color>
 
     <color name="md_theme_error">@color/danger</color>
@@ -44,7 +44,7 @@
 
     <color name="income">#18B77D</color>
     <color name="expense">#FF6577</color>
-    <color name="chartBudget">#0B8F68</color>
+    <color name="chartBudget">#06402B</color>
     <color name="chartBalance">#58C7D6</color>
     <color name="chartAccent">#7C9CFF</color>
     <color name="chart_line_income">#12C779</color>
@@ -58,6 +58,14 @@
     <color name="chart_pie_6">#22C6C7</color>
     <color name="chart_pie_7">#FF8A43</color>
     <color name="chart_pie_8">#8DCE5B</color>
+    <color name="chart_pie_9">#FF9778</color>
+    <color name="chart_pie_10">#50D6E2</color>
+    <color name="chart_pie_11">#E88BC2</color>
+    <color name="chart_pie_12">#C0DA61</color>
+    <color name="chart_pie_13">#FF9AC8</color>
+    <color name="chart_pie_14">#77B7FF</color>
+    <color name="chart_pie_15">#E7BF54</color>
+    <color name="chart_pie_16">#7FC7A8</color>
 
     <color name="risk_low_bg">#062B22</color>
     <color name="risk_low_text">#9FE6C4</color>
@@ -77,9 +85,9 @@
     <color name="nav_header_text">#F4FFF8</color>
     <color name="nav_header_text_secondary">#D9F4E5</color>
     <color name="drawer_body_background">#060D16</color>
-    <color name="alert_surface">#261A1F</color>
-    <color name="dialog_surface">#07111C</color>
-    <color name="forecast_gradient_start">#0B1825</color>
-    <color name="forecast_gradient_end">#050D16</color>
+    <color name="alert_surface">#060D16</color>
+    <color name="dialog_surface">#060D16</color>
+    <color name="forecast_gradient_start">#060D16</color>
+    <color name="forecast_gradient_end">#060D16</color>
     <color name="drawer_scrim">#66000000</color>
 </resources>

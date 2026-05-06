@@ -3,23 +3,23 @@
 
     <item
         android:id="@+id/nav_home"
-        android:title="Inicio"
+        android:title="@string/nav_home_title"
         android:icon="@drawable/ic_home_24" />
 
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/nav_list"
-            android:title="Transacciones"
+            android:title="@string/nav_transactions_title"
             android:icon="@drawable/ic_receipt_long" />
 
         <item
             android:id="@+id/nav_budget"
-            android:title="Presupuesto"
+            android:title="@string/nav_budget_title"
             android:icon="@drawable/ic_wallet_24" />
 
         <item
             android:id="@+id/nav_analysis"
-            android:title="Análisis"
+            android:title="@string/nav_analysis_title"
             android:icon="@drawable/ic_analytics" />
 
         <item
@@ -29,28 +29,28 @@
 
         <item
             android:id="@+id/nav_planning"
-            android:title="Planificación"
+            android:title="@string/nav_planning_title"
             android:icon="@drawable/ic_goal" />
 
         <item
             android:id="@+id/nav_imports"
-            android:title="Importaciones"
+            android:title="@string/nav_imports_title"
             android:icon="@drawable/ic_upload" />
 
         <item
             android:id="@+id/nav_settings"
-            android:title="Ajustes"
+            android:title="@string/nav_settings_title"
             android:icon="@drawable/ic_settings" />
 
         <item
             android:id="@+id/nav_perfil"
-            android:title="Perfil"
+            android:title="@string/nav_profile_title"
             android:icon="@drawable/ic_perfil_24" />
     </group>
 
     <item
         android:id="@+id/nav_logout"
-        android:title="Cerrar sesión"
+        android:title="@string/nav_logout_title"
         android:icon="@drawable/ic_logout_24" />
 
 </menu>

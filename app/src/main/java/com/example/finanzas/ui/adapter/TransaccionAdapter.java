@@ -58,21 +58,30 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         View labelColor = v.findViewById(R.id.viewTransactionLabelColor);
         ImageView ivTipo = v.findViewById(R.id.ivTipo);
 
-        String cat = t.getCategoriaNombre() == null ? "-" : t.getCategoriaNombre();
-        String nota = (t.getNota() == null || t.getNota().isEmpty()) ? "" : " - " + t.getNota();
+        String cat = t.isTransfer() ? "Transferencia" : (t.getCategoriaNombre() == null ? "-" : t.getCategoriaNombre());
+        String displayNote = t.getDisplayNote();
+        String nota = (displayNote == null || displayNote.isEmpty()) ? "" : " - " + displayNote;
         tvTitulo.setText(cat + nota);
 
         String account = SettingsService.getFinancialAccountName(getContext(), t.getAccountType());
-        tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account);
+        if (t.isTransfer()) {
+            String destination = SettingsService.getFinancialAccountName(getContext(), t.getTransferDestinationAccountType());
+            tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account + " -> " + destination);
+        } else {
+            tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account);
+        }
 
-        double mostrado = t.isEsIngreso() ? t.getMonto() : -t.getMonto();
+        double mostrado = t.isTransfer() ? t.getMonto() : (t.isEsIngreso() ? t.getMonto() : -t.getMonto());
         tvMonto.setText(Format.money(mostrado, t.getMoneda()));
         tvMonto.setSingleLine(true);
         tvMonto.setEllipsize(TextUtils.TruncateAt.END);
         tvMonto.setMaxWidth(dp(132));
 
-        int typeColor = CategoryVisuals.colorFor(getContext(), t.getCategoriaNombre(), t.isEsIngreso());
-        tvMonto.setTextColor(ContextCompat.getColor(getContext(), t.isEsIngreso() ? R.color.income : R.color.expense));
+        int typeColor = t.isTransfer()
+                ? ContextCompat.getColor(getContext(), R.color.chartAccent)
+                : CategoryVisuals.colorFor(getContext(), t.getCategoriaNombre(), t.isEsIngreso());
+        tvMonto.setTextColor(ContextCompat.getColor(getContext(),
+                t.isTransfer() ? R.color.chartAccent : (t.isEsIngreso() ? R.color.income : R.color.expense)));
         tvTitulo.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurface));
         tvSub.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurfaceVariant));
 
@@ -90,7 +99,7 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
                 labelColor.setVisibility(View.VISIBLE);
             }
             if (ivTipo != null) {
-                ivTipo.setImageResource(CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
+                ivTipo.setImageResource(t.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
                 ivTipo.setColorFilter(accent);
                 GradientDrawable iconBg = new GradientDrawable();
                 iconBg.setShape(GradientDrawable.OVAL);
@@ -121,7 +130,7 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
         } else {
             if (labelColor != null) labelColor.setVisibility(View.GONE);
             if (ivTipo != null) {
-                ivTipo.setImageResource(CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
+                ivTipo.setImageResource(t.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
                 ivTipo.setColorFilter(typeColor);
                 GradientDrawable iconBg = new GradientDrawable();
                 iconBg.setShape(GradientDrawable.OVAL);

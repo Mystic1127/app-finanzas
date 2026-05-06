@@ -65,7 +65,7 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
                     loadedFilterKey = filterKey
                     _items.value = it
                 }
-                .onFailure { _error.value = null }
+                .onFailure { _error.value = it.message ?: "No se pudieron cargar las transacciones" }
             PerfLogger.logSince("ListaTransaccionesFragment", "loadComplete", loadStart)
             _loading.value = false
         }
@@ -79,6 +79,10 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
                 .onFailure { _error.value = "No se pudo eliminar" }
             _loading.value = false
         }
+    }
+
+    fun clearTransientEvents() {
+        _deleted.value = null
     }
 
     fun export() {
@@ -98,6 +102,10 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
             fechaFin?.toString().orEmpty(),
             categoriaId?.toString().orEmpty(),
             orden?.name.orEmpty(),
+            tipo?.name.orEmpty(),
+            accountType.orEmpty(),
+            montoMin?.toString().orEmpty(),
+            montoMax?.toString().orEmpty(),
             texto.orEmpty(),
             isAscendente.toString()
         ).joinToString("|")

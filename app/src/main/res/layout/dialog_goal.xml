@@ -21,11 +21,10 @@
             android:textColor="@color/md_theme_onSurface" />
 
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Finanzas.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
             app:cardUseCompatPadding="false">
 
             <LinearLayout
@@ -103,11 +102,10 @@
             android:textColor="@color/md_theme_onSurfaceVariant" />
 
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Finanzas.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
             app:cardUseCompatPadding="false">
 
             <LinearLayout

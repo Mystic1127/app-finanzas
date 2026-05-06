@@ -52,7 +52,7 @@ object FinancialAnalysisRules {
         hasUnusualExpense: Boolean,
         today: Calendar = Calendar.getInstance()
     ): FinancialAnalysisResult {
-        val expenses = currentTx.filter { !it.isEsIngreso && it.monto > 0.0 }
+        val expenses = currentTx.filter { !it.isEsIngreso && !it.isTransfer && it.monto > 0.0 }
         val money = analysisMoney(summary, currentTx)
         val expenseCount = expenses.size
         val movementDays = currentTx.mapNotNull { dayKey(it.fecha?.time) }.distinct().size
@@ -68,7 +68,7 @@ object FinancialAnalysisRules {
         }
 
         val currentExpenses = expenses.sumOf { it.monto }
-        val previousExpenses = previousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
+        val previousExpenses = previousTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
         val observedDailyAverage = currentExpenses / expenseDays
         val projectedExpenses = when (confidence) {
             ProjectionConfidence.LOW ->
@@ -178,8 +178,8 @@ object FinancialAnalysisRules {
             alerts.add("No hay ingresos ni saldo suficiente para cubrir tus gastos.")
         }
 
-        val currentExpenses = currentTx.filter { !it.isEsIngreso }.sumOf { it.monto }
-        val previousExpenses = previousTx.filter { !it.isEsIngreso }.sumOf { it.monto }
+        val currentExpenses = currentTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
+        val previousExpenses = previousTx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
         if (previousExpenses > 0.0 && confidence != ProjectionConfidence.LOW) {
             val change = ((currentExpenses - previousExpenses) / previousExpenses) * 100.0
             if (change >= 20.0) alerts.add("Tus gastos subieron ${change.roundToInt()}% frente al mes anterior.")

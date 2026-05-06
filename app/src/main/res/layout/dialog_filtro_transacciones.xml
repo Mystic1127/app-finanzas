@@ -177,6 +177,31 @@
             android:text="@string/transactions_filter_sort_direction"
             android:textColor="@color/md_theme_onSurface" />
 
+        <TextView
+            android:id="@+id/tvFiltroEtiqueta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/transactions_filter_label"
+            android:textColor="@color/md_theme_onSurface"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <HorizontalScrollView
+            android:id="@+id/scrollFiltroEtiquetas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chipFiltroEtiquetas"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleSelection="true" />
+        </HorizontalScrollView>
+
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
@@ -194,7 +219,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnFilterCancel"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.Finanzas.Button.Secondary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:minWidth="72dp"
@@ -202,7 +227,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnFilterClear"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.Finanzas.Button.Secondary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:minWidth="92dp"

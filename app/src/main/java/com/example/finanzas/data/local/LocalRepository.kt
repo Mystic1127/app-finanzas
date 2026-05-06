@@ -205,7 +205,9 @@ class LocalRepository private constructor(
                 it.userId,
                 it.nombre,
                 it.esIngreso == 1,
-                it.userId == userId && !it.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true)
+                it.userId == userId &&
+                    !it.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true) &&
+                    !it.nombre.equals(Transaccion.TRANSFER_CATEGORY, ignoreCase = true)
             )
         }
     }
@@ -361,6 +363,7 @@ class LocalRepository private constructor(
         migrateLegacyInitialBalancesIfNeeded(userId)
         val categorias = db.categoriaDao().listForUser(userId).associateBy { it.id }
         val searchText = filtro?.texto?.trim()?.takeIf { it.isNotEmpty() }?.lowercase(Locale.ROOT)
+        val filterAccountType = filtro?.accountType?.takeIf { it.isNotBlank() }?.let { normalizeAccountType(it) }
         var list = db.transaccionDao().listBetween(userId, start, end)
             .asSequence()
             .filter { filtro?.categoriaId == null || it.categoriaId == filtro.categoriaId }
@@ -378,17 +381,33 @@ class LocalRepository private constructor(
                 )
             }
             .filter { tx ->
+                val amountInRange = (filtro?.montoMin == null || tx.monto >= filtro.montoMin!!)
+                    && (filtro?.montoMax == null || tx.monto <= filtro.montoMax!!)
+                val typeMatches = when (filtro?.tipo) {
+                    TransaccionFiltro.Tipo.INGRESOS -> tx.isEsIngreso && !tx.isInitialBalance && !tx.isTransfer
+                    TransaccionFiltro.Tipo.GASTOS -> !tx.isEsIngreso && !tx.isTransfer
+                    TransaccionFiltro.Tipo.TRANSFERENCIAS -> tx.isTransfer
+                    else -> true
+                }
+                val accountMatches = filterAccountType == null ||
+                    normalizeAccountType(tx.accountType) == filterAccountType ||
+                    (tx.isTransfer && tx.transferDestinationAccountType == filterAccountType)
+                amountInRange && typeMatches && accountMatches && (
                 searchText == null ||
-                    (tx.nota ?: "").lowercase(Locale.ROOT).contains(searchText) ||
+                    (tx.displayNote ?: "").lowercase(Locale.ROOT).contains(searchText) ||
                     (tx.categoriaNombre ?: "").lowercase(Locale.ROOT).contains(searchText) ||
-                    (if (tx.isEsIngreso) "ingreso" else "gasto").contains(searchText) ||
+                    movementTypeLabel(tx).contains(searchText) ||
+                    SettingsService.getFinancialAccountName(appContext, tx.accountType).lowercase(Locale.ROOT).contains(searchText) ||
+                    (tx.isTransfer && SettingsService.getFinancialAccountName(appContext, tx.transferDestinationAccountType).lowercase(Locale.ROOT).contains(searchText)) ||
                     tx.monto.toString().contains(searchText)
+                )
             }
             .toList()
 
         list = when (filtro?.orden) {
             TransaccionFiltro.Orden.NOMBRE -> list.sortedBy { it.nota ?: "" }
             TransaccionFiltro.Orden.CATEGORIA -> list.sortedBy { it.categoriaNombre ?: "" }
+            TransaccionFiltro.Orden.MONTO -> list.sortedBy { it.monto }
             else -> list.sortedBy { it.fecha }
         }
         if (filtro == null || !filtro.isAscendente) list.reversed() else list
@@ -429,12 +448,37 @@ class LocalRepository private constructor(
         val movement = db.transaccionDao().listAll(userId)
             .asSequence()
             .filter { excludingTransactionId == null || it.id != excludingTransactionId }
-            .filter { normalizeAccountType(it.accountType) == accountType }
-            .sumOf {
-                val amountInBase = convertToBase(it.monto, it.moneda, base, manualRate)
-                if (it.esIngreso == 1) amountInBase else -amountInBase
-            }
+            .sumOf { signedAccountDelta(it, accountType, base, manualRate) }
         return movement
+    }
+
+    private fun transferDestination(note: String?): String? {
+        val raw = note?.trim().orEmpty()
+        if (!raw.lowercase(Locale.ROOT).startsWith(Transaccion.TRANSFER_NOTE_PREFIX)) return null
+        val close = raw.indexOf(']')
+        if (close <= Transaccion.TRANSFER_NOTE_PREFIX.length) return null
+        return normalizeAccountType(raw.substring(Transaccion.TRANSFER_NOTE_PREFIX.length, close))
+    }
+
+    private fun isTransferEntity(entity: TransaccionEntity, categories: Map<Int, CategoriaEntity>? = null): Boolean {
+        val name = categories?.get(entity.categoriaId)?.nombre.orEmpty()
+        return name.equals(Transaccion.TRANSFER_CATEGORY, ignoreCase = true) || transferDestination(entity.nota) != null
+    }
+
+    private fun signedAccountDelta(entity: TransaccionEntity, targetAccountType: String, base: String, manualRate: Double): Double {
+        val normalizedTarget = normalizeAccountType(targetAccountType)
+        val source = normalizeAccountType(entity.accountType)
+        val amountInBase = convertToBase(entity.monto, entity.moneda, base, manualRate)
+        val destination = transferDestination(entity.nota)
+        if (destination != null) {
+            return when (normalizedTarget) {
+                source -> -amountInBase
+                destination -> amountInBase
+                else -> 0.0
+            }
+        }
+        if (source != normalizedTarget) return 0.0
+        return if (entity.esIngreso == 1) amountInBase else -amountInBase
     }
 
     suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency(), accountType: String = "CARD"): Int = withContext(Dispatchers.IO) {
@@ -497,6 +541,39 @@ class LocalRepository private constructor(
         updated > 0
     }
 
+    suspend fun createTransfer(originAccountType: String, destinationAccountType: String, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency()): Int = withContext(Dispatchers.IO) {
+        require(monto > 0.0) { "Monto invalido" }
+        require(fecha > 0L) { "Fecha invalida" }
+        val userId = currentUserId()
+        val origin = normalizeAccountType(originAccountType)
+        val destination = normalizeAccountType(destinationAccountType)
+        require(origin != destination) { "El origen y destino deben ser distintos" }
+        require(SettingsService.listFinancialAccounts(appContext).isNotEmpty() || origin != "CASH" || destination != "CASH") {
+            "Agrega al menos una tarjeta o cuenta para transferir"
+        }
+        val normalizedCurrency = CurrencyConverter.normalize(moneda)
+        val base = baseCurrency()
+        val rate = manualRate()
+        val amountInBase = convertToBase(monto, normalizedCurrency, base, rate)
+        val available = accountBalanceInBase(userId, origin, base, rate, null)
+        if (amountInBase - available > BALANCE_EPSILON) {
+            throw InsufficientBalanceException(origin)
+        }
+        val categoryId = ensureTransferCategory(userId)
+        db.transaccionDao().insert(
+            TransaccionEntity(
+                userId = userId,
+                categoriaId = categoryId,
+                esIngreso = 0,
+                monto = monto,
+                moneda = normalizedCurrency,
+                fecha = fecha,
+                accountType = origin,
+                nota = Transaccion.buildTransferNote(destination, nota)
+            )
+        ).toInt().also { bumpDataVersion() }
+    }
+
     suspend fun deleteTransaccion(id: Int): Boolean = withContext(Dispatchers.IO) {
         (db.transaccionDao().deleteById(id, currentUserId()) > 0).also { if (it) bumpDataVersion() }
     }
@@ -526,11 +603,11 @@ class LocalRepository private constructor(
             sb.append(it.id).append(" | ")
                 .append(dateDf.format(it.fecha)).append(" | ")
                 .append(it.categoriaNombre).append(" | ")
-                .append(if (it.isEsIngreso) "Ingreso" else "Gasto").append(" | ")
+                .append(if (it.isTransfer) "Transferencia" else if (it.isEsIngreso) "Ingreso" else "Gasto").append(" | ")
                 .append(it.monto).append(" | ")
                 .append(it.moneda ?: baseCurrency()).append(" | ")
                 .append(SettingsService.getFinancialAccountName(appContext, it.accountType)).append(" | ")
-                .append(it.nota ?: "").append('\n')
+                .append(it.displayNote ?: "").append('\n')
         }
 
         BufferedWriter(FileWriter(outFile)).use { it.write(sb.toString()) }
@@ -584,7 +661,7 @@ class LocalRepository private constructor(
         val end = cal.timeInMillis
 
         val gastos = db.transaccionDao().listAll(userId)
-            .filter { it.esIngreso == 0 && it.fecha >= start && it.fecha < end }
+            .filter { it.esIngreso == 0 && it.fecha >= start && it.fecha < end && !isTransferEntity(it, catNames) }
             .groupBy { it.categoriaId }
             .mapValues { e -> e.value.sumOf { convertToBase(it.monto, it.moneda, base, rate) } }
 
@@ -1081,9 +1158,16 @@ class LocalRepository private constructor(
         val balances = linkedMapOf<String, Double>()
         for (tx in transactionsInBase) {
             val accountType = normalizeAccountType(tx.accountType)
+            if (tx.isTransfer) {
+                val destination = normalizeAccountType(tx.transferDestinationAccountType)
+                balances[accountType] = (balances[accountType] ?: 0.0) - tx.monto
+                if (destination != accountType) {
+                    balances[destination] = (balances[destination] ?: 0.0) + tx.monto
+                }
+                continue
+            }
             if (accountType == "CASH") continue
-            val current = balances[accountType] ?: 0.0
-            balances[accountType] = current + if (tx.isEsIngreso) tx.monto else -tx.monto
+            balances[accountType] = (balances[accountType] ?: 0.0) + if (tx.isEsIngreso) tx.monto else -tx.monto
         }
 
         val output = mutableListOf<AccountBalance>()
@@ -1103,6 +1187,31 @@ class LocalRepository private constructor(
         return output
     }
 
+    private fun accountDelta(tx: Transaccion, accountType: String): Double {
+        val target = normalizeAccountType(accountType)
+        val source = normalizeAccountType(tx.accountType)
+        if (tx.isTransfer) {
+            val destination = normalizeAccountType(tx.transferDestinationAccountType)
+            return when (target) {
+                source -> -tx.monto
+                destination -> tx.monto
+                else -> 0.0
+            }
+        }
+        if (source != target) return 0.0
+        return if (tx.isEsIngreso) tx.monto else -tx.monto
+    }
+
+    private fun isRealIncome(tx: Transaccion): Boolean = tx.isEsIngreso && !tx.isInitialBalance && !tx.isTransfer
+
+    private fun isRealExpense(tx: Transaccion): Boolean = !tx.isEsIngreso && !tx.isTransfer
+
+    private fun movementTypeLabel(tx: Transaccion): String = when {
+        tx.isTransfer -> "transferencia"
+        tx.isEsIngreso -> "ingreso"
+        else -> "gasto"
+    }
+
     suspend fun buildHomeSummary(anio: Int, mes: Int): HomeSummary = withContext(Dispatchers.IO) {
         val summary = HomeSummary()
         summary.anio = anio
@@ -1111,8 +1220,8 @@ class LocalRepository private constructor(
         val base = baseCurrency()
         val rate = manualRate()
         val trans = listTransacciones(anio, mes).map { it.toBaseCurrencyCopy(base, rate) }
-        val ingresos = trans.filter { it.isEsIngreso }.sumOf { it.monto }
-        val gastos = trans.filterNot { it.isEsIngreso }.sumOf { it.monto }
+        val ingresos = trans.filter { it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
+        val gastos = trans.filter { isRealExpense(it) }.sumOf { it.monto }
         val initialBalanceIncome = trans.filter { it.isInitialBalance }.sumOf { it.monto }
         val recurringIncome = (ingresos - initialBalanceIncome).coerceAtLeast(0.0)
         summary.ingresos = ingresos
@@ -1126,16 +1235,14 @@ class LocalRepository private constructor(
         val allTrans = allRawTrans.map { it.toBaseCurrencyCopy(base, rate) }
         val initialCash = allTrans.sumOf { if (it.isInitialBalance && it.isCash) it.monto else 0.0 }
         val initialCard = allTrans.sumOf { if (it.isInitialBalance && !it.isCash) it.monto else 0.0 }
-        val cashMovement = allTrans.sumOf { if (it.isCash) if (it.isEsIngreso) it.monto else -it.monto else 0.0 }
-        val cardMovement = allTrans.sumOf {
-            if (normalizeAccountType(it.accountType) == "CARD") {
-                if (it.isEsIngreso) it.monto else -it.monto
-            } else {
-                0.0
-            }
-        }
+        val cashMovement = allTrans.sumOf { accountDelta(it, "CASH") }
+        val cardMovement = allTrans.sumOf { accountDelta(it, "CARD") }
         val nonCashMovement = allTrans.sumOf {
-            if (!it.isCash) {
+            val source = normalizeAccountType(it.accountType)
+            if (it.isTransfer) {
+                val destination = normalizeAccountType(it.transferDestinationAccountType)
+                (if (source != "CASH") -it.monto else 0.0) + (if (destination != "CASH") it.monto else 0.0)
+            } else if (!it.isCash) {
                 if (it.isEsIngreso) it.monto else -it.monto
             } else {
                 0.0
@@ -1190,11 +1297,12 @@ class LocalRepository private constructor(
 
         val monthTrans = db.transaccionDao().listBetween(userId, start, end)
         val initialCategoryIds = initialBalanceCategoryIds(userId)
+        val categoriasFast = db.categoriaDao().listForUser(userId).associateBy { it.id }
         val ingresos = monthTrans
-            .filter { it.esIngreso == 1 }
+            .filter { it.esIngreso == 1 && !isTransferEntity(it, categoriasFast) }
             .sumOf { convertToBase(it.monto, it.moneda, base, rate) }
         val gastos = monthTrans
-            .filter { it.esIngreso == 0 }
+            .filter { it.esIngreso == 0 && !isTransferEntity(it, categoriasFast) }
             .sumOf { convertToBase(it.monto, it.moneda, base, rate) }
         val initialBalanceIncome = monthTrans
             .filter { isInitialBalanceEntity(it, initialCategoryIds) }
@@ -1208,7 +1316,7 @@ class LocalRepository private constructor(
         summary.balanceOperativoMes = recurringIncome - gastos
 
         val allTrans = db.transaccionDao().listAll(userId)
-        val categorias = db.categoriaDao().listForUser(userId).associateBy { it.id }
+        val categorias = categoriasFast
         val allTransModels = allTrans
             .map {
                 Transaccion(
@@ -1238,23 +1346,16 @@ class LocalRepository private constructor(
                 0.0
             }
         }
-        val cashMovement = allTrans.sumOf {
-            if ("CASH".equals(it.accountType, ignoreCase = true)) {
-                if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
-            } else {
-                0.0
-            }
-        }
-        val cardMovement = allTrans.sumOf {
-            if ("CARD".equals(normalizeAccountType(it.accountType), ignoreCase = true)) {
-                if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
-            } else {
-                0.0
-            }
-        }
+        val cashMovement = allTrans.sumOf { signedAccountDelta(it, "CASH", base, rate) }
+        val cardMovement = allTrans.sumOf { signedAccountDelta(it, "CARD", base, rate) }
         val nonCashMovement = allTrans.sumOf {
-            if (!"CASH".equals(normalizeAccountType(it.accountType), ignoreCase = true)) {
-                if (it.esIngreso == 1) convertToBase(it.monto, it.moneda, base, rate) else -convertToBase(it.monto, it.moneda, base, rate)
+            val source = normalizeAccountType(it.accountType)
+            val destination = transferDestination(it.nota)
+            val amount = convertToBase(it.monto, it.moneda, base, rate)
+            if (destination != null) {
+                (if (source != "CASH") -amount else 0.0) + (if (destination != "CASH") amount else 0.0)
+            } else if (source != "CASH") {
+                if (it.esIngreso == 1) amount else -amount
             } else {
                 0.0
             }
@@ -1356,6 +1457,23 @@ class LocalRepository private constructor(
                 userId = userId,
                 nombre = Transaccion.INITIAL_BALANCE_CATEGORY,
                 esIngreso = 1
+            )
+        )
+        return nextId
+    }
+
+    private fun ensureTransferCategory(userId: Int): Int {
+        db.categoriaDao().listForUser(userId)
+            .firstOrNull { it.nombre.equals(Transaccion.TRANSFER_CATEGORY, ignoreCase = true) }
+            ?.let { return it.id }
+
+        val nextId = (db.categoriaDao().listAll().maxOfOrNull { it.id } ?: 0) + 1
+        db.categoriaDao().insert(
+            CategoriaEntity(
+                id = nextId,
+                userId = userId,
+                nombre = Transaccion.TRANSFER_CATEGORY,
+                esIngreso = 0
             )
         )
         return nextId

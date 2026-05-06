@@ -9,6 +9,18 @@
     <string name="app_name">Spendly</string>
     <string name="nav_open_drawer">Abrir menú</string>
     <string name="nav_close_drawer">Cerrar menú</string>
+    <string name="nav_home_title">Inicio</string>
+    <string name="nav_analysis_title">Análisis</string>
+    <string name="nav_transactions_title">Transacciones</string>
+    <string name="nav_budget_title">Presupuesto</string>
+    <string name="nav_planning_title">Planificación</string>
+    <string name="nav_settings_title">Ajustes</string>
+    <string name="nav_imports_title">Importaciones</string>
+    <string name="nav_profile_title">Perfil</string>
+    <string name="nav_new_transaction_title">Nueva transacción</string>
+    <string name="nav_change_password_title">Cambiar contraseña</string>
+    <string name="nav_logout_title">Cerrar sesión</string>
+    <string name="nav_logout_done">Sesión cerrada</string>
     <string name="prefix_moneda">S/ </string>
     <string name="hint_monto">Monto</string>
     <string name="transaction_amount_placeholder">0.00</string>
@@ -25,12 +37,14 @@
 
     <string name="tipo_ingreso_on">Ingreso</string>
     <string name="tipo_ingreso_off">Gasto</string>
+    <string name="tipo_transferencia">Transferir</string>
     <string name="tipo_ingreso_titulo">Tipo (Ingreso/Gasto)</string>
 
     <string name="hint_categoria">Categoría</string>
     <string name="categoria_cd">Selector de categoría</string>
 
     <string name="hint_nota_opcional">Nota (opcional)</string>
+    <string name="hint_nota">Nota</string>
     <string name="hint_fecha">Fecha (dd/MM/yyyy)</string>
     <string name="btn_guardar">Guardar</string>
     <string name="btn_eliminar">Eliminar</string>
@@ -58,6 +72,7 @@
     <string name="home_ingresos">Ingresos</string>
     <string name="home_gastos">Gastos</string>
     <string name="home_balance">Balance mensual</string>
+    <string name="home_total_balance_title">Balance total</string>
     <string name="home_total_current">Total actual</string>
     <string name="home_cash">Efectivo</string>
     <string name="home_card_account">Tarjeta</string>
@@ -88,6 +103,7 @@
     <string name="home_financial_missing">Aun no hay datos suficientes.</string>
     <string name="home_view_detail">Ver detalle</string>
     <string name="home_financial_detail_title">Detalle de inteligencia financiera</string>
+    <string name="home_detail_accept">Aceptar</string>
     <string name="home_smart_saving_title">Ahorro inteligente</string>
     <string name="home_smart_saving_suggested_label">Ahorro sugerido</string>
     <string name="home_smart_saving_goal_label">Recomendacion para metas</string>
@@ -103,6 +119,7 @@
     <string name="home_pro_locked_recommendations">Disponible en Pro: activa funciones avanzadas para ver recomendaciones accionables y escaneo de recibos.</string>
     <string name="home_recommendations_empty">Aún no hay recomendaciones suficientes.</string>
     <string name="home_uncategorized">Sin categoría</string>
+    <string name="home_latest_transactions_title">Últimas transacciones</string>
     <string name="home_ver_lista">Ver lista</string>
     <string name="home_presupuesto">Presupuesto</string>
     <string name="home_goals">Metas de ahorro</string>
@@ -251,6 +268,20 @@
     <string name="transactions_filter">Ordenar y filtrar</string>
     <string name="transactions_filter_title">Filtros de transacciones</string>
     <string name="transactions_filter_cd">Filtrar transacciones</string>
+    <string name="transactions_change_month">Cambiar mes</string>
+    <string name="transactions_recent_title">Movimientos recientes</string>
+    <string name="transactions_search_hint">Buscar por categoría, nota, monto o método</string>
+    <string name="transactions_sort">Ordenar</string>
+    <string name="transactions_sort_recent">Fecha reciente</string>
+    <string name="transactions_sort_oldest">Fecha antigua</string>
+    <string name="transactions_sort_amount_desc">Monto mayor a menor</string>
+    <string name="transactions_sort_amount_asc">Monto menor a mayor</string>
+    <string name="transactions_filters">Filtros</string>
+    <string name="transactions_quick_all">Todas</string>
+    <string name="transactions_quick_income">Ingresos</string>
+    <string name="transactions_quick_expense">Gastos</string>
+    <string name="transactions_quick_transfer">Transferencias</string>
+    <string name="transactions_total_label">Total (%1$d transacciones)</string>
     <string name="transactions_filter_search">Buscar por nota, categoría, tipo o monto</string>
     <string name="transactions_filter_start">Fecha inicio</string>
     <string name="transactions_filter_end">Fecha fin</string>
@@ -262,6 +293,7 @@
     <string name="transactions_filter_order_name">Ordenar por nota</string>
     <string name="transactions_filter_order_category">Ordenar por categoría</string>
     <string name="transactions_filter_sort_direction">Orden ascendente</string>
+    <string name="transactions_filter_label">Etiqueta visual</string>
     <string name="transactions_filter_cancel">Cancelar</string>
     <string name="transactions_filter_clear">Limpiar filtros</string>
     <string name="transactions_filter_apply">Aplicar</string>
@@ -286,6 +318,19 @@
     <string name="transaction_label_select_transaction">Seleccionar transacciones</string>
     <string name="transaction_label_select_required">Selecciona al menos una transacci&#243;n.</string>
     <string name="transaction_label_assigned">Etiqueta aplicada.</string>
+    <string name="transfer_destination_hint">Destino de la transferencia</string>
+    <string name="transfer_need_account">Agrega al menos una tarjeta o cuenta para transferir entre cuentas.</string>
+    <string name="transfer_same_account_error">El origen y destino deben ser distintos.</string>
+    <string name="transaction_visual_label">Etiqueta visual</string>
+    <string name="transaction_label_none">Sin etiqueta</string>
+    <string name="transaction_label_manage">Administrar etiquetas</string>
+    <string name="transaction_recurrence">Recurrencia</string>
+    <string name="transaction_recurrence_weekdays">Lunes a viernes</string>
+    <string name="transaction_recurrence_everyday">Lunes a domingo</string>
+    <string name="transaction_recurrence_custom">Personalizado</string>
+    <string name="transaction_recurrence_custom_days">Días de repetición</string>
+    <string name="transaction_recurrence_custom_error">Selecciona al menos un día.</string>
+    <string name="transaction_recurrence_clear">Quitar recurrencia</string>
 
     <string name="imports_title">Importaciones bancarias</string>
     <string name="imports_new">Nueva importación</string>

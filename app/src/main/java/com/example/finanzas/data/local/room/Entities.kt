@@ -34,6 +34,27 @@ data class TransaccionEntity(
     val nota: String?
 )
 
+@Entity(tableName = "transacciones_recurrentes", indices = [Index("user_id"), Index(value = ["source_transaction_id"], unique = true)])
+data class RecurringTransactionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "user_id") val userId: Int,
+    @ColumnInfo(name = "source_transaction_id") val sourceTransactionId: Int,
+    val frequency: String,
+    @ColumnInfo(name = "days_mask", defaultValue = "0") val daysMask: Int = 0,
+    @ColumnInfo(name = "is_active", defaultValue = "1") val isActive: Int = 1,
+    @ColumnInfo(name = "is_transfer") val isTransfer: Int,
+    @ColumnInfo(name = "category_id") val categoryId: Int,
+    @ColumnInfo(name = "is_income") val isIncome: Int,
+    val amount: Double,
+    @ColumnInfo(defaultValue = "'PEN'") val currency: String = "PEN",
+    @ColumnInfo(name = "account_type", defaultValue = "'CARD'") val accountType: String = "CARD",
+    @ColumnInfo(name = "destination_account_type") val destinationAccountType: String?,
+    val note: String?,
+    @ColumnInfo(name = "label_id") val labelId: String?,
+    @ColumnInfo(name = "first_date") val firstDate: Long,
+    @ColumnInfo(name = "last_generated_day") val lastGeneratedDay: String?
+)
+
 @Entity(tableName = "presupuestos", primaryKeys = ["user_id", "anio", "mes"])
 data class PresupuestoEntity(
     @ColumnInfo(name = "user_id") val userId: Int,

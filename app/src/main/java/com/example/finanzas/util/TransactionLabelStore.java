@@ -22,6 +22,11 @@ public final class TransactionLabelStore {
     private static final String PREFS = "finanzas_settings";
     private static final String KEY_LABELS_PREFIX = "transaction_labels_user_";
     private static final String KEY_ASSIGNMENTS_PREFIX = "transaction_label_assignments_user_";
+    private static final String[] PALETTE = new String[]{
+            "#4FA37A", "#1E88E5", "#6C63FF", "#8E24AA",
+            "#D81B60", "#E53935", "#F4511E", "#F9A825",
+            "#43A047", "#00897B", "#00ACC1", "#5E6C84"
+    };
 
     private TransactionLabelStore() { }
 
@@ -95,6 +100,55 @@ public final class TransactionLabelStore {
         saveAssignments(context, assignments);
     }
 
+    public static void setLabel(@NonNull Context context, int transactionId, @Nullable String labelId) {
+        if (transactionId <= 0) return;
+        Map<Integer, String> assignments = listAssignments(context);
+        if (TextUtils.isEmpty(labelId) || findLabel(context, labelId) == null) {
+            assignments.remove(transactionId);
+        } else {
+            assignments.put(transactionId, labelId);
+        }
+        saveAssignments(context, assignments);
+    }
+
+    @Nullable
+    public static String assignedLabelId(@NonNull Context context, int transactionId) {
+        if (transactionId <= 0) return null;
+        return listAssignments(context).get(transactionId);
+    }
+
+    public static void updateLabel(@NonNull Context context, @NonNull String labelId, @NonNull String name, @NonNull String colorHex) {
+        String cleanName = name.trim();
+        String cleanColor = normalizeHex(colorHex);
+        if (TextUtils.isEmpty(labelId) || cleanName.isEmpty() || !isValidHex(cleanColor)) {
+            throw new IllegalArgumentException("Invalid label");
+        }
+        List<Label> labels = listLabels(context);
+        List<Label> updated = new ArrayList<>();
+        for (Label label : labels) {
+            updated.add(label.id.equals(labelId) ? new Label(label.id, cleanName, cleanColor) : label);
+        }
+        saveLabels(context, updated);
+    }
+
+    public static void deleteLabel(@NonNull Context context, @NonNull String labelId) {
+        if (TextUtils.isEmpty(labelId)) return;
+        List<Label> labels = listLabels(context);
+        List<Label> kept = new ArrayList<>();
+        for (Label label : labels) {
+            if (!label.id.equals(labelId)) kept.add(label);
+        }
+        saveLabels(context, kept);
+
+        Map<Integer, String> assignments = listAssignments(context);
+        List<Integer> toRemove = new ArrayList<>();
+        for (Map.Entry<Integer, String> entry : assignments.entrySet()) {
+            if (labelId.equals(entry.getValue())) toRemove.add(entry.getKey());
+        }
+        for (Integer id : toRemove) assignments.remove(id);
+        saveAssignments(context, assignments);
+    }
+
     @NonNull
     public static Map<Integer, String> listAssignments(@NonNull Context context) {
         Map<Integer, String> out = new LinkedHashMap<>();
@@ -127,6 +181,11 @@ public final class TransactionLabelStore {
 
     public static boolean isValidHex(@Nullable String raw) {
         return raw != null && raw.trim().matches("#[0-9a-fA-F]{6}");
+    }
+
+    @NonNull
+    public static String[] paletteColors() {
+        return PALETTE.clone();
     }
 
     @NonNull
