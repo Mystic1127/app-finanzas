@@ -10,6 +10,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
@@ -33,6 +34,7 @@ import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.UiFormUtils;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -276,6 +278,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         handleParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
         handleParams.bottomMargin = dp(18);
         root.addView(handle, handleParams);
+        bindDragHandle(dialog, handle, root);
 
         TextView title = new TextView(requireContext());
         title.setText(R.string.pres_select_category_title);
@@ -301,9 +304,15 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
 
         LinearLayout list = new LinearLayout(requireContext());
         list.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        androidx.core.widget.NestedScrollView scroll = new androidx.core.widget.NestedScrollView(requireContext());
+        scroll.setFillViewport(false);
+        scroll.addView(list, new androidx.core.widget.NestedScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(360));
         listParams.topMargin = dp(12);
-        root.addView(list, listParams);
+        root.addView(scroll, listParams);
 
         Runnable[] render = new Runnable[1];
         render[0] = () -> renderAvailableCategories(dialog, list, search.getText() == null ? "" : search.getText().toString());
@@ -315,7 +324,50 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         });
 
         dialog.setContentView(root);
+        configureFixedScrollableSheet(dialog, dp(520));
         dialog.show();
+    }
+
+    private void configureFixedScrollableSheet(@NonNull BottomSheetDialog dialog, int peekHeight) {
+        dialog.setOnShowListener(d -> {
+            View bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet == null) return;
+            BottomSheetBehavior<View> behavior = BottomSheetBehavior.from(bottomSheet);
+            behavior.setSkipCollapsed(true);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            behavior.setPeekHeight(peekHeight, true);
+            behavior.setDraggable(false);
+        });
+    }
+
+    private void bindDragHandle(@NonNull BottomSheetDialog dialog, @NonNull View handle, @NonNull View sheetContent) {
+        final float[] startY = new float[1];
+        final float[] lastDelta = new float[1];
+        handle.setOnTouchListener((view, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    startY[0] = event.getRawY();
+                    lastDelta[0] = 0f;
+                    sheetContent.animate().cancel();
+                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    lastDelta[0] = Math.max(0f, event.getRawY() - startY[0]);
+                    sheetContent.setTranslationY(lastDelta[0]);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    view.getParent().requestDisallowInterceptTouchEvent(false);
+                    if (lastDelta[0] > dp(72)) {
+                        dialog.dismiss();
+                    } else {
+                        sheetContent.animate().translationY(0f).setDuration(160L).start();
+                    }
+                    return true;
+                default:
+                    return false;
+            }
+        });
     }
 
     private void renderAvailableCategories(@NonNull BottomSheetDialog dialog, @NonNull LinearLayout list, @NonNull String query) {

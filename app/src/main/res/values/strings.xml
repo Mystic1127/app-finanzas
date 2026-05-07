@@ -21,6 +21,8 @@
     <string name="nav_change_password_title">Cambiar contraseña</string>
     <string name="nav_logout_title">Cerrar sesión</string>
     <string name="nav_logout_done">Sesión cerrada</string>
+    <string name="nav_logout_confirm_title">¿Cerrar sesión?</string>
+    <string name="nav_logout_confirm_message">Tendrás que iniciar sesión nuevamente para volver a tu cuenta.</string>
     <string name="prefix_moneda">S/ </string>
     <string name="hint_monto">Monto</string>
     <string name="transaction_amount_placeholder">0.00</string>
@@ -369,6 +371,7 @@
     <string name="imports_rules_empty">No hay reglas configuradas</string>
 
     <string name="pres_titulo">Presupuesto mensual</string>
+    <string name="pres_subtitulo">Define un límite claro para cuidar tus gastos este mes.</string>
     <string name="pres_hint">Monto</string>
     <string name="pres_btn_guardar">Guardar presupuesto</string>
     <string name="pres_category_title">Presupuestos por categoría</string>
@@ -614,6 +617,8 @@
     <string name="categories_new_title">Nueva categor&#237;a</string>
     <string name="categories_edit_title">Editar categor&#237;a</string>
     <string name="categories_edit_icon">Editar icono</string>
+    <string name="categories_icon_picker_title">Elegir icono</string>
+    <string name="categories_icon_picker_hint">Selecciona el icono que mejor represente esta categoría.</string>
     <string name="categories_name_label">Nombre de la categor&#237;a</string>
     <string name="categories_type_label">Tipo de categor&#237;a</string>
     <string name="categories_color_label">Color</string>

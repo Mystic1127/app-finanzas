@@ -47,6 +47,7 @@ import com.example.finanzas.util.TransactionLabelStore;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -517,8 +518,13 @@ public class NuevaTransaccionFragment extends Fragment {
         String origin = resolveSelectedAccountType();
         if (preferred.equals(origin)) preferred = nextAvailableDestinationCardId();
         FinancialAccount destinationCard = findCardAccount(preferred);
-        if (destinationCard == null || "CASH".equals(preferred)) {
+        if ("CASH".equals(preferred)) {
+            destinationCard = null;
+        } else if (destinationCard == null) {
             destinationCard = firstDestinationCard(origin);
+            if (destinationCard != null) {
+                preferred = SettingsService.normalizeAccountType(destinationCard.getId());
+            }
         }
         toggleDestinationAccount.removeAllViews();
         destinationTypesByButtonId.clear();
@@ -1051,6 +1057,17 @@ public class NuevaTransaccionFragment extends Fragment {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(12), dp(20), dp(20));
 
+        View handle = new View(requireContext());
+        GradientDrawable handleBg = new GradientDrawable();
+        handleBg.setColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        handleBg.setCornerRadius(dp(3));
+        handle.setBackground(handleBg);
+        LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dp(64), dp(5));
+        handleParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        handleParams.bottomMargin = dp(18);
+        root.addView(handle, handleParams);
+        bindDragHandle(dialog, handle, root);
+
         TextView title = new TextView(requireContext());
         title.setText(R.string.hint_categoria);
         title.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
@@ -1093,6 +1110,7 @@ public class NuevaTransaccionFragment extends Fragment {
             @Override public void afterTextChanged(Editable s) { }
         });
         dialog.setContentView(root);
+        configureFixedScrollableSheet(dialog, dp(520));
         dialog.show();
     }
 
@@ -1141,6 +1159,48 @@ public class NuevaTransaccionFragment extends Fragment {
                     ViewGroup.LayoutParams.WRAP_CONTENT
             ));
         }
+    }
+
+    private void configureFixedScrollableSheet(@NonNull BottomSheetDialog dialog, int peekHeight) {
+        dialog.setOnShowListener(d -> {
+            View bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet == null) return;
+            BottomSheetBehavior<View> behavior = BottomSheetBehavior.from(bottomSheet);
+            behavior.setSkipCollapsed(true);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            behavior.setPeekHeight(peekHeight, true);
+            behavior.setDraggable(false);
+        });
+    }
+
+    private void bindDragHandle(@NonNull BottomSheetDialog dialog, @NonNull View handle, @NonNull View sheetContent) {
+        final float[] startY = new float[1];
+        final float[] lastDelta = new float[1];
+        handle.setOnTouchListener((view, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    startY[0] = event.getRawY();
+                    lastDelta[0] = 0f;
+                    sheetContent.animate().cancel();
+                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    lastDelta[0] = Math.max(0f, event.getRawY() - startY[0]);
+                    sheetContent.setTranslationY(lastDelta[0]);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    view.getParent().requestDisallowInterceptTouchEvent(false);
+                    if (lastDelta[0] > dp(72)) {
+                        dialog.dismiss();
+                    } else {
+                        sheetContent.animate().translationY(0f).setDuration(160L).start();
+                    }
+                    return true;
+                default:
+                    return false;
+            }
+        });
     }
 
     private void loadLabels() {
@@ -1527,11 +1587,12 @@ public class NuevaTransaccionFragment extends Fragment {
                 UiFormUtils.setActionLoading(btnGuardar, false);
                 return;
             }
-            TransService.createTransfer(requireContext(), accountTypeLocal, destinationTypeLocal, montoLocal, notaLocal, fechaMs, monedaLocal,
+            final String transferNoteLocal = buildTransferDisplayNote(accountTypeLocal, destinationTypeLocal, notaLocal);
+            TransService.createTransfer(requireContext(), accountTypeLocal, destinationTypeLocal, montoLocal, transferNoteLocal, fechaMs, monedaLocal,
                     new TransService.SimpleCb() {
                         @Override public void onOk(int newId) {
                             persistOptionalLabel(newId);
-                            persistOptionalRecurrence(newId, true, accountTypeLocal, destinationTypeLocal, montoLocal, notaLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
+                            persistOptionalRecurrence(newId, true, accountTypeLocal, destinationTypeLocal, montoLocal, transferNoteLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
                             UiFormUtils.setActionLoading(btnGuardar, false);
                             UiFormUtils.showMessage(requireView(), R.string.trans_saved);
                             finishAfterCreate();
@@ -1582,6 +1643,26 @@ public class NuevaTransaccionFragment extends Fragment {
                         }
                     });
         }
+    }
+
+    @NonNull
+    private String buildTransferDisplayNote(@NonNull String originAccountType, @NonNull String destinationAccountType, @Nullable String userNote) {
+        String clean = userNote == null ? "" : userNote.trim();
+        String normalized = normalize(clean);
+        if (normalized.startsWith("deposito") || normalized.startsWith("retiro") || normalized.startsWith("transaccion")) {
+            return clean;
+        }
+        String origin = SettingsService.normalizeAccountType(originAccountType);
+        String destination = SettingsService.normalizeAccountType(destinationAccountType);
+        String prefix;
+        if ("CASH".equals(origin) && !"CASH".equals(destination)) {
+            prefix = "Dep\u00f3sito";
+        } else if (!"CASH".equals(origin) && "CASH".equals(destination)) {
+            prefix = "Retiro";
+        } else {
+            prefix = "Transacci\u00f3n";
+        }
+        return TextUtils.isEmpty(clean) ? prefix : prefix + " - " + clean;
     }
 
     private Date parseFechaSegura(String raw) {

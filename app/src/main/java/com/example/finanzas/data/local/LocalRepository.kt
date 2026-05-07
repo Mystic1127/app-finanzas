@@ -62,17 +62,31 @@ class LocalRepository private constructor(
         private val df = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         private val dataVersion = AtomicLong(0L)
         private val DEFAULT_CATEGORIES = listOf(
+            DefaultCategory("Alimentaci\u00f3n", false),
             DefaultCategory("Salud", false),
             DefaultCategory("Educaci\u00f3n", false),
             DefaultCategory("Servicios", false),
             DefaultCategory("Compras", false),
             DefaultCategory("Supermercado", false),
+            DefaultCategory("Delivery", false),
+            DefaultCategory("Restaurantes", false),
+            DefaultCategory("Farmacia", false),
+            DefaultCategory("Suscripciones", false),
+            DefaultCategory("Internet / Tel\u00e9fono", false),
+            DefaultCategory("Luz", false),
+            DefaultCategory("Agua", false),
+            DefaultCategory("Gas", false),
+            DefaultCategory("Reparaciones", false),
+            DefaultCategory("Cuidado personal", false),
             DefaultCategory("Ropa", false),
             DefaultCategory("Tecnolog\u00eda", false),
             DefaultCategory("Viajes", false),
             DefaultCategory("Mascotas", false),
             DefaultCategory("Familia", false),
             DefaultCategory("Deudas", false),
+            DefaultCategory("Entretenimiento", false),
+            DefaultCategory("Transporte", false),
+            DefaultCategory("Vivienda", false),
             DefaultCategory("Ahorro", false),
             DefaultCategory("Regalos", false),
             DefaultCategory("Trabajo", false),
@@ -209,7 +223,12 @@ class LocalRepository private constructor(
                     !it.nombre.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true) &&
                     !it.nombre.equals(Transaccion.TRANSFER_CATEGORY, ignoreCase = true)
             )
-        }
+        }.filterNot { it.esIngreso && isDeprecatedIncomeCategory(it.nombre) }
+    }
+
+    private fun isDeprecatedIncomeCategory(name: String?): Boolean {
+        val normalized = categoryKey(name, true).substringAfter(':')
+        return normalized == "salario" || normalized == "inversion"
     }
 
     @Synchronized

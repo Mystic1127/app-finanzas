@@ -73,6 +73,8 @@ public class AnalysisFragment extends Fragment {
         tvSaving = view.findViewById(R.id.tvAnalysisSaving);
         btnFinancialDetail = view.findViewById(R.id.btnAnalysisFinancialDetail);
         btnSavingDetail = view.findViewById(R.id.btnAnalysisSavingDetail);
+        styleDetailButton(btnFinancialDetail);
+        styleDetailButton(btnSavingDetail);
         chartCategories = view.findViewById(R.id.chartAnalysisCategories);
         chartTrend = view.findViewById(R.id.chartAnalysisTrend);
         listCategories = view.findViewById(R.id.listAnalysisCategories);
@@ -93,6 +95,22 @@ public class AnalysisFragment extends Fragment {
             if (summary != null && isAdded()) render(summary);
         });
         load(false);
+    }
+
+    private void styleDetailButton(@NonNull MaterialButton button) {
+        int background = ContextCompat.getColor(requireContext(), R.color.planning_dialog_button);
+        button.setText("");
+        button.setIconResource(R.drawable.ic_eye);
+        button.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), android.R.color.white)));
+        button.setBackgroundTintList(ColorStateList.valueOf(background));
+        button.setRippleColor(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.planning_dialog_button_pressed)));
+        button.setStrokeWidth(0);
+        button.setCornerRadius(dp(16));
+        button.setIconPadding(0);
+        button.setMinWidth(dp(48));
+        button.setMinHeight(dp(48));
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
     }
 
     @Override

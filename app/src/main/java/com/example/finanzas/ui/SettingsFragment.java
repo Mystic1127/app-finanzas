@@ -57,7 +57,7 @@ public class SettingsFragment extends Fragment {
         addRow(accountSection, R.drawable.ic_reports, "Reportes financieros", null, () -> navigate(R.id.nav_reports));
         addRow(accountSection, R.drawable.ic_upload, "Importaciones", null, () -> navigate(R.id.nav_imports));
         addRow(accountSection, R.drawable.ic_profile, "Perfil", null, () -> navigate(R.id.nav_perfil));
-        addRow(accountSection, R.drawable.ic_logout, "Cerrar sesión", null, this::logout);
+        addRow(accountSection, R.drawable.ic_logout, "Cerrar sesión", null, this::confirmLogout);
 
         addRow(prefsSection, R.drawable.ic_category, getString(R.string.categories_title), getString(R.string.categories_subtitle), () -> navigate(R.id.nav_categories));
         addRow(prefsSection, R.drawable.ic_initial_balance, "Saldo inicial", "Establece tu saldo de inicio", () -> navigate(R.id.nav_initial_balance));
@@ -177,12 +177,21 @@ public class SettingsFragment extends Fragment {
         NavHostFragment.findNavController(this).navigate(destination);
     }
 
+    private void confirmLogout() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.nav_logout_confirm_title)
+                .setMessage(R.string.nav_logout_confirm_message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.nav_logout_title, (dialog, which) -> logout())
+                .show();
+    }
+
     private void logout() {
         Prefs.clearAuth(requireContext());
         clearScopedViewModelCaches();
         LocalRepository.invalidateDataVersion();
         PinSession.lock();
-        Toast.makeText(requireContext(), "Sesión cerrada", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), R.string.nav_logout_done, Toast.LENGTH_SHORT).show();
         NavOptions out = new NavOptions.Builder()
                 .setPopUpTo(R.id.nav_graph, true)
                 .build();

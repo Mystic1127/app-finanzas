@@ -17,6 +17,7 @@ import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -55,10 +56,19 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
     private boolean showingDeleted = false;
 
     private static final String[] ICON_KEYS = new String[] {
-            CategoryPrefs.ICON_GROCERIES, CategoryPrefs.ICON_TRANSPORT, CategoryPrefs.ICON_SERVICES,
+            CategoryPrefs.ICON_GROCERIES, CategoryPrefs.ICON_RESTAURANT, CategoryPrefs.ICON_RESTAURANT_MENU,
+            CategoryPrefs.ICON_DELIVERY, CategoryPrefs.ICON_BUS, CategoryPrefs.ICON_HOME,
+            CategoryPrefs.ICON_HOME_REPAIR, CategoryPrefs.ICON_DEBT,
+            CategoryPrefs.ICON_ENTERTAINMENT, CategoryPrefs.ICON_FAMILY, CategoryPrefs.ICON_WORK_HISTORY,
+            CategoryPrefs.ICON_ACCOUNT_BALANCE, CategoryPrefs.ICON_TRENDING_UP, CategoryPrefs.ICON_STORE,
+            CategoryPrefs.ICON_ADD_CARD, CategoryPrefs.ICON_RETURN, CategoryPrefs.ICON_REDEEM,
+            CategoryPrefs.ICON_CHECKROOM, CategoryPrefs.ICON_PAYMENTS, CategoryPrefs.ICON_DEVICES,
+            CategoryPrefs.ICON_SELL, CategoryPrefs.ICON_PHARMACY, CategoryPrefs.ICON_SUBSCRIPTIONS,
+            CategoryPrefs.ICON_WIFI_CALLING, CategoryPrefs.ICON_BOLT, CategoryPrefs.ICON_WATER,
+            CategoryPrefs.ICON_FIRE, CategoryPrefs.ICON_BUILD, CategoryPrefs.ICON_SPA,
             CategoryPrefs.ICON_HEALTH, CategoryPrefs.ICON_EDUCATION, CategoryPrefs.ICON_SHOPPING,
-            CategoryPrefs.ICON_DEBT, CategoryPrefs.ICON_PETS, CategoryPrefs.ICON_SAVINGS,
-            CategoryPrefs.ICON_GIFT, CategoryPrefs.ICON_WORK, CategoryPrefs.ICON_OTHER
+            CategoryPrefs.ICON_PETS, CategoryPrefs.ICON_SAVINGS, CategoryPrefs.ICON_GIFT,
+            CategoryPrefs.ICON_WORK, CategoryPrefs.ICON_OTHER
     };
 
     @Nullable
@@ -277,6 +287,13 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         editIcon.setTextColor(ContextCompat.getColor(requireContext(), R.color.planning_dialog_button));
         editIcon.setTextSize(14f);
         editIcon.setGravity(android.view.Gravity.CENTER);
+        editIcon.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        editIcon.setClickable(true);
+        editIcon.setFocusable(true);
+        editIcon.setOnClickListener(v -> showIconPickerDialog(iconKey[0], selected -> {
+            iconKey[0] = selected;
+            updatePreview.run();
+        }));
         LinearLayout.LayoutParams editIconParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         editIconParams.topMargin = dp(10);
         root.addView(editIcon, editIconParams);
@@ -315,8 +332,9 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         root.addView(colorTitle, colorTitleParams);
 
         GridLayout colorGrid = new GridLayout(requireContext());
-        colorGrid.setColumnCount(6);
-        LinearLayout.LayoutParams colorGridParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        colorGrid.setColumnCount(8);
+        LinearLayout.LayoutParams colorGridParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        colorGridParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
         colorGridParams.topMargin = dp(10);
         root.addView(colorGrid, colorGridParams);
         Runnable[] renderColors = new Runnable[1];
@@ -335,38 +353,13 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
                     renderColors[0].run();
                 });
                 GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-                params.width = dp(44);
-                params.height = dp(44);
-                params.setMargins(0, 0, dp(12), dp(12));
+                params.width = dp(36);
+                params.height = dp(36);
+                params.setMargins(dp(3), 0, dp(3), dp(10));
                 colorGrid.addView(swatch, params);
             }
         };
         renderColors[0].run();
-
-        GridLayout iconGrid = new GridLayout(requireContext());
-        iconGrid.setColumnCount(6);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        iconParams.topMargin = dp(12);
-        root.addView(iconGrid, iconParams);
-        for (String key : ICON_KEYS) {
-            ImageView icon = new ImageView(requireContext());
-            icon.setImageResource(CategoryPrefs.iconFor(key));
-            icon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white));
-            icon.setPadding(dp(9), dp(9), dp(9), dp(9));
-            GradientDrawable bg = new GradientDrawable();
-            bg.setShape(GradientDrawable.OVAL);
-            bg.setColor(ContextCompat.getColor(requireContext(), R.color.category_icon_picker_bg));
-            icon.setBackground(bg);
-            icon.setOnClickListener(v -> {
-                iconKey[0] = key;
-                updatePreview.run();
-            });
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = dp(42);
-            params.height = dp(42);
-            params.setMargins(0, 0, dp(10), dp(10));
-            iconGrid.addView(icon, params);
-        }
 
         save.setOnClickListener(v -> {
             String name = etName.getText() == null ? "" : etName.getText().toString().trim();
@@ -403,9 +396,70 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         dialog.show();
     }
 
+    private void showIconPickerDialog(@Nullable String selectedIconKey, @NonNull IconPickCallback callback) {
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18), dp(8), dp(18), dp(2));
+
+        TextView hint = new TextView(requireContext());
+        hint.setText(R.string.categories_icon_picker_hint);
+        hint.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        hint.setTextSize(14f);
+        root.addView(hint, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        ScrollView scroll = new ScrollView(requireContext());
+        scroll.setFillViewport(false);
+        GridLayout iconGrid = new GridLayout(requireContext());
+        iconGrid.setColumnCount(5);
+        iconGrid.setPadding(0, dp(14), 0, dp(4));
+        scroll.addView(iconGrid, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(320)));
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.categories_icon_picker_title)
+                .setView(root)
+                .setNegativeButton(R.string.import_sheet_cancel, null)
+                .create();
+
+        for (String key : ICON_KEYS) {
+            FrameLayout iconButton = new FrameLayout(requireContext());
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.OVAL);
+            boolean selected = key.equals(selectedIconKey);
+            bg.setColor(ContextCompat.getColor(requireContext(), selected ? R.color.category_icon_picker_bg : R.color.md_theme_surfaceContainer));
+            bg.setStroke(dp(selected ? 2 : 1), ContextCompat.getColor(requireContext(), selected ? R.color.planning_dialog_button : R.color.md_theme_outlineVariant));
+            iconButton.setBackground(bg);
+            iconButton.setClickable(true);
+            iconButton.setFocusable(true);
+
+            ImageView icon = new ImageView(requireContext());
+            icon.setImageResource(CategoryPrefs.iconFor(key));
+            icon.setColorFilter(ContextCompat.getColor(requireContext(), selected ? android.R.color.white : R.color.md_theme_onSurface));
+            iconButton.addView(icon, new FrameLayout.LayoutParams(dp(26), dp(26), android.view.Gravity.CENTER));
+            iconButton.setOnClickListener(v -> {
+                callback.onPick(key);
+                dialog.dismiss();
+            });
+
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = dp(52);
+            params.height = dp(52);
+            params.setMargins(0, 0, dp(12), dp(12));
+            iconGrid.addView(iconButton, params);
+        }
+        dialog.show();
+    }
+
     private boolean isSpecial(@NonNull Categoria categoria) {
         String clean = CategoryVisuals.normalize(categoria.nombre);
         return clean.contains("saldo inicial") || clean.contains("transferencia");
+    }
+
+    private interface IconPickCallback {
+        void onPick(@NonNull String iconKey);
     }
 
     private int dp(int value) {

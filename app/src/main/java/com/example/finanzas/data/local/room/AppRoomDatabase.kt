@@ -297,9 +297,9 @@ abstract class AppRoomDatabase : RoomDatabase() {
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (1, 0, 'Salario', 1)")
-                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (2, 0, 'Inversión', 1)")
-                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (3, 0, 'Alimentación', 0)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (1, 0, 'Sueldo', 1)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (2, 0, 'Inversiones', 1)")
+                        db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (3, 0, 'Alimentaci\u00f3n', 0)")
                         db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (4, 0, 'Vivienda', 0)")
                         db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (5, 0, 'Transporte', 0)")
                         db.execSQL("INSERT INTO categorias (id, user_id, nombre, es_ingreso) VALUES (6, 0, 'Entretenimiento', 0)")
