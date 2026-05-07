@@ -2,6 +2,7 @@ package com.example.finanzas.data.api
 
 import android.content.Context
 import com.example.finanzas.data.local.LocalRepository
+import com.example.finanzas.data.model.CategoryBudgetInput
 import com.example.finanzas.data.model.CategoryBudgetSummary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +30,10 @@ object CategoryBudgetService {
 
     suspend fun save(ctx: Context, anio: Int, mes: Int, items: List<*>) = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).savePresupuestosCategoria(anio, mes, items)
+    }
+
+    suspend fun savedInputs(ctx: Context, anio: Int, mes: Int): List<CategoryBudgetInput> = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).listSavedPresupuestosCategoriaInputs(anio, mes)
     }
 
     @JvmStatic

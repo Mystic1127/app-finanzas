@@ -5,6 +5,9 @@ public class CategoryBudgetInput {
     private String categoriaNombre;
     private double monto;
     private String moneda;
+    private double gastado;
+    private double disponible;
+    private double porcentaje;
 
     public int getCategoriaId() { return categoriaId; }
     public void setCategoriaId(int categoriaId) { this.categoriaId = categoriaId; }
@@ -17,4 +20,13 @@ public class CategoryBudgetInput {
 
     public String getMoneda() { return moneda == null || moneda.trim().isEmpty() ? "PEN" : moneda; }
     public void setMoneda(String moneda) { this.moneda = moneda; }
+
+    public double getGastado() { return gastado; }
+    public void setGastado(double gastado) { this.gastado = gastado; }
+
+    public double getDisponible() { return disponible; }
+    public void setDisponible(double disponible) { this.disponible = disponible; }
+
+    public double getPorcentaje() { return porcentaje; }
+    public void setPorcentaje(double porcentaje) { this.porcentaje = porcentaje; }
 }

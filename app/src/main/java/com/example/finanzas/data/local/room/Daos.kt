@@ -143,6 +143,8 @@ interface PresupuestoCategoriaDao {
     )
     fun findLatestUpTo(userId: Int, anio: Int, mes: Int): PresupuestoCategoriaEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsert(entity: PresupuestoCategoriaEntity)
+    @Query("DELETE FROM presupuestos_categoria WHERE user_id=:userId AND anio=:anio AND mes=:mes")
+    fun deleteByMonth(userId: Int, anio: Int, mes: Int): Int
     @Query("DELETE FROM presupuestos_categoria WHERE user_id=:userId") fun deleteForUser(userId: Int): Int
 }
 

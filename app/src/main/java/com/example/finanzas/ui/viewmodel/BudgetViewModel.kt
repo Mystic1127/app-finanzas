@@ -12,6 +12,8 @@ import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.Categoria
 import com.example.finanzas.data.model.CategoryBudgetInput
+import com.example.finanzas.data.model.CategoryBudgetSummary
+import com.example.finanzas.util.CategoryVisuals
 import com.example.finanzas.util.PerfLogger
 import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.async
@@ -28,6 +30,9 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _categoryBudgets = MutableLiveData<List<CategoryBudgetInput>>(emptyList())
     val categoryBudgets: LiveData<List<CategoryBudgetInput>> = _categoryBudgets
+
+    private val _availableCategories = MutableLiveData<List<Categoria>>(emptyList())
+    val availableCategories: LiveData<List<Categoria>> = _availableCategories
 
     private val _message = MutableLiveData<Int?>()
     val message: LiveData<Int?> = _message
@@ -53,26 +58,36 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             runCatching {
                 val presupuestoDeferred = async { BudgetService.get(getApplication(), anio, mes) }
                 val categoriasDeferred = async { CategoryStore.load(getApplication()) }
-                val guardadosDeferred = async { CategoryBudgetService.list(getApplication(), anio, mes) }
+                val guardadosDeferred = async { CategoryBudgetService.savedInputs(getApplication(), anio, mes) }
+                val resumenDeferred = async { CategoryBudgetService.list(getApplication(), anio, mes) }
 
                 val presupuesto = presupuestoDeferred.await()
                 val categorias = categoriasDeferred.await()
                 val guardados = guardadosDeferred.await()
+                val resumen = resumenDeferred.await()
 
                 val currency = SettingsService.getCurrencyCode(getApplication())
                 val out = withContext(Dispatchers.Default) {
-                    val savedByCategory = guardados.associateBy { it.categoriaId }
-                    categorias.filter { !it.esIngreso }.map { cat: Categoria ->
-                        val saved = savedByCategory[cat.id]
-                        CategoryBudgetInput().apply {
-                            categoriaId = cat.id
-                            categoriaNombre = cat.nombre
-                            monto = saved?.limite ?: 0.0
-                            moneda = saved?.moneda ?: currency
+                    val summaryByCategory = resumen.associateBy { it.categoriaId }
+                    guardados.map { saved ->
+                        val summary: CategoryBudgetSummary? = summaryByCategory[saved.categoriaId]
+                        saved.apply {
+                            moneda = saved.moneda.ifBlank { currency }
+                            gastado = summary?.gastado ?: 0.0
+                            disponible = monto - gastado
+                            porcentaje = if (monto > 0.0) (gastado / monto) * 100.0 else 0.0
                         }
-                    }
+                    }.sortedBy { it.categoriaNombre ?: "" }
                 }
-                Triple(presupuesto, out, Unit)
+                val available = withContext(Dispatchers.Default) {
+                    val savedIds = guardados.map { it.categoriaId }.toSet()
+                    categorias
+                        .filter { !it.esIngreso }
+                        .filter { CategoryVisuals.normalize(it.nombre) != "otros" }
+                        .filter { it.id !in savedIds }
+                        .sortedBy { it.nombre ?: "" }
+                }
+                Triple(presupuesto, out, available)
             }.onSuccess {
                 loadedUserId = userId
                 loadedYear = anio
@@ -80,10 +95,59 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 loadedVersion = version
                 _budget.value = it.first
                 _categoryBudgets.value = it.second
+                _availableCategories.value = it.third
             }.onFailure {
                 _message.value = com.example.finanzas.R.string.error_cargar_presupuesto
             }
             PerfLogger.logSince("PresupuestoFragment", "loadComplete", loadStart)
+            _loading.value = false
+        }
+    }
+
+    fun setLocalCategoryBudgets(items: List<CategoryBudgetInput>) {
+        _categoryBudgets.value = items
+        val selected = items.map { it.categoriaId }.toSet()
+        _availableCategories.value = _availableCategories.value.orEmpty().filter { it.id !in selected }
+    }
+
+    @JvmOverloads
+    fun saveCategoryBudgets(anio: Int, mes: Int, items: List<CategoryBudgetInput>, showMessage: Boolean = true) {
+        _loading.value = true
+        viewModelScope.launch {
+            runCatching { CategoryBudgetService.save(getApplication(), anio, mes, items) }
+                .onSuccess {
+                    loadedVersion = -1L
+                    if (showMessage) _message.value = com.example.finanzas.R.string.pres_categorias_guardadas
+                }
+                .onFailure {
+                    if (showMessage) _message.value = com.example.finanzas.R.string.error_guardar_categorias
+                }
+            _loading.value = false
+        }
+    }
+
+    fun saveCategoryBudgetsQuiet(anio: Int, mes: Int, items: List<CategoryBudgetInput>) {
+        saveCategoryBudgets(anio, mes, items, false)
+    }
+
+    fun createCategory(nombre: String, current: List<CategoryBudgetInput>) {
+        _loading.value = true
+        viewModelScope.launch {
+            runCatching { CategoryStore.create(getApplication(), nombre, false) }
+                .onSuccess { nueva ->
+                    val next = current.toMutableList()
+                    next.add(CategoryBudgetInput().apply {
+                        categoriaId = nueva.id
+                        categoriaNombre = nueva.nombre
+                        monto = 0.0
+                        moneda = SettingsService.getCurrencyCode(getApplication())
+                    }
+                    )
+                    next.sortBy { it.categoriaNombre ?: "" }
+                    _categoryBudgets.value = next
+                    _message.value = com.example.finanzas.R.string.pres_category_created
+                }
+                .onFailure { _message.value = com.example.finanzas.R.string.pres_category_create_error }
             _loading.value = false
         }
     }
@@ -98,37 +162,6 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
             runCatching { BudgetService.set(getApplication(), anio, mes, monto, moneda) }
                 .onSuccess { _message.value = com.example.finanzas.R.string.pres_guardado }
                 .onFailure { _message.value = com.example.finanzas.R.string.error_guardar_presupuesto }
-            _loading.value = false
-        }
-    }
-
-    fun saveCategoryBudgets(anio: Int, mes: Int, items: List<CategoryBudgetInput>) {
-        _loading.value = true
-        viewModelScope.launch {
-            runCatching { CategoryBudgetService.save(getApplication(), anio, mes, items) }
-                .onSuccess { _message.value = com.example.finanzas.R.string.pres_categorias_guardadas }
-                .onFailure { _message.value = com.example.finanzas.R.string.error_guardar_categorias }
-            _loading.value = false
-        }
-    }
-
-    fun createCategory(nombre: String, current: List<CategoryBudgetInput>) {
-        _loading.value = true
-        viewModelScope.launch {
-            runCatching { CategoryStore.create(getApplication(), nombre, false) }
-                .onSuccess { nueva ->
-                    val next = current.toMutableList()
-                    next.add(CategoryBudgetInput().apply {
-                    categoriaId = nueva.id
-                    categoriaNombre = nueva.nombre
-                    monto = 0.0
-                    moneda = SettingsService.getCurrencyCode(getApplication())
-                })
-                    next.sortBy { it.categoriaNombre ?: "" }
-                    _categoryBudgets.value = next
-                    _message.value = com.example.finanzas.R.string.pres_category_created
-                }
-                .onFailure { _message.value = com.example.finanzas.R.string.pres_category_create_error }
             _loading.value = false
         }
     }
@@ -151,6 +184,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
         loadedVersion = -1L
         _budget.value = null
         _categoryBudgets.value = emptyList()
+        _availableCategories.value = emptyList()
         _message.value = null
         _loading.value = false
     }

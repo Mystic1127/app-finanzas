@@ -685,6 +685,8 @@ class LocalRepository private constructor(
     }
 
     suspend fun savePresupuestosCategoria(anio: Int, mes: Int, items: List<*>) = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        db.presupuestoCategoriaDao().deleteByMonth(userId, anio, mes)
         items.forEach { raw ->
             val catId: Int
             val monto: Double
@@ -706,9 +708,23 @@ class LocalRepository private constructor(
                     else -> baseCurrency()
                 }
                 db.presupuestoCategoriaDao().upsert(
-                    PresupuestoCategoriaEntity(currentUserId(), anio, mes, catId, monto, CurrencyConverter.normalize(moneda))
+                    PresupuestoCategoriaEntity(userId, anio, mes, catId, monto, CurrencyConverter.normalize(moneda))
                 )
-                bumpDataVersion()
+            }
+        }
+        bumpDataVersion()
+    }
+
+    suspend fun listSavedPresupuestosCategoriaInputs(anio: Int, mes: Int): List<CategoryBudgetInput> = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        val base = baseCurrency()
+        val catNames = db.categoriaDao().listForUser(userId).associateBy { it.id }
+        db.presupuestoCategoriaDao().listByMonth(userId, anio, mes).map {
+            CategoryBudgetInput().apply {
+                categoriaId = it.categoriaId
+                categoriaNombre = catNames[it.categoriaId]?.nombre ?: ""
+                monto = it.monto
+                moneda = CurrencyConverter.normalize(it.moneda.ifBlank { base })
             }
         }
     }
