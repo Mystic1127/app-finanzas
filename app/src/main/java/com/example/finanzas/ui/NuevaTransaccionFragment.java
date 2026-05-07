@@ -8,6 +8,8 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
+import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -88,10 +90,10 @@ public class NuevaTransaccionFragment extends Fragment {
     private ChipGroup chipCustomRecurrenceDays;
     private MaterialButton btnClearRecurrence;
     private MaterialButton btnGuardar;
-    private MaterialButton btnMoreOptions;
     private View layoutMoreOptions;
     private TextView tvMontoCurrency, tvMontoError;
     private boolean moreOptionsExpanded = false;
+    private boolean saveButtonExpandTouch = false;
 
     private Integer editingId = null;
     private List<Categoria> categorias;
@@ -142,7 +144,6 @@ public class NuevaTransaccionFragment extends Fragment {
         chipCustomRecurrenceDays = v.findViewById(R.id.chipCustomRecurrenceDays);
         btnClearRecurrence = v.findViewById(R.id.btnClearRecurrence);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
-        btnMoreOptions = v.findViewById(R.id.btnMoreOptions);
         layoutMoreOptions = v.findViewById(R.id.layoutMoreOptions);
 
         setupTransactionTypeSelector();
@@ -162,8 +163,6 @@ public class NuevaTransaccionFragment extends Fragment {
         actCategoria.setOnClickListener(view -> showCategoryPickerSheet());
         tilCategoria.setEndIconOnClickListener(view -> showCategoryPickerSheet());
 
-        btnMoreOptions.setOnClickListener(v15 -> setMoreOptionsExpanded(!moreOptionsExpanded));
-
         precargarDesdeArgs();
         cargarCategoriasYRefrescar();
 
@@ -174,6 +173,22 @@ public class NuevaTransaccionFragment extends Fragment {
             etHora.setText(formatTime(new Date()));
         }
 
+        btnGuardar.setOnTouchListener((button, event) -> {
+            int expandArea = dp(64);
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                saveButtonExpandTouch = event.getX() >= button.getWidth() - expandArea;
+                return saveButtonExpandTouch;
+            }
+            if (saveButtonExpandTouch && event.getAction() == MotionEvent.ACTION_UP) {
+                setMoreOptionsExpanded(!moreOptionsExpanded);
+                saveButtonExpandTouch = false;
+                return true;
+            }
+            if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+                saveButtonExpandTouch = false;
+            }
+            return false;
+        });
         btnGuardar.setOnClickListener(this::onGuardar);
     }
 
@@ -339,11 +354,27 @@ public class NuevaTransaccionFragment extends Fragment {
             chip.setText(labels[i]);
             chip.setCheckable(true);
             chip.setChecked((selectedMask & RecurringTransactionStore.bitForCalendarDay(days[i])) != 0);
+            chip.setCheckedIconVisible(false);
+            chip.setGravity(Gravity.CENTER);
             chip.setEnsureMinTouchTargetSize(true);
+            chip.setMinWidth(dp(44));
             chip.setMinHeight(dp(40));
+            chip.setChipStrokeWidth(dp(1));
+            styleCustomRecurrenceChip(chip, chip.isChecked());
+            chip.setOnCheckedChangeListener((buttonView, isChecked) -> styleCustomRecurrenceChip(chip, isChecked));
             recurrenceDayByChipId.put(id, days[i]);
             chipCustomRecurrenceDays.addView(chip);
         }
+    }
+
+    private void styleCustomRecurrenceChip(@NonNull Chip chip, boolean checked) {
+        if (getContext() == null) return;
+        int background = ContextCompat.getColor(requireContext(), checked ? R.color.planning_dialog_button : R.color.planning_dialog_field);
+        int foreground = ContextCompat.getColor(requireContext(), checked ? android.R.color.white : R.color.md_theme_onSurface);
+        int stroke = ContextCompat.getColor(requireContext(), checked ? R.color.planning_dialog_button : R.color.planning_dialog_field_stroke);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(background));
+        chip.setTextColor(foreground);
+        chip.setChipStrokeColor(ColorStateList.valueOf(stroke));
     }
 
     private void updateCustomRecurrenceVisibility() {
@@ -512,9 +543,6 @@ public class NuevaTransaccionFragment extends Fragment {
         moreOptionsExpanded = expanded;
         if (layoutMoreOptions != null) {
             layoutMoreOptions.setVisibility(expanded ? View.VISIBLE : View.GONE);
-        }
-        if (btnMoreOptions != null) {
-            btnMoreOptions.setText(expanded ? R.string.transaction_less_options : R.string.transaction_more_options);
         }
     }
 

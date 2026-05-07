@@ -334,6 +334,11 @@
     <string name="transaction_recurrence_custom_days">Días de repetición</string>
     <string name="transaction_recurrence_custom_error">Selecciona al menos un día.</string>
     <string name="transaction_recurrence_clear">Quitar recurrencia</string>
+    <string name="recurring_transaction_channel">Transacciones recurrentes</string>
+    <string name="recurring_transaction_notification_title">Transacción recurrente registrada</string>
+    <string name="recurring_transaction_notification_expense">Gasto recurrente: %1$s</string>
+    <string name="recurring_transaction_notification_income">Ingreso recurrente: %1$s</string>
+    <string name="recurring_transaction_notification_transfer">Transferencia recurrente: %1$s</string>
 
     <string name="imports_title">Importaciones bancarias</string>
     <string name="imports_new">Nueva importación</string>

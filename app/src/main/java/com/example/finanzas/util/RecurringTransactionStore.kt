@@ -1,9 +1,23 @@
 package com.example.finanzas.util
 
+import android.Manifest
+import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import com.example.finanzas.R
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.LocalDatabase
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.local.room.RecurringTransactionEntity
+import com.example.finanzas.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,9 +30,13 @@ import java.util.Locale
 object RecurringTransactionStore {
     private const val PREFS = "finanzas_settings"
     private const val KEY_PREFIX = "recurring_transactions_user_"
+    private const val CHANNEL_ID = "recurring_transactions"
+    private const val REQUEST_CODE_OFFSET = 600_000
+
     const val FREQUENCY_WEEKDAYS = "WEEKDAYS"
     const val FREQUENCY_EVERYDAY = "EVERYDAY"
     const val FREQUENCY_CUSTOM = "CUSTOM"
+    const val ACTION_RECURRING_TRANSACTION = "com.example.finanzas.action.RECURRING_TRANSACTION"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -62,16 +80,15 @@ object RecurringTransactionStore {
                     isIncome = if (isIncome) 1 else 0,
                     amount = amount,
                     currency = CurrencyConverter.normalize(currency),
-                    accountType = com.example.finanzas.data.api.SettingsService.normalizeAccountType(accountType),
-                    destinationAccountType = destinationAccountType?.let {
-                        com.example.finanzas.data.api.SettingsService.normalizeAccountType(it)
-                    },
+                    accountType = SettingsService.normalizeAccountType(accountType),
+                    destinationAccountType = destinationAccountType?.let { SettingsService.normalizeAccountType(it) },
                     note = note.orEmpty(),
                     labelId = labelId?.takeIf { TransactionLabelStore.findLabel(appContext, it) != null },
                     firstDate = firstDate,
                     lastGeneratedDay = existing?.lastGeneratedDay ?: dayFormat.format(firstDate)
                 )
             )
+            dao.findBySource(userId, sourceTransactionId)?.let { scheduleNext(appContext, it) }
         }
     }
 
@@ -81,7 +98,9 @@ object RecurringTransactionStore {
         scope.launch {
             val userId = Prefs.getCurrentUserId(appContext).toInt()
             if (userId <= 0 || sourceTransactionId <= 0) return@launch
-            LocalDatabase.getInstance(appContext).room.recurringTransactionDao().deleteBySource(userId, sourceTransactionId)
+            val dao = LocalDatabase.getInstance(appContext).room.recurringTransactionDao()
+            dao.findBySource(userId, sourceTransactionId)?.let { cancelAlarm(appContext, it) }
+            dao.deleteBySource(userId, sourceTransactionId)
         }
     }
 
@@ -95,9 +114,15 @@ object RecurringTransactionStore {
 
     @JvmStatic
     fun processDueAsync(context: Context) {
+        processDueAndScheduleAsync(context, null)
+    }
+
+    fun processDueAndScheduleAsync(context: Context, onComplete: (() -> Unit)?) {
         val appContext = context.applicationContext
         scope.launch {
             runCatching { processDue(appContext) }
+            runCatching { scheduleAllActive(appContext) }
+            onComplete?.invoke()
         }
     }
 
@@ -113,6 +138,7 @@ object RecurringTransactionStore {
 
         for (item in dao.listActive(userId)) {
             if (!isDueToday(item, today, todayDay)) continue
+            val occurrenceTime = occurrenceTimeForToday(item, today) ?: today.timeInMillis
             val marker = "[recurrent:${item.id}:$todayDay]"
             if (dao.countGeneratedMarker(userId, marker) > 0) {
                 dao.updateLastGeneratedDay(item.id, userId, todayDay)
@@ -126,7 +152,7 @@ object RecurringTransactionStore {
                     item.destinationAccountType ?: "CASH",
                     item.amount,
                     note,
-                    today.timeInMillis,
+                    occurrenceTime,
                     item.currency
                 )
             } else {
@@ -136,7 +162,7 @@ object RecurringTransactionStore {
                     item.isIncome == 1,
                     item.amount,
                     note,
-                    today.timeInMillis,
+                    occurrenceTime,
                     item.currency,
                     item.accountType
                 )
@@ -145,21 +171,158 @@ object RecurringTransactionStore {
                 TransactionLabelStore.setLabel(context, newId, item.labelId)
             }
             dao.updateLastGeneratedDay(item.id, userId, todayDay)
+            notifyGenerated(context, item, newId)
         }
     }
 
     private fun isDueToday(item: RecurringTransactionEntity, today: Calendar, todayDay: String): Boolean {
         if (item.lastGeneratedDay == todayDay) return false
         if (item.firstDate > today.timeInMillis) return false
+        val occurrenceTime = occurrenceTimeForToday(item, today) ?: return false
+        if (today.timeInMillis < occurrenceTime) return false
+        return matchesDay(item, today)
+    }
+
+    private fun occurrenceTimeForToday(item: RecurringTransactionEntity, today: Calendar): Long? {
+        if (!matchesDay(item, today)) return null
+        val first = Calendar.getInstance().apply { timeInMillis = item.firstDate }
+        return Calendar.getInstance().apply {
+            timeInMillis = today.timeInMillis
+            set(Calendar.HOUR_OF_DAY, first.get(Calendar.HOUR_OF_DAY))
+            set(Calendar.MINUTE, first.get(Calendar.MINUTE))
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
+    private fun matchesDay(item: RecurringTransactionEntity, calendar: Calendar): Boolean {
         return when (item.frequency) {
             FREQUENCY_WEEKDAYS -> {
-                val day = today.get(Calendar.DAY_OF_WEEK)
+                val day = calendar.get(Calendar.DAY_OF_WEEK)
                 day != Calendar.SATURDAY && day != Calendar.SUNDAY
             }
             FREQUENCY_EVERYDAY -> true
-            FREQUENCY_CUSTOM -> (item.daysMask and bitForCalendarDay(today.get(Calendar.DAY_OF_WEEK))) != 0
+            FREQUENCY_CUSTOM -> (item.daysMask and bitForCalendarDay(calendar.get(Calendar.DAY_OF_WEEK))) != 0
             else -> false
         }
+    }
+
+    private fun scheduleAllActive(context: Context) {
+        val userId = Prefs.getCurrentUserId(context).toInt()
+        if (userId <= 0) return
+        val dao = LocalDatabase.getInstance(context).room.recurringTransactionDao()
+        dao.listActive(userId).forEach { scheduleNext(context, it) }
+    }
+
+    private fun scheduleNext(context: Context, item: RecurringTransactionEntity) {
+        if (item.id <= 0 || item.isActive != 1) return
+        val triggerAt = nextTriggerAt(item) ?: run {
+            cancelAlarm(context, item)
+            return
+        }
+        val pi = buildPendingIntent(context, item) ?: return
+        val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarm.canScheduleExactAlarms()) {
+                    alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                } else {
+                    alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                }
+            } else {
+                alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            }
+        } catch (_: SecurityException) {
+            alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        }
+    }
+
+    private fun cancelAlarm(context: Context, item: RecurringTransactionEntity) {
+        val pi = buildPendingIntent(context, item) ?: return
+        val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+        alarm?.cancel(pi)
+        pi.cancel()
+    }
+
+    private fun buildPendingIntent(context: Context, item: RecurringTransactionEntity): PendingIntent? {
+        if (item.id <= 0) return null
+        val intent = Intent(context.applicationContext, RecurringTransactionReceiver::class.java).apply {
+            action = ACTION_RECURRING_TRANSACTION
+            putExtra("template_id", item.id)
+        }
+        return PendingIntent.getBroadcast(
+            context.applicationContext,
+            REQUEST_CODE_OFFSET + item.id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun nextTriggerAt(item: RecurringTransactionEntity, nowMillis: Long = System.currentTimeMillis()): Long? {
+        val first = Calendar.getInstance().apply { timeInMillis = item.firstDate }
+        val candidate = Calendar.getInstance().apply {
+            timeInMillis = maxOf(nowMillis, item.firstDate)
+            set(Calendar.HOUR_OF_DAY, first.get(Calendar.HOUR_OF_DAY))
+            set(Calendar.MINUTE, first.get(Calendar.MINUTE))
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (candidate.timeInMillis <= nowMillis) {
+            candidate.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        repeat(370) {
+            if (candidate.timeInMillis >= item.firstDate && matchesDay(item, candidate)) {
+                return candidate.timeInMillis
+            }
+            candidate.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return null
+    }
+
+    private fun notifyGenerated(context: Context, item: RecurringTransactionEntity, transactionId: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        ensureChannel(context)
+        val amount = Format.money(item.amount, item.currency)
+        val content = when {
+            item.isTransfer == 1 -> context.getString(R.string.recurring_transaction_notification_transfer, amount)
+            item.isIncome == 1 -> context.getString(R.string.recurring_transaction_notification_income, amount)
+            else -> context.getString(R.string.recurring_transaction_notification_expense, amount)
+        }
+        val openIntent = Intent(context, MainActivity::class.java)
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            REQUEST_CODE_OFFSET + transactionId,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_list_24)
+            .setContentTitle(context.getString(R.string.recurring_transaction_notification_title))
+            .setContentText(content)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(REQUEST_CODE_OFFSET + transactionId, notification)
+        } catch (_: SecurityException) {
+        }
+    }
+
+    private fun ensureChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            context.getString(R.string.recurring_transaction_channel),
+            NotificationManager.IMPORTANCE_HIGH
+        )
+        nm.createNotificationChannel(channel)
     }
 
     private fun normalizeFrequency(frequency: String?): String? {
