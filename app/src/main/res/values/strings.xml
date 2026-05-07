@@ -381,6 +381,8 @@
     <string name="goal_without_deadline">Sin fecha objetivo</string>
     <string name="goal_deadline">Meta para %1$s</string>
     <string name="goal_dialog_title_new">Nueva meta</string>
+    <string name="goal_dialog_section_basic">Información básica</string>
+    <string name="goal_dialog_section_deadline">Fecha objetivo</string>
     <string name="goal_dialog_title_edit">Editar meta</string>
     <string name="goal_field_title">Título</string>
     <string name="goal_field_target">Monto objetivo</string>

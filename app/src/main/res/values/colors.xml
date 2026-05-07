@@ -87,6 +87,16 @@
     <color name="drawer_body_background">#FFFFFF</color>
     <color name="alert_surface">#FFF6F7</color>
     <color name="dialog_surface">#FFFFFF</color>
+    <color name="planning_dialog_surface">#F5FBF7</color>
+    <color name="planning_dialog_field">#FFFFFF</color>
+    <color name="planning_dialog_field_stroke">#B9C9C1</color>
+    <color name="planning_dialog_icon">#06402B</color>
+    <color name="planning_dialog_title">#063820</color>
+    <color name="planning_dialog_text">#22312A</color>
+    <color name="planning_dialog_hint">#6B7771</color>
+    <color name="planning_dialog_button">#06402B</color>
+    <color name="planning_dialog_button_pressed">#04331F</color>
+    <color name="planning_dialog_notification_bg">#E8F4EE</color>
     <color name="forecast_gradient_start">#E7F4ED</color>
     <color name="forecast_gradient_end">#F3FAF5</color>
     <color name="drawer_scrim">#33000000</color>

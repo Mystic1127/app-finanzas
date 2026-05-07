@@ -96,7 +96,10 @@ public class RemindersFragment extends Fragment {
         MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actReminderMoneda);
         MaterialAutoCompleteTextView actFrecuencia = form.findViewById(R.id.actReminderFrecuencia);
         SwitchMaterial swNotificar = form.findViewById(R.id.swReminderNotificar);
-        setupCurrencySelector(actMoneda, reminder == null ? SettingsService.getCurrencyCode(requireContext()) : reminder.getMoneda(), etMonto);
+        TextView tvDialogTitle = form.findViewById(R.id.tvReminderDialogTitle);
+        View btnCancel = form.findViewById(R.id.btnReminderCancel);
+        View btnSave = form.findViewById(R.id.btnReminderSave);
+        setupCurrencySelector(actMoneda, reminder == null ? SettingsService.getCurrencyCode(requireContext()) : reminder.getMoneda());
 
         final String[] freqValues = new String[]{"once", "mensual", "trimestral"};
         String[] freqLabels = new String[]{
@@ -113,6 +116,7 @@ public class RemindersFragment extends Fragment {
         actFrecuencia.setText(freqLabels[0], false);
 
         boolean editando = reminder != null;
+        tvDialogTitle.setText(editando ? R.string.reminder_dialog_title_edit : R.string.reminder_dialog_title_new);
         if (editando) {
             etTitulo.setText(reminder.getTitulo());
             etMonto.setText(String.valueOf(reminder.getMonto()));
@@ -149,13 +153,11 @@ public class RemindersFragment extends Fragment {
         UiFormUtils.clearErrorOnTextChange(etTitulo, etMonto, etFecha, etHora, etDias);
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(editando ? R.string.reminder_dialog_title_edit : R.string.reminder_dialog_title_new)
                 .setView(form)
-                .setPositiveButton(R.string.reminder_btn_save, null)
-                .setNegativeButton(android.R.string.cancel, null)
                 .create();
 
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+        btnCancel.setOnClickListener(view -> dialog.dismiss());
+        btnSave.setOnClickListener(button -> {
             clearErrors(etTitulo, etMonto, etFecha, etHora, etDias);
 
             String titulo = etTitulo.getText() == null ? "" : etTitulo.getText().toString().trim();
@@ -241,7 +243,7 @@ public class RemindersFragment extends Fragment {
 
             viewModel.saveReminder(body);
             dialog.dismiss();
-        }));
+        });
         dialog.show();
     }
 
@@ -326,18 +328,20 @@ public class RemindersFragment extends Fragment {
         return 0;
     }
 
-    private void applyCurrencyPrefix(@NonNull String currency, @NonNull EditText field) {
+    private void applyCurrencyPrefix(@NonNull String currency, @NonNull EditText... fields) {
         String prefix = SettingsService.getCurrencySymbol(CurrencyConverter.normalize(currency)) + " ";
-        ViewParent parent = field.getParent();
-        while (parent != null && !(parent instanceof TextInputLayout)) {
-            parent = parent.getParent();
-        }
-        if (parent instanceof TextInputLayout) {
-            ((TextInputLayout) parent).setPrefixText(prefix);
+        for (EditText field : fields) {
+            ViewParent parent = field.getParent();
+            while (parent != null && !(parent instanceof TextInputLayout)) {
+                parent = parent.getParent();
+            }
+            if (parent instanceof TextInputLayout) {
+                ((TextInputLayout) parent).setPrefixText(prefix);
+            }
         }
     }
 
-    private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected, @NonNull EditText amountField) {
+    private void setupCurrencySelector(@NonNull MaterialAutoCompleteTextView input, @NonNull String selected, @NonNull EditText... amountFields) {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 requireContext(),
                 R.layout.item_dropdown,
@@ -347,11 +351,11 @@ public class RemindersFragment extends Fragment {
         input.setInputType(0);
         String normalized = CurrencyConverter.normalize(selected);
         input.setText(normalized, false);
-        applyCurrencyPrefix(normalized, amountField);
+        applyCurrencyPrefix(normalized, amountFields);
         input.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) input.showDropDown(); });
         input.setOnClickListener(view -> input.showDropDown());
         input.setOnItemClickListener((parent, view, position, id) ->
-                applyCurrencyPrefix(input.getText() == null ? "" : input.getText().toString(), amountField)
+                applyCurrencyPrefix(input.getText() == null ? "" : input.getText().toString(), amountFields)
         );
     }
 }

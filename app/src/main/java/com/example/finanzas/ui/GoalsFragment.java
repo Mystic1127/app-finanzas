@@ -97,12 +97,16 @@ public class GoalsFragment extends Fragment {
         EditText etActual = form.findViewById(R.id.etGoalActual);
         EditText etFecha = form.findViewById(R.id.etGoalFecha);
         MaterialAutoCompleteTextView actMoneda = form.findViewById(R.id.actGoalMoneda);
+        TextView tvDialogTitle = form.findViewById(R.id.tvGoalDialogTitle);
+        View btnCancel = form.findViewById(R.id.btnGoalCancel);
+        View btnSave = form.findViewById(R.id.btnGoalSave);
 
-        setupCurrencySelector(actMoneda, goal == null ? SettingsService.getCurrencyCode(requireContext()) : goal.getMoneda(), etObjetivo, etActual);
+        setupCurrencySelector(actMoneda, goal == null ? SettingsService.getCurrencyCode(requireContext()) : goal.getMoneda());
         setupDatePicker(etFecha);
         UiFormUtils.clearErrorOnTextChange(etTitulo, etObjetivo, etActual, etFecha);
 
         boolean editando = goal != null;
+        tvDialogTitle.setText(editando ? R.string.goal_dialog_title_edit : R.string.goal_dialog_title_new);
         if (editando) {
             etTitulo.setText(goal.getTitulo());
             etObjetivo.setText(String.valueOf(goal.getMontoObjetivo()));
@@ -113,13 +117,11 @@ public class GoalsFragment extends Fragment {
         }
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(editando ? R.string.goal_dialog_title_edit : R.string.goal_dialog_title_new)
                 .setView(form)
-                .setPositiveButton(R.string.goal_btn_save, null)
-                .setNegativeButton(android.R.string.cancel, null)
                 .create();
 
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+        btnCancel.setOnClickListener(view -> dialog.dismiss());
+        btnSave.setOnClickListener(button -> {
                     clearErrors(etTitulo, etObjetivo, etActual, etFecha);
                     String titulo = etTitulo.getText() == null ? "" : etTitulo.getText().toString().trim();
                     String objetivo = etObjetivo.getText() == null ? "" : etObjetivo.getText().toString().trim();
@@ -179,7 +181,7 @@ public class GoalsFragment extends Fragment {
 
                     viewModel.saveGoal(body);
                     dialog.dismiss();
-                }));
+                });
         dialog.show();
     }
 
