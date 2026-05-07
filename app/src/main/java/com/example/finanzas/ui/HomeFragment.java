@@ -1,7 +1,9 @@
 package com.example.finanzas.ui;
 
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.InputFilter;
@@ -503,7 +505,7 @@ public class HomeFragment extends Fragment {
         root.addView(header);
 
         TextView subtitle = new TextView(requireContext());
-        subtitle.setText("Selecciona las tarjetas que quieres incluir en el total y elige cuál mostrar en el inicio.");
+        subtitle.setText("Elige que tarjetas cuentan en tu balance y cual se muestra en Inicio.");
         subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
         subtitle.setTextSize(15f);
         subtitle.setLineSpacing(dp(2), 1f);
@@ -542,14 +544,14 @@ public class HomeFragment extends Fragment {
         infoIcon.setColorFilter(color(R.color.md_theme_onSurfaceVariant));
         info.addView(infoIcon, new LinearLayout.LayoutParams(dp(26), dp(26)));
         TextView infoText = new TextView(requireContext());
-        infoText.setText("Las tarjetas seleccionadas se incluirán en tu balance total.\nSolo una tarjeta puede mostrarse en inicio.");
+        infoText.setText("Las tarjetas activas cuentan en tu balance y una se muestra en Inicio.");
         infoText.setTextColor(color(R.color.md_theme_onSurfaceVariant));
-        infoText.setTextSize(14f);
+        infoText.setTextSize(13f);
         LinearLayout.LayoutParams infoTextParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        infoTextParams.leftMargin = dp(14);
+        infoTextParams.leftMargin = dp(10);
         info.addView(infoText, infoTextParams);
         LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        infoParams.topMargin = dp(18);
+        infoParams.topMargin = dp(12);
         root.addView(info, infoParams);
 
         dialog.setContentView(root);
@@ -682,7 +684,7 @@ public class HomeFragment extends Fragment {
         root.addView(title);
 
         TextInputLayout tilName = new TextInputLayout(requireContext());
-        tilName.setHint("Nombre (máx. 7 letras)");
+        tilName.setHint("Nombre (m\u00e1x. 7 letras)");
         TextInputEditText etName = new TextInputEditText(requireContext());
         etName.setSingleLine(true);
         etName.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
@@ -693,7 +695,7 @@ public class HomeFragment extends Fragment {
         root.addView(tilName, nameParams);
 
         TextInputLayout tilLast4 = new TextInputLayout(requireContext());
-        tilLast4.setHint("Últimos 4 dígitos (opcional)");
+        tilLast4.setHint("\u00daltimos 4 d\u00edgitos (opcional)");
         TextInputEditText etLast4 = new TextInputEditText(requireContext());
         etLast4.setSingleLine(true);
         etLast4.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
@@ -752,7 +754,7 @@ public class HomeFragment extends Fragment {
         root.addView(title);
 
         TextView subtitle = new TextView(requireContext());
-        subtitle.setText("Se agregará como origen del dinero y tendrá su propio saldo.");
+        subtitle.setText("Se agregar\u00e1 como origen del dinero y tendr\u00e1 su propio saldo.");
         subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
         subtitle.setTextSize(14f);
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -760,7 +762,7 @@ public class HomeFragment extends Fragment {
         root.addView(subtitle, subtitleParams);
 
         TextInputLayout tilName = new TextInputLayout(requireContext());
-        tilName.setHint("Nombre (máx. 7 letras)");
+        tilName.setHint("Nombre (m\u00e1x. 7 letras)");
         TextInputEditText etName = new TextInputEditText(requireContext());
         etName.setSingleLine(true);
         etName.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
@@ -770,7 +772,7 @@ public class HomeFragment extends Fragment {
         root.addView(tilName, nameParams);
 
         TextInputLayout tilLast4 = new TextInputLayout(requireContext());
-        tilLast4.setHint("Últimos 4 dígitos (opcional)");
+        tilLast4.setHint("\u00daltimos 4 d\u00edgitos (opcional)");
         TextInputEditText etLast4 = new TextInputEditText(requireContext());
         etLast4.setSingleLine(true);
         etLast4.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
@@ -906,15 +908,23 @@ public class HomeFragment extends Fragment {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_tester_thanks, null, false);
         androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(content)
-                .setPositiveButton(R.string.tester_thanks_action, (d, which) -> {
-                    if (isAdded()) Prefs.markTesterThanksSeen(requireContext());
-                })
                 .create();
+        View close = content.findViewById(R.id.btnTesterThanksClose);
+        View accept = content.findViewById(R.id.btnTesterThanksOk);
+        View.OnClickListener dismissAndRemember = v -> {
+            if (isAdded()) Prefs.markTesterThanksSeen(requireContext());
+            dialog.dismiss();
+        };
+        if (close != null) close.setOnClickListener(dismissAndRemember);
+        if (accept != null) accept.setOnClickListener(dismissAndRemember);
         dialog.setOnCancelListener(d -> {
             if (isAdded()) Prefs.markTesterThanksSeen(requireContext());
         });
         dialog.setOnDismissListener(d -> testerThanksDialogShowing = false);
         dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
     }
 
     private double parseAmount(@Nullable String raw) {

@@ -1,40 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/dialog_surface"
-    android:orientation="vertical"
-    android:paddingStart="24dp"
-    android:paddingTop="24dp"
-    android:paddingEnd="24dp"
-    android:paddingBottom="8dp">
+    android:background="@drawable/bg_dialog_surface"
+    android:padding="26dp">
 
-    <TextView
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:background="@drawable/bg_tester_thanks_badge"
-        android:gravity="center"
-        android:text="@string/tester_thanks_badge"
-        android:textColor="?attr/colorPrimary"
-        android:textSize="24sp"
-        android:textStyle="bold" />
+    <ImageView
+        android:id="@+id/btnTesterThanksClose"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="end|top"
+        android:contentDescription="@android:string/cancel"
+        android:padding="10dp"
+        android:src="@drawable/ic_close"
+        app:tint="@color/md_theme_onSurfaceVariant" />
 
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="18dp"
-        android:text="@string/tester_thanks_title"
-        android:textColor="?attr/colorOnSurface"
-        android:textSize="22sp"
-        android:textStyle="bold" />
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingTop="24dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:lineSpacingExtra="4dp"
-        android:text="@string/tester_thanks_message"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="15sp" />
+        <ImageView
+            android:layout_width="92dp"
+            android:layout_height="92dp"
+            android:src="@drawable/ic_check_circle"
+            app:tint="@color/planning_dialog_button" />
 
-</LinearLayout>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:text="@string/tester_thanks_title"
+            android:textColor="@color/md_theme_onSurface"
+            android:textSize="25sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:lineSpacingExtra="6dp"
+            android:text="@string/tester_thanks_message"
+            android:textColor="@color/md_theme_onSurfaceVariant"
+            android:textSize="18sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTesterThanksOk"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="36dp"
+            android:backgroundTint="@color/planning_dialog_button"
+            android:text="@string/tester_thanks_action"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:cornerRadius="22dp" />
+    </LinearLayout>
+</FrameLayout>

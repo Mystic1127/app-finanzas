@@ -96,6 +96,8 @@
     <color name="planning_dialog_hint">#A6B0BE</color>
     <color name="planning_dialog_button">#06402B</color>
     <color name="planning_dialog_button_pressed">#04331F</color>
+    <color name="quick_filter_all_stroke">#7A1F2A</color>
+    <color name="quick_filter_other_stroke">#06402B</color>
     <color name="planning_dialog_notification_bg">#09231F</color>
     <color name="forecast_gradient_start">#060D16</color>
     <color name="forecast_gradient_end">#060D16</color>

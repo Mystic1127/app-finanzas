@@ -78,7 +78,7 @@ public class NuevaTransaccionFragment extends Fragment {
 
     private EditText etMonto;
     private TextInputEditText etNota, etFecha, etHora;
-    private TextInputLayout tilFecha, tilHora, tilCategoria, tilMoneda;
+    private TextInputLayout tilFecha, tilHora, tilCategoria, tilMoneda, tilRecurrence;
     private MaterialButtonToggleGroup toggleTipo, toggleAccountType;
     private MaterialButton btnTipoGasto, btnTipoTransferencia, btnTipoIngreso;
     private MaterialButton btnSwitchCard, btnSwitchDestinationCard;
@@ -127,6 +127,7 @@ public class NuevaTransaccionFragment extends Fragment {
         tilHora       = v.findViewById(R.id.tilHora);
         tilCategoria  = v.findViewById(R.id.tilCategoria);
         tilMoneda     = v.findViewById(R.id.tilMoneda);
+        tilRecurrence = v.findViewById(R.id.tilRecurrence);
         etNota        = v.findViewById(R.id.etNota);
         etFecha       = v.findViewById(R.id.etFecha);
         etHora        = v.findViewById(R.id.etHora);
@@ -367,15 +368,19 @@ public class NuevaTransaccionFragment extends Fragment {
             chip.setChecked((selectedMask & RecurringTransactionStore.bitForCalendarDay(days[i])) != 0);
             chip.setCheckedIconVisible(false);
             chip.setGravity(Gravity.CENTER);
-            chip.setEnsureMinTouchTargetSize(true);
-            chip.setMinWidth(dp(44));
-            chip.setMinHeight(dp(40));
+            chip.setEnsureMinTouchTargetSize(false);
+            chip.setMinWidth(dp(40));
+            chip.setMinHeight(dp(36));
             chip.setChipStrokeWidth(dp(1));
             styleCustomRecurrenceChip(chip, chip.isChecked());
-            chip.setOnCheckedChangeListener((buttonView, isChecked) -> styleCustomRecurrenceChip(chip, isChecked));
+            chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                styleCustomRecurrenceChip(chip, isChecked);
+                updateCustomRecurrenceSummary();
+            });
             recurrenceDayByChipId.put(id, days[i]);
             chipCustomRecurrenceDays.addView(chip);
         }
+        updateCustomRecurrenceSummary();
     }
 
     private void styleCustomRecurrenceChip(@NonNull Chip chip, boolean checked) {
@@ -388,12 +393,40 @@ public class NuevaTransaccionFragment extends Fragment {
         chip.setChipStrokeColor(ColorStateList.valueOf(stroke));
     }
 
+    private void updateCustomRecurrenceSummary() {
+        if (tilRecurrence == null || actRecurrence == null || actRecurrence.getText() == null) return;
+        String recurrence = actRecurrence.getText().toString();
+        if (!recurrence.equals(getString(R.string.transaction_recurrence_custom))) {
+            tilRecurrence.setHelperText(null);
+            return;
+        }
+        int mask = selectedCustomRecurrenceDaysMask();
+        if (mask == 0) {
+            tilRecurrence.setHelperText(getString(R.string.transaction_recurrence_custom_error));
+            return;
+        }
+        StringBuilder daysText = new StringBuilder();
+        String[] labels = new String[]{"L", "M", "X", "J", "V", "S", "D"};
+        int[] days = new int[]{
+                Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+                Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY
+        };
+        for (int i = 0; i < days.length; i++) {
+            if ((mask & RecurringTransactionStore.bitForCalendarDay(days[i])) != 0) {
+                if (daysText.length() > 0) daysText.append(", ");
+                daysText.append(labels[i]);
+            }
+        }
+        tilRecurrence.setHelperText(getString(R.string.transaction_recurrence_custom_days) + ": " + daysText);
+    }
+
     private void updateCustomRecurrenceVisibility() {
         if (layoutCustomRecurrenceDays == null || actRecurrence == null || actRecurrence.getText() == null) return;
         String recurrence = actRecurrence.getText().toString();
         boolean custom = recurrence.equals(getString(R.string.transaction_recurrence_custom));
         layoutCustomRecurrenceDays.setVisibility(custom ? View.VISIBLE : View.GONE);
         if (btnClearRecurrence != null) btnClearRecurrence.setVisibility(recurrence.trim().isEmpty() ? View.GONE : View.VISIBLE);
+        updateCustomRecurrenceSummary();
     }
 
     private void setupLabelSelector() {
@@ -571,7 +604,11 @@ public class NuevaTransaccionFragment extends Fragment {
         root.addView(header);
 
         TextView subtitle = new TextView(requireContext());
-        subtitle.setText("Elige la tarjeta para este gasto o ingreso.");
+        subtitle.setText(isTransferSelected()
+                ? "Elige la tarjeta o cuenta desde donde saldr\u00e1 la transferencia."
+                : (isIncomeSelected()
+                ? "Elige la tarjeta o cuenta donde ingresar\u00e1 el dinero."
+                : "Elige la tarjeta o cuenta desde donde saldr\u00e1 el gasto."));
         subtitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         subtitle.setTextSize(15f);
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

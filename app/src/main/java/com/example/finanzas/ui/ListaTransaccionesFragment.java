@@ -440,8 +440,36 @@ public class ListaTransaccionesFragment extends Fragment {
             renderQuickFilters();
             renderTransactionList();
         });
-        styleNeutralLabelChip(chip, quickType == type);
+        styleQuickFilterChip(chip, type, quickType == type);
         chipQuickFilters.addView(chip);
+    }
+
+    private void styleQuickFilterChip(@NonNull Chip chip, @NonNull TransaccionFiltro.Tipo type, boolean selected) {
+        int stroke = ContextCompat.getColor(requireContext(),
+                type == TransaccionFiltro.Tipo.TODAS ? R.color.quick_filter_all_stroke : R.color.quick_filter_other_stroke);
+        int background = ContextCompat.getColor(requireContext(), R.color.md_theme_surface);
+        chip.setChipIconVisible(false);
+        chip.setCheckedIconVisible(false);
+        chip.setEnsureMinTouchTargetSize(false);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(background));
+        chip.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
+        chip.setChipStrokeColor(ColorStateList.valueOf(stroke));
+        chip.setChipStrokeWidth(dp(selected ? 2 : 1));
+        chip.setTextSize(12f);
+        chip.setSingleLine(true);
+        chip.setMinWidth(0);
+        chip.setMinHeight(dp(34));
+        chip.setChipMinHeight(dp(34));
+        chip.setTextStartPadding(dp(8));
+        chip.setTextEndPadding(dp(8));
+        chip.setChipStartPadding(dp(2));
+        chip.setChipEndPadding(dp(2));
+        ChipGroup.LayoutParams params = new ChipGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, 0, dp(4), 0);
+        chip.setLayoutParams(params);
     }
 
     private void applySearchText(@NonNull String raw) {

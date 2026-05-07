@@ -47,6 +47,7 @@
                     android:padding="12dp"
                     android:text="@string/transactions_change_month"
                     android:textAllCaps="false"
+                    android:textColor="@android:color/white"
                     app:icon="@drawable/ic_calendar"
                     app:iconGravity="textStart"
                     app:iconPadding="8dp" />
@@ -85,6 +86,7 @@
                     android:layout_weight="1"
                     android:text="@string/transactions_sort"
                     android:textAllCaps="false"
+                    android:textColor="@android:color/white"
                     app:icon="@drawable/ic_ordenar" />
 
                 <com.google.android.material.button.MaterialButton
@@ -97,6 +99,7 @@
                     android:contentDescription="@string/transactions_filter_cd"
                     android:text="@string/transactions_filters"
                     android:textAllCaps="false"
+                    android:textColor="@android:color/white"
                     app:icon="@drawable/ic_filtros" />
 
                 <com.google.android.material.button.MaterialButton
@@ -120,14 +123,24 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
+                android:fillViewport="true"
                 android:overScrollMode="never"
                 android:scrollbars="none">
 
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chipQuickFilters"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:singleSelection="true" />
+                    android:gravity="center_horizontal"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipQuickFilters"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:chipSpacingHorizontal="4dp"
+                        app:chipSpacingVertical="0dp"
+                        app:singleSelection="true" />
+                </LinearLayout>
             </HorizontalScrollView>
 
             <com.google.android.material.card.MaterialCardView
