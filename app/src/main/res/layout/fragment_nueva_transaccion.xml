@@ -219,28 +219,60 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:text="@string/transfer_destination_hint"
-                    android:textColor="@color/md_theme_onSurfaceVariant"
-                    android:textSize="13sp"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:textSize="14sp"
                     android:visibility="gone"
                     tools:visibility="visible" />
 
-                <HorizontalScrollView
+                <LinearLayout
                     android:id="@+id/scrollTransferDestination"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:overScrollMode="never"
-                    android:scrollbars="none"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:visibility="gone"
                     tools:visibility="visible">
 
-                    <com.google.android.material.button.MaterialButtonToggleGroup
-                        android:id="@+id/toggleDestinationAccount"
-                        android:layout_width="wrap_content"
+                    <HorizontalScrollView
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        app:selectionRequired="true"
-                        app:singleSelection="true" />
-                </HorizontalScrollView>
+                        android:layout_weight="1"
+                        android:fillViewport="true"
+                        android:overScrollMode="never"
+                        android:scrollbars="none">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_horizontal">
+
+                            <com.google.android.material.button.MaterialButtonToggleGroup
+                                android:id="@+id/toggleDestinationAccount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_horizontal"
+                                app:selectionRequired="true"
+                                app:singleSelection="true" />
+                        </FrameLayout>
+                    </HorizontalScrollView>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSwitchDestinationCard"
+                        style="@style/Widget.Finanzas.Button.Secondary"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text=""
+                        app:cornerRadius="16dp"
+                        app:icon="@drawable/ic_swap_horiz"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconTint="@color/risk_medium_text"
+                        app:strokeColor="@color/risk_medium_text" />
+                </LinearLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Finanzas.TextInputLayout"

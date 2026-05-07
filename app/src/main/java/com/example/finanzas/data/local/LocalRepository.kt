@@ -321,13 +321,13 @@ class LocalRepository private constructor(
         true
     }
 
-    suspend fun createFinancialAccount(name: String, initialBalance: Double, currency: String): FinancialAccount = withContext(Dispatchers.IO) {
+    suspend fun createFinancialAccount(name: String, initialBalance: Double, currency: String, last4: String = ""): FinancialAccount = withContext(Dispatchers.IO) {
         val cleanName = name.trim()
         require(cleanName.isNotBlank()) { "Nombre de cuenta requerido" }
         require(isValidAmount(initialBalance)) { "Monto invalido" }
         val userId = currentUserId()
         migrateLegacyInitialBalancesIfNeeded(userId)
-        val account = SettingsService.addFinancialAccount(appContext, cleanName)
+        val account = SettingsService.addFinancialAccount(appContext, cleanName, last4)
         if (initialBalance > 0.0) {
             db.withTransaction {
                 val categoryId = ensureInitialBalanceCategory(userId)
@@ -1233,6 +1233,10 @@ class LocalRepository private constructor(
 
         val allRawTrans = listTodasTransacciones()
         val allTrans = allRawTrans.map { it.toBaseCurrencyCopy(base, rate) }
+        val includedCardIds = SettingsService.listCardAccounts(appContext)
+            .filter { it.isIncludedInTotal }
+            .map { normalizeAccountType(it.id) }
+            .toSet()
         val initialCash = allTrans.sumOf { if (it.isInitialBalance && it.isCash) it.monto else 0.0 }
         val initialCard = allTrans.sumOf { if (it.isInitialBalance && !it.isCash) it.monto else 0.0 }
         val cashMovement = allTrans.sumOf { accountDelta(it, "CASH") }
@@ -1240,10 +1244,10 @@ class LocalRepository private constructor(
             val source = normalizeAccountType(it.accountType)
             if (it.isTransfer) {
                 val destination = normalizeAccountType(it.transferDestinationAccountType)
-                (if (source != "CASH" && SettingsService.isCardIncludedInTotal(appContext, source)) -it.monto else 0.0) +
-                    (if (destination != "CASH" && SettingsService.isCardIncludedInTotal(appContext, destination)) it.monto else 0.0)
+                (if (source != "CASH" && includedCardIds.contains(source)) -it.monto else 0.0) +
+                    (if (destination != "CASH" && includedCardIds.contains(destination)) it.monto else 0.0)
             } else if (!it.isCash) {
-                if (SettingsService.isCardIncludedInTotal(appContext, source)) {
+                if (includedCardIds.contains(source)) {
                     if (it.isEsIngreso) it.monto else -it.monto
                 } else {
                     0.0
@@ -1351,15 +1355,19 @@ class LocalRepository private constructor(
             }
         }
         val cashMovement = allTrans.sumOf { signedAccountDelta(it, "CASH", base, rate) }
+        val includedCardIds = SettingsService.listCardAccounts(appContext)
+            .filter { it.isIncludedInTotal }
+            .map { normalizeAccountType(it.id) }
+            .toSet()
         val nonCashMovement = allTrans.sumOf {
             val source = normalizeAccountType(it.accountType)
             val destination = transferDestination(it.nota)
             val amount = convertToBase(it.monto, it.moneda, base, rate)
             if (destination != null) {
-                (if (source != "CASH" && SettingsService.isCardIncludedInTotal(appContext, source)) -amount else 0.0) +
-                    (if (destination != "CASH" && SettingsService.isCardIncludedInTotal(appContext, destination)) amount else 0.0)
+                (if (source != "CASH" && includedCardIds.contains(source)) -amount else 0.0) +
+                    (if (destination != "CASH" && includedCardIds.contains(destination)) amount else 0.0)
             } else if (source != "CASH") {
-                if (SettingsService.isCardIncludedInTotal(appContext, source)) {
+                if (includedCardIds.contains(source)) {
                     if (it.esIngreso == 1) amount else -amount
                 } else {
                     0.0

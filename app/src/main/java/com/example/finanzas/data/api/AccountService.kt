@@ -19,11 +19,16 @@ object AccountService {
 
     @JvmStatic
     fun create(ctx: Context, name: String, initialBalance: Double, currency: String, cb: CreateCb) {
+        create(ctx, name, initialBalance, currency, "", cb)
+    }
+
+    @JvmStatic
+    fun create(ctx: Context, name: String, initialBalance: Double, currency: String, last4: String, cb: CreateCb) {
         val appContext = ctx.applicationContext
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    LocalRepository.getInstance(appContext).createFinancialAccount(name, initialBalance, currency)
+                    LocalRepository.getInstance(appContext).createFinancialAccount(name, initialBalance, currency, last4)
                 }
             }.onSuccess { cb.onOk(it) }
                 .onFailure { cb.onError(it.message) }

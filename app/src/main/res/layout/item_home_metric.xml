@@ -10,7 +10,10 @@
         android:layout_height="match_parent"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="16dp">
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="14dp">
 
         <FrameLayout
             android:id="@+id/metricIconBg"
@@ -29,6 +32,8 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:minHeight="58dp"
             android:orientation="vertical">
 
             <TextView
@@ -36,7 +41,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@color/md_theme_onSurfaceVariant"
-                android:textSize="13sp"
+                android:textSize="15sp"
+                android:textStyle="bold"
                 android:maxLines="1"
                 android:ellipsize="end" />
 
@@ -44,7 +50,7 @@
                 android:id="@+id/metricValue"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:autoSizeMaxTextSize="18sp"
                 android:autoSizeMinTextSize="12sp"
                 android:autoSizeStepGranularity="1sp"

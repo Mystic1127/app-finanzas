@@ -13,7 +13,7 @@ public class FinancialAccount {
     }
 
     public FinancialAccount(String id, String name, long createdAt) {
-        this(id, name, createdAt, "4242", true, false, false);
+        this(id, name, createdAt, "", true, false, false);
     }
 
     public FinancialAccount(String id, String name, long createdAt, String last4, boolean includedInTotal, boolean visibleInHome, boolean userAdded) {

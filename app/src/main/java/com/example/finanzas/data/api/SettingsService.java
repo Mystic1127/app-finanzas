@@ -192,17 +192,20 @@ public class SettingsService {
         try {
             JSONObject body = new JSONObject(getFinancialAccountsRaw(ctx));
             JSONObject card = body.optJSONObject("defaultCard");
+            String last4 = card != null && card.optBoolean("last4Configured", false)
+                    ? cleanLast4(card.optString("last4", ""))
+                    : "";
             return new FinancialAccount(
                     "CARD",
                     card != null ? card.optString("name", "Tarjeta predeterminada") : "Tarjeta predeterminada",
                     0L,
-                    cleanLast4(card != null ? card.optString("last4", "4242") : "4242"),
+                    last4,
                     card == null || card.optBoolean("includedInTotal", true),
                     card == null || card.optBoolean("visibleInHome", true),
                     false
             );
         } catch (Exception e) {
-            return new FinancialAccount("CARD", "Tarjeta predeterminada", 0L, "4242", true, true, false);
+            return new FinancialAccount("CARD", "Tarjeta predeterminada", 0L, "", true, true, false);
         }
     }
 
@@ -242,7 +245,7 @@ public class SettingsService {
             JSONObject defaultCard = body.optJSONObject("defaultCard");
             if (defaultCard == null) defaultCard = new JSONObject();
             defaultCard.put("name", defaultCard.optString("name", "Tarjeta predeterminada"));
-            defaultCard.put("last4", cleanLast4(defaultCard.optString("last4", "4242")));
+            defaultCard.put("last4", cleanLast4(defaultCard.optString("last4", "")));
             defaultCard.put("includedInTotal", "CARD".equals(visibleId) || defaultCard.optBoolean("includedInTotal", true));
             defaultCard.put("visibleInHome", "CARD".equals(visibleId));
             body.put("defaultCard", defaultCard);
@@ -292,10 +295,15 @@ public class SettingsService {
     }
 
     public static FinancialAccount addFinancialAccount(Context ctx, String rawName) {
+        return addFinancialAccount(ctx, rawName, "");
+    }
+
+    public static FinancialAccount addFinancialAccount(Context ctx, String rawName, String rawLast4) {
         String name = rawName == null ? "" : rawName.trim();
         if (name.isEmpty()) {
             throw new IllegalArgumentException("Nombre de cuenta requerido");
         }
+        name = limitCardName(name);
         long now = System.currentTimeMillis();
         String id = "ACCOUNT_" + now;
         try {
@@ -306,7 +314,7 @@ public class SettingsService {
             JSONObject item = new JSONObject();
             item.put("id", id);
             item.put("name", name);
-            item.put("last4", generateLast4(now));
+            item.put("last4", cleanLast4(rawLast4));
             item.put("includedInTotal", true);
             item.put("visibleInHome", false);
             item.put("createdAt", now);
@@ -314,10 +322,24 @@ public class SettingsService {
             body.put("accounts", accounts);
             sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
             LocalRepository.invalidateDataVersion();
-            return new FinancialAccount(id, name, now);
+            return new FinancialAccount(id, name, now, cleanLast4(rawLast4), true, false, true);
         } catch (Exception e) {
             throw new IllegalStateException("No se pudo guardar la cuenta", e);
         }
+    }
+
+    public static void updateCardDetails(Context ctx, String accountId, String rawName, String rawLast4) {
+        String normalized = normalizeAccountType(accountId);
+        String name = limitCardName(rawName == null ? "" : rawName.trim());
+        String last4 = cleanLast4(rawLast4);
+        if (name.isEmpty() && !"CARD".equals(normalized)) {
+            throw new IllegalArgumentException("Nombre de cuenta requerido");
+        }
+        updateCardMetadata(ctx, normalized, item -> {
+            item.put("name", name.isEmpty() ? "Tarjeta predeterminada" : name);
+            item.put("last4", last4);
+            if ("CARD".equals(normalized)) item.put("last4Configured", !last4.isEmpty());
+        });
     }
 
     public static void clearFinancialAccounts(Context ctx) {
@@ -443,7 +465,7 @@ public class SettingsService {
                 JSONObject card = body.optJSONObject("defaultCard");
                 if (card == null) card = new JSONObject();
                 card.put("name", card.optString("name", "Tarjeta predeterminada"));
-                card.put("last4", cleanLast4(card.optString("last4", "4242")));
+                card.put("last4", cleanLast4(card.optString("last4", "")));
                 card.put("includedInTotal", card.optBoolean("includedInTotal", true));
                 card.put("visibleInHome", card.optBoolean("visibleInHome", true));
                 updater.update(card);
@@ -483,13 +505,12 @@ public class SettingsService {
     private static String cleanLast4(String raw) {
         String digits = raw == null ? "" : raw.replaceAll("[^0-9]", "");
         if (digits.length() >= 4) return digits.substring(digits.length() - 4);
-        if (digits.isEmpty()) return "4242";
-        return String.format(Locale.US, "%4s", digits).replace(' ', '0');
+        return digits;
     }
 
-    private static String generateLast4(long seed) {
-        int value = (int) Math.abs(seed % 9000L) + 1000;
-        return String.valueOf(value);
+    private static String limitCardName(String raw) {
+        String clean = raw == null ? "" : raw.trim();
+        return clean.length() > 7 ? clean.substring(0, 7) : clean;
     }
 
     private static double getInitialBalanceRaw(Context ctx, String key) {

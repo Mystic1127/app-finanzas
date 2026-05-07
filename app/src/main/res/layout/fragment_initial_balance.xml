@@ -76,13 +76,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
                     android:hint="@string/perfil_initial_cash_hint"
+                    app:placeholderText="@string/transaction_amount_placeholder"
                     app:prefixText="@string/prefix_moneda">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etInitialCash"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="@string/transaction_amount_placeholder"
                         android:inputType="numberDecimal"
                         android:selectAllOnFocus="true" />
                 </com.google.android.material.textfield.TextInputLayout>
@@ -94,13 +94,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
                     android:hint="@string/perfil_initial_card_hint"
+                    app:placeholderText="@string/transaction_amount_placeholder"
                     app:prefixText="@string/prefix_moneda">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etInitialCard"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="@string/transaction_amount_placeholder"
                         android:inputType="numberDecimal"
                         android:selectAllOnFocus="true" />
                 </com.google.android.material.textfield.TextInputLayout>
