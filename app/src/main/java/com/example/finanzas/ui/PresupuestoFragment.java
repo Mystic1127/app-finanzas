@@ -35,6 +35,7 @@ import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -51,6 +52,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
     private CategoryBudgetEditAdapter categoryAdapter;
     private MaterialButton btnGuardarPresupuesto;
     private MaterialButton btnAgregarCategoria;
+    private MaterialButton btnAgregarCategoriaEmpty;
     private SwipeRefreshLayout swipeRefreshLayout;
     private View cardEmptyCategories;
     private int anio;
@@ -85,6 +87,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         tilPresupuesto = v.findViewById(R.id.tilPresupuesto);
         btnGuardarPresupuesto = v.findViewById(R.id.btnGuardarPresupuesto);
         btnAgregarCategoria = v.findViewById(R.id.btnAgregarCategoria);
+        btnAgregarCategoriaEmpty = v.findViewById(R.id.btnAgregarCategoriaEmpty);
         cardEmptyCategories = v.findViewById(R.id.cardEmptyCategories);
         androidx.recyclerview.widget.RecyclerView rvCategory = v.findViewById(R.id.rvCategoryBudgets);
         swipeRefreshLayout = v.findViewById(R.id.swipeBudget);
@@ -112,6 +115,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
 
         btnGuardarPresupuesto.setOnClickListener(view -> guardarPresupuesto());
         btnAgregarCategoria.setOnClickListener(view -> showCategoryPickerSheet());
+        if (btnAgregarCategoriaEmpty != null) btnAgregarCategoriaEmpty.setOnClickListener(view -> showCategoryPickerSheet());
         UiFormUtils.clearErrorOnTextChange(etPresupuesto);
         tilPresupuesto.setPrefixText(SettingsService.getCurrencySymbol(requireContext()) + " ");
 
@@ -179,17 +183,33 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
     }
 
     private void removeCategoryBudget(@NonNull CategoryBudgetInput item) {
-        List<CategoryBudgetInput> next = categoryAdapter.getItems();
-        next.removeIf(existing -> existing.getCategoriaId() == item.getCategoriaId());
-        categoryAdapter.setItems(next);
-        updateEmptyState(next);
-        viewModel.setLocalCategoryBudgets(next);
-        Categoria restored = new Categoria(item.getCategoriaId(), item.getCategoriaNombre(), false);
-        availableCategories.add(restored);
-        availableCategories.sort((a, b) -> String.valueOf(a.nombre).compareToIgnoreCase(String.valueOf(b.nombre)));
-        viewModel.saveCategoryBudgetsQuiet(anio, mes, next);
-        Snackbar.make(requireView(), getString(R.string.pres_category_deleted) + "\n" + getString(R.string.pres_category_deleted_detail), Snackbar.LENGTH_SHORT)
-                .setTextMaxLines(2)
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.pres_category_delete_confirm_title)
+                .setMessage(R.string.pres_category_delete_confirm_message)
+                .setNegativeButton(R.string.import_sheet_cancel, null)
+                .setPositiveButton(R.string.categories_delete, (dialog, which) -> {
+                    List<CategoryBudgetInput> next = categoryAdapter.getItems();
+                    next.removeIf(existing -> existing.getCategoriaId() == item.getCategoriaId());
+                    categoryAdapter.setItems(next);
+                    updateEmptyState(next);
+                    viewModel.setLocalCategoryBudgets(next);
+                    Categoria restored = new Categoria(item.getCategoriaId(), item.getCategoriaNombre(), false);
+                    availableCategories.add(restored);
+                    availableCategories.sort((a, b) -> String.valueOf(a.nombre).compareToIgnoreCase(String.valueOf(b.nombre)));
+                    viewModel.saveCategoryBudgetsQuiet(anio, mes, next);
+                    Snackbar snackbar = Snackbar.make(requireView(), getString(R.string.pres_category_deleted) + "\n" + getString(R.string.pres_category_deleted_detail), Snackbar.LENGTH_SHORT)
+                            .setTextMaxLines(2);
+                    View bottomNav = requireActivity().findViewById(R.id.bottom_nav_container);
+                    if (bottomNav != null) {
+                        snackbar.setAnchorView(bottomNav);
+                    } else {
+                        View snackView = snackbar.getView();
+                        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) snackView.getLayoutParams();
+                        params.setMargins(params.leftMargin, params.topMargin, params.rightMargin, dp(96));
+                        snackView.setLayoutParams(params);
+                    }
+                    snackbar.show();
+                })
                 .show();
     }
 
@@ -205,6 +225,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
             if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(isLoading && manualRefresh);
             UiFormUtils.setActionLoading(btnGuardarPresupuesto, isLoading);
             UiFormUtils.setActionLoading(btnAgregarCategoria, isLoading);
+            if (btnAgregarCategoriaEmpty != null) UiFormUtils.setActionLoading(btnAgregarCategoriaEmpty, isLoading);
             if (!isLoading) {
                 PerfLogger.logSince("PresupuestoFragment", "loadComplete", loadStartMs);
                 manualRefresh = false;
@@ -236,6 +257,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
     private void updateEmptyState(@NonNull List<CategoryBudgetInput> items) {
         boolean empty = items.isEmpty();
         if (cardEmptyCategories != null) cardEmptyCategories.setVisibility(empty ? View.VISIBLE : View.GONE);
+        if (btnAgregarCategoria != null) btnAgregarCategoria.setVisibility(empty ? View.GONE : View.VISIBLE);
     }
 
     private void showCategoryPickerSheet() {
@@ -322,14 +344,14 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setPadding(0, dp(9), 0, dp(9));
 
-        int accent = CategoryVisuals.colorFor(requireContext(), categoria.nombre, false);
+        int accent = CategoryVisuals.colorFor(requireContext(), categoria);
         FrameLayout iconBg = new FrameLayout(requireContext());
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
         bg.setColor(accent);
         iconBg.setBackground(bg);
         ImageView icon = new ImageView(requireContext());
-        icon.setImageResource(CategoryVisuals.iconFor(categoria.nombre, false));
+        icon.setImageResource(CategoryVisuals.iconFor(requireContext(), categoria));
         icon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white));
         iconBg.addView(icon, new FrameLayout.LayoutParams(dp(22), dp(22), android.view.Gravity.CENTER));
         row.addView(iconBg, new LinearLayout.LayoutParams(dp(38), dp(38)));

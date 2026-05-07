@@ -93,6 +93,12 @@
         tools:layout="@layout/fragment_settings" />
 
     <fragment
+        android:id="@+id/nav_categories"
+        android:name="com.example.finanzas.ui.CategoriesFragment"
+        android:label="@string/categories_title"
+        tools:layout="@layout/fragment_categories" />
+
+    <fragment
         android:id="@+id/nav_initial_balance"
         android:name="com.example.finanzas.ui.InitialBalanceFragment"
         android:label="@string/perfil_initial_balances_title"

@@ -452,7 +452,7 @@ public class ListaTransaccionesFragment extends Fragment {
         chip.setCheckedIconVisible(false);
         chip.setEnsureMinTouchTargetSize(false);
         chip.setChipBackgroundColor(ColorStateList.valueOf(background));
-        chip.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white));
+        chip.setTextColor(ContextCompat.getColor(requireContext(), R.color.transaction_secondary_button_text));
         chip.setChipStrokeColor(ColorStateList.valueOf(stroke));
         chip.setChipStrokeWidth(dp(selected ? 2 : 1));
         chip.setTextSize(12f);

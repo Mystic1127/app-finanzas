@@ -59,6 +59,7 @@ public class SettingsFragment extends Fragment {
         addRow(accountSection, R.drawable.ic_profile, "Perfil", null, () -> navigate(R.id.nav_perfil));
         addRow(accountSection, R.drawable.ic_logout, "Cerrar sesión", null, this::logout);
 
+        addRow(prefsSection, R.drawable.ic_category, getString(R.string.categories_title), getString(R.string.categories_subtitle), () -> navigate(R.id.nav_categories));
         addRow(prefsSection, R.drawable.ic_initial_balance, "Saldo inicial", "Establece tu saldo de inicio", () -> navigate(R.id.nav_initial_balance));
         addRow(prefsSection, R.drawable.ic_theme, "Tema", themeLabel(), this::showThemeDialog);
         addRow(prefsSection, R.drawable.ic_currency, "Moneda", SettingsService.getCurrencyCode(requireContext()), this::showCurrencyDialog);

@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.CategoryBudgetInput;
+import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
@@ -68,11 +69,12 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         CategoryBudgetInput item = items.get(position);
         String currency = item.getMoneda();
         String symbol = SettingsService.getCurrencySymbol(currency);
-        int accent = CategoryVisuals.colorFor(holder.itemView.getContext(), item.getCategoriaNombre(), false);
+        Categoria categoria = new Categoria(item.getCategoriaId(), item.getCategoriaNombre(), false);
+        int accent = CategoryVisuals.colorFor(holder.itemView.getContext(), categoria);
 
         holder.tvNombre.setText(item.getCategoriaNombre());
         holder.tilMonto.setPrefixText(symbol + " ");
-        holder.icon.setImageResource(CategoryVisuals.iconFor(item.getCategoriaNombre(), false));
+        holder.icon.setImageResource(CategoryVisuals.iconFor(holder.itemView.getContext(), categoria));
         holder.icon.setColorFilter(ContextCompat.getColor(holder.itemView.getContext(), android.R.color.white));
         GradientDrawable iconBg = new GradientDrawable();
         iconBg.setShape(GradientDrawable.OVAL);
@@ -80,7 +82,19 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         holder.iconBg.setBackground(iconBg);
 
         if (holder.watcher != null) holder.etMonto.removeTextChangedListener(holder.watcher);
-        holder.etMonto.setText(item.getMonto() > 0 ? moneyNumber(item.getMonto()) : "");
+        holder.etMonto.setText(moneyNumber(item.getMonto()));
+        holder.etMonto.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                if (Math.abs(item.getMonto()) < 0.005) {
+                    holder.etMonto.setText("");
+                }
+                return;
+            }
+            String value = holder.etMonto.getText() == null ? "" : holder.etMonto.getText().toString().trim();
+            if (value.isEmpty()) {
+                holder.etMonto.setText(moneyNumber(0.0));
+            }
+        });
         holder.watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
@@ -157,6 +171,7 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
 
     private static String moneyNumber(double amount) {
         if (Math.abs(amount - Math.rint(amount)) < 0.005) {
+            if (Math.abs(amount) < 0.005) return "0.00";
             return String.format(Locale.US, "%.0f", amount);
         }
         return String.format(Locale.US, "%.2f", amount);

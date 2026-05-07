@@ -98,6 +98,8 @@
     <color name="planning_dialog_button_pressed">#04331F</color>
     <color name="quick_filter_all_stroke">#7A1F2A</color>
     <color name="quick_filter_other_stroke">#06402B</color>
+    <color name="transaction_secondary_button_text">#06402B</color>
+    <color name="category_icon_picker_bg">#1F7A55</color>
     <color name="planning_dialog_notification_bg">#E8F4EE</color>
     <color name="forecast_gradient_start">#E7F4ED</color>
     <color name="forecast_gradient_end">#F3FAF5</color>

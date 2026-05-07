@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.model.Categoria;
 
 import java.text.Normalizer;
 import java.util.Locale;
@@ -50,6 +51,11 @@ public final class CategoryVisuals {
         return R.drawable.ic_category_other;
     }
 
+    @DrawableRes
+    public static int iconFor(@NonNull Context context, @NonNull Categoria categoria) {
+        return CategoryPrefs.iconFor(CategoryPrefs.meta(context, categoria).iconKey);
+    }
+
     @ColorInt
     public static int colorFor(@NonNull Context context, @Nullable String name, boolean income) {
         String key = normalize(name);
@@ -67,6 +73,11 @@ public final class CategoryVisuals {
         if (contains(key, "tecnologia", "servicio")) return color(context, R.color.chart_pie_3);
         if (contains(key, "ropa", "compra", "regalo")) return color(context, R.color.chart_pie_5);
         return color(context, R.color.chart_pie_8);
+    }
+
+    @ColorInt
+    public static int colorFor(@NonNull Context context, @NonNull Categoria categoria) {
+        return CategoryPrefs.meta(context, categoria).color;
     }
 
     @NonNull

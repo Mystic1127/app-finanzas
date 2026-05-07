@@ -624,6 +624,55 @@ class LocalRepository private constructor(
         bumpDataVersion()
     }
 
+    suspend fun ensurePresupuestoPlanForMonth(anio: Int, mes: Int): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        var copied = false
+        db.withTransaction {
+            val presupuestoDao = db.presupuestoDao()
+            val categoriaDao = db.presupuestoCategoriaDao()
+            val currentBudget = presupuestoDao.find(userId, anio, mes)
+            val currentCategoryBudgets = categoriaDao.listByMonth(userId, anio, mes)
+
+            if (currentBudget == null) {
+                val previousBudget = presupuestoDao.findLatestUpTo(userId, anio, mes)
+                if (previousBudget != null) {
+                    presupuestoDao.upsert(
+                        PresupuestoEntity(
+                            userId = userId,
+                            anio = anio,
+                            mes = mes,
+                            monto = previousBudget.monto,
+                            moneda = previousBudget.moneda
+                        )
+                    )
+                    copied = true
+                }
+            }
+
+            if (currentBudget == null && currentCategoryBudgets.isEmpty()) {
+                val latestCategoryBudget = categoriaDao.findLatestUpTo(userId, anio, mes)
+                if (latestCategoryBudget != null) {
+                    val previousItems = categoriaDao.listByMonth(userId, latestCategoryBudget.anio, latestCategoryBudget.mes)
+                    previousItems.forEach { previous ->
+                        categoriaDao.upsert(
+                            PresupuestoCategoriaEntity(
+                                userId = userId,
+                                anio = anio,
+                                mes = mes,
+                                categoriaId = previous.categoriaId,
+                                monto = previous.monto,
+                                moneda = previous.moneda
+                            )
+                        )
+                    }
+                    if (previousItems.isNotEmpty()) copied = true
+                }
+            }
+        }
+        if (copied) bumpDataVersion()
+        copied
+    }
+
     private fun findEffectivePresupuesto(userId: Int, anio: Int, mes: Int): PresupuestoEntity? {
         return db.presupuestoDao().find(userId, anio, mes)
             ?: db.presupuestoDao().findLatestUpTo(userId, anio, mes)

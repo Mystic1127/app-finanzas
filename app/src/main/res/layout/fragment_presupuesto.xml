@@ -73,7 +73,8 @@
                 android:id="@+id/cardEmptyCategories"
                 style="@style/Widget.Finanzas.Card"
                 android:layout_width="match_parent"
-                android:layout_height="245dp"
+                android:layout_height="wrap_content"
+                android:minHeight="245dp"
                 android:layout_marginTop="14dp"
                 tools:visibility="visible">
 
@@ -120,6 +121,20 @@
                         android:text="@string/pres_empty_categories_subtitle"
                         android:textColor="@color/md_theme_onSurfaceVariant"
                         android:textSize="13sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAgregarCategoriaEmpty"
+                        style="@style/Widget.Finanzas.Button.Secondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="18dp"
+                        android:text="@string/pres_btn_agregar_categoria"
+                        android:textAllCaps="false"
+                        android:textColor="@color/planning_dialog_button"
+                        app:icon="@drawable/ic_add"
+                        app:iconGravity="textStart"
+                        app:iconTint="@color/planning_dialog_button"
+                        app:strokeColor="@color/planning_dialog_button" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -144,7 +159,8 @@
                 app:icon="@drawable/ic_add"
                 app:iconGravity="textStart"
                 app:iconTint="@color/planning_dialog_button"
-                app:strokeColor="@color/planning_dialog_button" />
+                app:strokeColor="@color/planning_dialog_button"
+                tools:visibility="gone" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

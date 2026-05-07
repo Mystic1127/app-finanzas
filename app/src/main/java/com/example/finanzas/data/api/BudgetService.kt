@@ -26,6 +26,10 @@ object BudgetService {
         LocalRepository.getInstance(ctx).getPresupuesto(anio, mes)
     }
 
+    suspend fun ensurePlanForMonth(ctx: Context, anio: Int, mes: Int): Boolean = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx).ensurePresupuestoPlanForMonth(anio, mes)
+    }
+
     suspend fun set(ctx: Context, anio: Int, mes: Int, monto: Double) =
         set(ctx, anio, mes, monto, SettingsService.getCurrencyCode(ctx))
 

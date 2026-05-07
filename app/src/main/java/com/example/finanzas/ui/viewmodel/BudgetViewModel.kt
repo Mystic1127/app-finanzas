@@ -14,6 +14,7 @@ import com.example.finanzas.data.model.Categoria
 import com.example.finanzas.data.model.CategoryBudgetInput
 import com.example.finanzas.data.model.CategoryBudgetSummary
 import com.example.finanzas.util.CategoryVisuals
+import com.example.finanzas.util.CategoryPrefs
 import com.example.finanzas.util.PerfLogger
 import com.example.finanzas.util.Prefs
 import kotlinx.coroutines.async
@@ -56,6 +57,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
         _loading.value = loadedVersion < 0 || force
         viewModelScope.launch {
             runCatching {
+                BudgetService.ensurePlanForMonth(getApplication(), anio, mes)
                 val presupuestoDeferred = async { BudgetService.get(getApplication(), anio, mes) }
                 val categoriasDeferred = async { CategoryStore.load(getApplication()) }
                 val guardadosDeferred = async { CategoryBudgetService.savedInputs(getApplication(), anio, mes) }
@@ -69,7 +71,10 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 val currency = SettingsService.getCurrencyCode(getApplication())
                 val out = withContext(Dispatchers.Default) {
                     val summaryByCategory = resumen.associateBy { it.categoriaId }
-                    guardados.map { saved ->
+                    val categoriesById = categorias.associateBy { it.id }
+                    guardados.filter { saved ->
+                        categoriesById[saved.categoriaId]?.let { !CategoryPrefs.isDeleted(getApplication(), it) } ?: true
+                    }.map { saved ->
                         val summary: CategoryBudgetSummary? = summaryByCategory[saved.categoriaId]
                         saved.apply {
                             moneda = saved.moneda.ifBlank { currency }
@@ -84,6 +89,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                     categorias
                         .filter { !it.esIngreso }
                         .filter { CategoryVisuals.normalize(it.nombre) != "otros" }
+                        .filter { !CategoryPrefs.isDeleted(getApplication(), it) }
                         .filter { it.id !in savedIds }
                         .sortedBy { it.nombre ?: "" }
                 }
@@ -92,7 +98,7 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
                 loadedUserId = userId
                 loadedYear = anio
                 loadedMonth = mes
-                loadedVersion = version
+                loadedVersion = LocalRepository.getDataVersion()
                 _budget.value = it.first
                 _categoryBudgets.value = it.second
                 _availableCategories.value = it.third

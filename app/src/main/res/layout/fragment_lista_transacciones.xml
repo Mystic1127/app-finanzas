@@ -47,10 +47,11 @@
                     android:padding="12dp"
                     android:text="@string/transactions_change_month"
                     android:textAllCaps="false"
-                    android:textColor="@android:color/white"
+                    android:textColor="@color/transaction_secondary_button_text"
                     app:icon="@drawable/ic_calendar"
                     app:iconGravity="textStart"
-                    app:iconPadding="8dp" />
+                    app:iconPadding="8dp"
+                    app:iconTint="@color/transaction_secondary_button_text" />
             </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -86,8 +87,9 @@
                     android:layout_weight="1"
                     android:text="@string/transactions_sort"
                     android:textAllCaps="false"
-                    android:textColor="@android:color/white"
-                    app:icon="@drawable/ic_ordenar" />
+                    android:textColor="@color/transaction_secondary_button_text"
+                    app:icon="@drawable/ic_ordenar"
+                    app:iconTint="@color/transaction_secondary_button_text" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnFiltros"
@@ -99,8 +101,9 @@
                     android:contentDescription="@string/transactions_filter_cd"
                     android:text="@string/transactions_filters"
                     android:textAllCaps="false"
-                    android:textColor="@android:color/white"
-                    app:icon="@drawable/ic_filtros" />
+                    android:textColor="@color/transaction_secondary_button_text"
+                    app:icon="@drawable/ic_filtros"
+                    app:iconTint="@color/transaction_secondary_button_text" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAddTransactionColor"
@@ -115,7 +118,8 @@
                     android:text=""
                     app:icon="@drawable/ic_etiqueta"
                     app:iconGravity="textStart"
-                    app:iconPadding="0dp" />
+                    app:iconPadding="0dp"
+                    app:iconTint="@color/transaction_secondary_button_text" />
             </LinearLayout>
 
             <HorizontalScrollView

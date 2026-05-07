@@ -39,6 +39,7 @@ import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.data.local.room.RecurringTransactionEntity;
 import com.example.finanzas.util.CategoryVisuals;
+import com.example.finanzas.util.CategoryPrefs;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.RecurringTransactionStore;
@@ -101,6 +102,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private Integer editingId = null;
     private List<Categoria> categorias;
     private List<Categoria> visibles;
+    private final Map<Integer, Integer> categoryUseCounts = new HashMap<>();
     private final Map<Integer, String> accountTypesByButtonId = new HashMap<>();
     private final Map<Integer, String> destinationTypesByButtonId = new HashMap<>();
     private String selectedAccountType = "CARD";
@@ -923,6 +925,7 @@ public class NuevaTransaccionFragment extends Fragment {
             @Override
             public void onReady(List<? extends Categoria> cats) {
                 categorias = new ArrayList<>(cats);
+                loadCategoryUsageCounts();
                 boolean esIngreso = isIncomeSelected();
                 String catDeseada = getArguments() != null ? getArguments().getString(EXTRA_CAT_NOMBRE) : null;
                 aplicarFiltroYRefrescar(esIngreso, true, catDeseada);
@@ -935,13 +938,36 @@ public class NuevaTransaccionFragment extends Fragment {
         });
     }
 
+    private void loadCategoryUsageCounts() {
+        Calendar cal = Calendar.getInstance();
+        TransService.list(requireContext(), cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, new TransService.ListCb() {
+            @Override public void onOk(List<? extends Transaccion> res) {
+                categoryUseCounts.clear();
+                if (res != null) {
+                    for (com.example.finanzas.data.model.Transaccion tx : res) {
+                        if (tx == null || tx.isTransfer()) continue;
+                        int id = tx.getCategoriaId();
+                        categoryUseCounts.put(id, categoryUseCounts.getOrDefault(id, 0) + 1);
+                    }
+                }
+                aplicarFiltroYRefrescar(isIncomeSelected(), true, null);
+            }
+            @Override public void onError() { }
+        });
+    }
+
     private void aplicarFiltroYRefrescar(boolean esIngreso, boolean preservarSeleccion, @Nullable String categoriaDeseada) {
         if (categorias == null) return;
 
         visibles = new ArrayList<>();
         for (Categoria c : categorias) {
-            if (c != null && c.esIngreso == esIngreso && !isSpecialCategory(c)) visibles.add(c);
+            if (c != null && c.esIngreso == esIngreso && !isSpecialCategory(c) && !CategoryPrefs.isDeleted(requireContext(), c)) visibles.add(c);
         }
+        visibles.sort((a, b) -> {
+            int byUse = Integer.compare(categoryUseCounts.getOrDefault(b.id, 0), categoryUseCounts.getOrDefault(a.id, 0));
+            if (byUse != 0) return byUse;
+            return String.valueOf(a.nombre).compareToIgnoreCase(String.valueOf(b.nombre));
+        });
 
         List<String> nombres = new ArrayList<>();
         for (Categoria c : visibles) nombres.add(c.nombre);
@@ -1084,13 +1110,13 @@ public class NuevaTransaccionFragment extends Fragment {
             row.setClickable(true);
             row.setFocusable(true);
 
-            int accent = CategoryVisuals.colorFor(requireContext(), categoria.nombre, categoria.esIngreso);
+            int accent = CategoryVisuals.colorFor(requireContext(), categoria);
             ImageView icon = new ImageView(requireContext());
-            icon.setImageResource(CategoryVisuals.iconFor(categoria.nombre, categoria.esIngreso));
-            icon.setColorFilter(accent);
+            icon.setImageResource(CategoryVisuals.iconFor(requireContext(), categoria));
+            icon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white));
             GradientDrawable iconBg = new GradientDrawable();
             iconBg.setShape(GradientDrawable.OVAL);
-            iconBg.setColor(LabelColorUtils.iconBackground(requireContext(), accent));
+            iconBg.setColor(accent);
             icon.setBackground(iconBg);
             icon.setPadding(dp(10), dp(10), dp(10), dp(10));
             row.addView(icon, new LinearLayout.LayoutParams(dp(50), dp(50)));

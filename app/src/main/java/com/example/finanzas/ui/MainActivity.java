@@ -136,6 +136,7 @@ public class MainActivity extends AppCompatActivity {
                     || destId == R.id.nav_analysis
                     || destId == R.id.nav_budget
                     || destId == R.id.nav_settings
+                    || destId == R.id.nav_categories
                     || destId == R.id.nav_planning;
             toolbar.setVisibility((isWelcomeScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
             setContentTopMargin((isWelcomeScreen || hasLocalHeader) ? 0 : contentTopMargin);
