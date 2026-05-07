@@ -30,6 +30,7 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.CategoryStore;
+import com.example.finanzas.data.api.AccountService;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.api.TransService;
 import com.example.finanzas.data.model.Categoria;
@@ -79,6 +80,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private TextInputLayout tilFecha, tilHora, tilCategoria, tilMoneda;
     private MaterialButtonToggleGroup toggleTipo, toggleAccountType;
     private MaterialButton btnTipoGasto, btnTipoTransferencia, btnTipoIngreso;
+    private MaterialButton btnSwitchCard;
     private TextInputEditText actCategoria;
     private MaterialAutoCompleteTextView actMoneda, actRecurrence;
     private MaterialButtonToggleGroup toggleDestinationAccount;
@@ -133,6 +135,7 @@ public class NuevaTransaccionFragment extends Fragment {
         tvTransferHint = v.findViewById(R.id.tvTransferHint);
         scrollTransferDestination = v.findViewById(R.id.scrollTransferDestination);
         btnTipoGasto  = v.findViewById(R.id.btnTipoGasto);
+        btnSwitchCard = v.findViewById(R.id.btnSwitchCard);
         btnTipoTransferencia = v.findViewById(R.id.btnTipoTransferencia);
         btnTipoIngreso = v.findViewById(R.id.btnTipoIngreso);
         actCategoria  = v.findViewById(R.id.actCategoria);
@@ -190,6 +193,7 @@ public class NuevaTransaccionFragment extends Fragment {
             return false;
         });
         btnGuardar.setOnClickListener(this::onGuardar);
+        if (btnSwitchCard != null) btnSwitchCard.setOnClickListener(v16 -> showSelectCardSheet());
     }
 
     @Override
@@ -430,15 +434,34 @@ public class NuevaTransaccionFragment extends Fragment {
     private void populateAccountTypeButtons(@Nullable String preferredAccountType) {
         if (toggleAccountType == null || getContext() == null) return;
         String preferred = SettingsService.normalizeAccountType(preferredAccountType == null ? selectedAccountType : preferredAccountType);
+        if ("CARD".equals(preferred)) {
+            preferred = SettingsService.getVisibleCardAccount(requireContext()).getId();
+        }
+        FinancialAccount cardAccount = findCardAccount(preferred);
+        if ("CASH".equals(preferred) || cardAccount == null) {
+            cardAccount = SettingsService.getVisibleCardAccount(requireContext());
+        }
         toggleAccountType.removeAllViews();
         accountTypesByButtonId.clear();
         addAccountTypeButton("CASH", getString(R.string.transaction_account_cash), R.drawable.ic_cash);
-        addAccountTypeButton("CARD", getString(R.string.transaction_account_card), R.drawable.ic_card);
-        for (FinancialAccount account : SettingsService.listFinancialAccounts(requireContext())) {
-            if (account == null || account.getName() == null || account.getName().trim().isEmpty()) continue;
-            addAccountTypeButton(account.getId(), account.getName(), R.drawable.ic_card);
-        }
+        addAccountTypeButton(cardAccount.getId(), cardPillLabel(cardAccount), R.drawable.ic_card);
         setSelectedAccountType(preferred);
+    }
+
+    @Nullable
+    private FinancialAccount findCardAccount(@Nullable String accountType) {
+        String normalized = SettingsService.normalizeAccountType(accountType);
+        for (FinancialAccount account : SettingsService.listCardAccounts(requireContext())) {
+            if (SettingsService.normalizeAccountType(account.getId()).equals(normalized)) return account;
+        }
+        return null;
+    }
+
+    private String cardPillLabel(@NonNull FinancialAccount account) {
+        String name = account.getName() == null ? getString(R.string.transaction_account_card) : account.getName().trim();
+        if (name.toLowerCase(Locale.ROOT).contains("predeterminada")) name = getString(R.string.transaction_account_card);
+        String last4 = TextUtils.isEmpty(account.getLast4()) ? "4242" : account.getLast4();
+        return name + " \u2022\u2022\u2022\u2022 " + last4;
     }
 
     private void populateDestinationAccountButtons(@Nullable String preferredAccountType) {
@@ -491,6 +514,174 @@ public class NuevaTransaccionFragment extends Fragment {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48));
         params.rightMargin = dp(8);
         toggleDestinationAccount.addView(button, params);
+    }
+
+    private void showSelectCardSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(14), dp(20), dp(22));
+        root.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_surface));
+
+        LinearLayout header = new LinearLayout(requireContext());
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        TextView title = new TextView(requireContext());
+        title.setText("Seleccionar tarjeta");
+        title.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        title.setTextSize(23f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        header.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ImageView close = new ImageView(requireContext());
+        close.setImageResource(R.drawable.ic_close);
+        close.setColorFilter(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        close.setPadding(dp(9), dp(9), dp(9), dp(9));
+        close.setOnClickListener(v -> dialog.dismiss());
+        header.addView(close, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        root.addView(header);
+
+        TextView subtitle = new TextView(requireContext());
+        subtitle.setText("Elige la tarjeta para este gasto o ingreso.");
+        subtitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        subtitle.setTextSize(15f);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = dp(6);
+        subtitleParams.bottomMargin = dp(14);
+        root.addView(subtitle, subtitleParams);
+
+        for (FinancialAccount account : SettingsService.listCardAccounts(requireContext())) {
+            root.addView(selectCardRow(dialog, account));
+        }
+
+        MaterialButton add = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        add.setText("Agregar nueva tarjeta");
+        add.setAllCaps(false);
+        add.setTextColor(ContextCompat.getColor(requireContext(), R.color.income));
+        add.setIconResource(R.drawable.ic_add);
+        add.setIconTint(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.income)));
+        add.setStrokeColor(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.income)));
+        add.setCornerRadius(dp(16));
+        add.setOnClickListener(v -> {
+            dialog.dismiss();
+            showCreateCardSheet();
+        });
+        LinearLayout.LayoutParams addParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
+        addParams.topMargin = dp(14);
+        root.addView(add, addParams);
+
+        dialog.setContentView(root);
+        dialog.show();
+    }
+
+    private View selectCardRow(@NonNull BottomSheetDialog dialog, @NonNull FinancialAccount account) {
+        boolean selected = SettingsService.normalizeAccountType(account.getId()).equals(resolveSelectedAccountType());
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(14), dp(12), dp(14), dp(12));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
+        bg.setCornerRadius(dp(14));
+        bg.setStroke(dp(1), ContextCompat.getColor(requireContext(), selected ? R.color.income : R.color.md_theme_outlineVariant));
+        row.setBackground(bg);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = dp(10);
+        row.setLayoutParams(params);
+
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(R.drawable.ic_card);
+        icon.setColorFilter(ContextCompat.getColor(requireContext(), selected ? R.color.income : R.color.md_theme_onSurfaceVariant));
+        row.addView(icon, new LinearLayout.LayoutParams(dp(34), dp(34)));
+
+        LinearLayout text = new LinearLayout(requireContext());
+        text.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(requireContext());
+        name.setText(account.getName());
+        name.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        name.setTextSize(16f);
+        name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        text.addView(name);
+        TextView last4 = new TextView(requireContext());
+        last4.setText("\u2022\u2022\u2022\u2022 " + (TextUtils.isEmpty(account.getLast4()) ? "4242" : account.getLast4()));
+        last4.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        last4.setTextSize(14f);
+        text.addView(last4);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.leftMargin = dp(14);
+        row.addView(text, textParams);
+
+        ImageView check = new ImageView(requireContext());
+        check.setImageResource(selected ? R.drawable.ic_check_circle : R.drawable.ic_visibility);
+        check.setColorFilter(ContextCompat.getColor(requireContext(), selected ? R.color.income : R.color.md_theme_onSurfaceVariant));
+        row.addView(check, new LinearLayout.LayoutParams(dp(30), dp(30)));
+
+        row.setOnClickListener(v -> {
+            selectedAccountType = SettingsService.normalizeAccountType(account.getId());
+            populateAccountTypeButtons(selectedAccountType);
+            dialog.dismiss();
+        });
+        return row;
+    }
+
+    private void showCreateCardSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(18), dp(20), dp(22));
+        TextView title = new TextView(requireContext());
+        title.setText("Agregar nueva tarjeta");
+        title.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        title.setTextSize(22f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(title);
+
+        TextInputLayout tilName = new TextInputLayout(requireContext());
+        tilName.setHint("Nombre de tarjeta");
+        TextInputEditText etName = new TextInputEditText(requireContext());
+        etName.setSingleLine(true);
+        tilName.addView(etName, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        nameParams.topMargin = dp(16);
+        root.addView(tilName, nameParams);
+
+        TextInputLayout tilBalance = new TextInputLayout(requireContext());
+        tilBalance.setHint("Saldo inicial");
+        TextInputEditText etBalance = new TextInputEditText(requireContext());
+        etBalance.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        tilBalance.addView(etBalance, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams balanceParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        balanceParams.topMargin = dp(12);
+        root.addView(tilBalance, balanceParams);
+
+        MaterialButton save = new MaterialButton(requireContext());
+        save.setText(R.string.btn_guardar);
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
+        saveParams.topMargin = dp(16);
+        root.addView(save, saveParams);
+        save.setOnClickListener(v -> {
+            String name = etName.getText() == null ? "" : etName.getText().toString().trim();
+            double balance = parseMontoSeguro(etBalance.getText() == null ? "" : etBalance.getText().toString());
+            if (name.isEmpty()) {
+                tilName.setError("Ingresa un nombre");
+                return;
+            }
+            save.setEnabled(false);
+            AccountService.create(requireContext(), name, balance, resolveSelectedCurrency(), new AccountService.CreateCb() {
+                @Override public void onOk(@NonNull FinancialAccount account) {
+                    if (!isAdded()) return;
+                    selectedAccountType = SettingsService.normalizeAccountType(account.getId());
+                    populateAccountTypeButtons(selectedAccountType);
+                    dialog.dismiss();
+                }
+                @Override public void onError(@Nullable String message) {
+                    if (!isAdded()) return;
+                    save.setEnabled(true);
+                    UiFormUtils.showMessage(requireView(), TextUtils.isEmpty(message) ? "No se pudo crear la tarjeta" : message);
+                }
+            });
+        });
+        dialog.setContentView(root);
+        dialog.show();
     }
 
     private void setSelectedDestinationAccountType(@Nullable String accountType) {

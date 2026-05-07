@@ -78,6 +78,7 @@
     <string name="home_card_account">Tarjeta</string>
     <string name="home_budget_used">Presupuesto usado</string>
     <string name="home_budget_used_value">%1$d%%</string>
+    <string name="home_cards_selected_count">%1$d seleccionadas</string>
     <string name="home_budget_no_budget">Sin presupuesto</string>
     <string name="home_budget_missing_hint">Configura un presupuesto mensual para medir tu avance.</string>
     <string name="home_empty_title">Aún no tienes datos</string>

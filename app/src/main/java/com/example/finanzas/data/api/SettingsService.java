@@ -165,11 +165,130 @@ public class SettingsService {
                 String id = normalizeAccountType(item.optString("id", ""));
                 String name = item.optString("name", "").trim();
                 if (id.isEmpty() || "CASH".equals(id) || "CARD".equals(id) || name.isEmpty()) continue;
-                out.add(new FinancialAccount(id, name, item.optLong("createdAt", 0L)));
+                out.add(new FinancialAccount(
+                        id,
+                        name,
+                        item.optLong("createdAt", 0L),
+                        cleanLast4(item.optString("last4", "")),
+                        item.optBoolean("includedInTotal", true),
+                        item.optBoolean("visibleInHome", false),
+                        true
+                ));
             }
         } catch (Exception ignored) {
         }
         return out;
+    }
+
+    public static List<FinancialAccount> listCardAccounts(Context ctx) {
+        ArrayList<FinancialAccount> out = new ArrayList<>();
+        out.add(defaultCardAccount(ctx));
+        out.addAll(listFinancialAccounts(ctx));
+        ensureSingleVisibleCard(ctx, out);
+        return out;
+    }
+
+    public static FinancialAccount defaultCardAccount(Context ctx) {
+        try {
+            JSONObject body = new JSONObject(getFinancialAccountsRaw(ctx));
+            JSONObject card = body.optJSONObject("defaultCard");
+            return new FinancialAccount(
+                    "CARD",
+                    card != null ? card.optString("name", "Tarjeta predeterminada") : "Tarjeta predeterminada",
+                    0L,
+                    cleanLast4(card != null ? card.optString("last4", "4242") : "4242"),
+                    card == null || card.optBoolean("includedInTotal", true),
+                    card == null || card.optBoolean("visibleInHome", true),
+                    false
+            );
+        } catch (Exception e) {
+            return new FinancialAccount("CARD", "Tarjeta predeterminada", 0L, "4242", true, true, false);
+        }
+    }
+
+    public static FinancialAccount getVisibleCardAccount(Context ctx) {
+        List<FinancialAccount> cards = listCardAccounts(ctx);
+        for (FinancialAccount account : cards) {
+            if (account.isVisibleInHome()) return account;
+        }
+        return cards.isEmpty() ? defaultCardAccount(ctx) : cards.get(0);
+    }
+
+    public static int countIncludedCardAccounts(Context ctx) {
+        int count = 0;
+        for (FinancialAccount account : listCardAccounts(ctx)) {
+            if (account.isIncludedInTotal()) count++;
+        }
+        return count;
+    }
+
+    public static boolean isCardIncludedInTotal(Context ctx, String accountId) {
+        String normalized = normalizeAccountType(accountId);
+        for (FinancialAccount account : listCardAccounts(ctx)) {
+            if (normalizeAccountType(account.getId()).equals(normalized)) return account.isIncludedInTotal();
+        }
+        return true;
+    }
+
+    public static void setCardIncludedInTotal(Context ctx, String accountId, boolean included) {
+        updateCardMetadata(ctx, accountId, item -> item.put("includedInTotal", included));
+    }
+
+    public static void setVisibleCardAccount(Context ctx, String accountId) {
+        String visibleId = normalizeAccountType(accountId);
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONObject body = new JSONObject(getFinancialAccountsRaw(ctx));
+            JSONObject defaultCard = body.optJSONObject("defaultCard");
+            if (defaultCard == null) defaultCard = new JSONObject();
+            defaultCard.put("name", defaultCard.optString("name", "Tarjeta predeterminada"));
+            defaultCard.put("last4", cleanLast4(defaultCard.optString("last4", "4242")));
+            defaultCard.put("includedInTotal", "CARD".equals(visibleId) || defaultCard.optBoolean("includedInTotal", true));
+            defaultCard.put("visibleInHome", "CARD".equals(visibleId));
+            body.put("defaultCard", defaultCard);
+
+            JSONArray accounts = body.optJSONArray("accounts");
+            if (accounts != null) {
+                for (int i = 0; i < accounts.length(); i++) {
+                    JSONObject item = accounts.optJSONObject(i);
+                    if (item == null) continue;
+                    boolean visible = normalizeAccountType(item.optString("id", "")).equals(visibleId);
+                    item.put("visibleInHome", visible);
+                    if (visible) item.put("includedInTotal", true);
+                }
+            }
+            sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
+            LocalRepository.invalidateDataVersion();
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static void deleteFinancialAccount(Context ctx, String accountId) {
+        String normalized = normalizeAccountType(accountId);
+        if ("CARD".equals(normalized) || "CASH".equals(normalized)) return;
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONObject body = new JSONObject(getFinancialAccountsRaw(ctx));
+            JSONArray current = body.optJSONArray("accounts");
+            JSONArray kept = new JSONArray();
+            boolean removedVisible = false;
+            if (current != null) {
+                for (int i = 0; i < current.length(); i++) {
+                    JSONObject item = current.optJSONObject(i);
+                    if (item == null) continue;
+                    if (normalizeAccountType(item.optString("id", "")).equals(normalized)) {
+                        removedVisible = item.optBoolean("visibleInHome", false);
+                    } else {
+                        kept.put(item);
+                    }
+                }
+            }
+            body.put("accounts", kept);
+            sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
+            if (removedVisible) setVisibleCardAccount(ctx, "CARD");
+            LocalRepository.invalidateDataVersion();
+        } catch (Exception ignored) {
+        }
     }
 
     public static FinancialAccount addFinancialAccount(Context ctx, String rawName) {
@@ -187,6 +306,9 @@ public class SettingsService {
             JSONObject item = new JSONObject();
             item.put("id", id);
             item.put("name", name);
+            item.put("last4", generateLast4(now));
+            item.put("includedInTotal", true);
+            item.put("visibleInHome", false);
             item.put("createdAt", now);
             accounts.put(item);
             body.put("accounts", accounts);
@@ -210,7 +332,7 @@ public class SettingsService {
     public static String getFinancialAccountName(Context ctx, String accountType) {
         String normalized = normalizeAccountType(accountType);
         if ("CASH".equals(normalized)) return "Efectivo";
-        if ("CARD".equals(normalized)) return "Tarjeta";
+        if ("CARD".equals(normalized)) return defaultCardAccount(ctx).getName();
         for (FinancialAccount account : listFinancialAccounts(ctx)) {
             if (normalized.equals(account.getId())) {
                 return account.getName();
@@ -306,6 +428,68 @@ public class SettingsService {
 
     private static String financialAccountsKey(long userId) {
         return KEY_FINANCIAL_ACCOUNTS_PREFIX + userId;
+    }
+
+    private interface JsonUpdater {
+        void update(JSONObject object) throws Exception;
+    }
+
+    private static void updateCardMetadata(Context ctx, String accountId, JsonUpdater updater) {
+        String normalized = normalizeAccountType(accountId);
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONObject body = new JSONObject(getFinancialAccountsRaw(ctx));
+            if ("CARD".equals(normalized)) {
+                JSONObject card = body.optJSONObject("defaultCard");
+                if (card == null) card = new JSONObject();
+                card.put("name", card.optString("name", "Tarjeta predeterminada"));
+                card.put("last4", cleanLast4(card.optString("last4", "4242")));
+                card.put("includedInTotal", card.optBoolean("includedInTotal", true));
+                card.put("visibleInHome", card.optBoolean("visibleInHome", true));
+                updater.update(card);
+                body.put("defaultCard", card);
+            } else {
+                JSONArray accounts = body.optJSONArray("accounts");
+                if (accounts == null) accounts = new JSONArray();
+                for (int i = 0; i < accounts.length(); i++) {
+                    JSONObject item = accounts.optJSONObject(i);
+                    if (item != null && normalizeAccountType(item.optString("id", "")).equals(normalized)) {
+                        updater.update(item);
+                        break;
+                    }
+                }
+                body.put("accounts", accounts);
+            }
+            sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
+            LocalRepository.invalidateDataVersion();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void ensureSingleVisibleCard(Context ctx, List<FinancialAccount> cards) {
+        if (cards == null || cards.isEmpty()) return;
+        int visible = 0;
+        FinancialAccount firstVisible = null;
+        for (FinancialAccount account : cards) {
+            if (account.isVisibleInHome()) {
+                visible++;
+                if (firstVisible == null) firstVisible = account;
+            }
+        }
+        if (visible == 1) return;
+        setVisibleCardAccount(ctx, firstVisible != null ? firstVisible.getId() : cards.get(0).getId());
+    }
+
+    private static String cleanLast4(String raw) {
+        String digits = raw == null ? "" : raw.replaceAll("[^0-9]", "");
+        if (digits.length() >= 4) return digits.substring(digits.length() - 4);
+        if (digits.isEmpty()) return "4242";
+        return String.format(Locale.US, "%4s", digits).replace(' ', '0');
+    }
+
+    private static String generateLast4(long seed) {
+        int value = (int) Math.abs(seed % 9000L) + 1000;
+        return String.valueOf(value);
     }
 
     private static double getInitialBalanceRaw(Context ctx, String key) {

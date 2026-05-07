@@ -1236,14 +1236,18 @@ class LocalRepository private constructor(
         val initialCash = allTrans.sumOf { if (it.isInitialBalance && it.isCash) it.monto else 0.0 }
         val initialCard = allTrans.sumOf { if (it.isInitialBalance && !it.isCash) it.monto else 0.0 }
         val cashMovement = allTrans.sumOf { accountDelta(it, "CASH") }
-        val cardMovement = allTrans.sumOf { accountDelta(it, "CARD") }
         val nonCashMovement = allTrans.sumOf {
             val source = normalizeAccountType(it.accountType)
             if (it.isTransfer) {
                 val destination = normalizeAccountType(it.transferDestinationAccountType)
-                (if (source != "CASH") -it.monto else 0.0) + (if (destination != "CASH") it.monto else 0.0)
+                (if (source != "CASH" && SettingsService.isCardIncludedInTotal(appContext, source)) -it.monto else 0.0) +
+                    (if (destination != "CASH" && SettingsService.isCardIncludedInTotal(appContext, destination)) it.monto else 0.0)
             } else if (!it.isCash) {
-                if (it.isEsIngreso) it.monto else -it.monto
+                if (SettingsService.isCardIncludedInTotal(appContext, source)) {
+                    if (it.isEsIngreso) it.monto else -it.monto
+                } else {
+                    0.0
+                }
             } else {
                 0.0
             }
@@ -1251,7 +1255,7 @@ class LocalRepository private constructor(
         summary.initialCashBalance = initialCash
         summary.initialCardBalance = initialCard
         summary.efectivo = cashMovement
-        summary.tarjetaCuenta = cardMovement
+        summary.tarjetaCuenta = nonCashMovement
         summary.saldoActualTotal = summary.efectivo + nonCashMovement
         summary.accountBalances.addAll(buildAccountBalances(allTrans))
         summary.latestTransactions.addAll(
@@ -1347,15 +1351,19 @@ class LocalRepository private constructor(
             }
         }
         val cashMovement = allTrans.sumOf { signedAccountDelta(it, "CASH", base, rate) }
-        val cardMovement = allTrans.sumOf { signedAccountDelta(it, "CARD", base, rate) }
         val nonCashMovement = allTrans.sumOf {
             val source = normalizeAccountType(it.accountType)
             val destination = transferDestination(it.nota)
             val amount = convertToBase(it.monto, it.moneda, base, rate)
             if (destination != null) {
-                (if (source != "CASH") -amount else 0.0) + (if (destination != "CASH") amount else 0.0)
+                (if (source != "CASH" && SettingsService.isCardIncludedInTotal(appContext, source)) -amount else 0.0) +
+                    (if (destination != "CASH" && SettingsService.isCardIncludedInTotal(appContext, destination)) amount else 0.0)
             } else if (source != "CASH") {
-                if (it.esIngreso == 1) amount else -amount
+                if (SettingsService.isCardIncludedInTotal(appContext, source)) {
+                    if (it.esIngreso == 1) amount else -amount
+                } else {
+                    0.0
+                }
             } else {
                 0.0
             }
@@ -1363,7 +1371,7 @@ class LocalRepository private constructor(
         summary.initialCashBalance = initialCash
         summary.initialCardBalance = initialCard
         summary.efectivo = cashMovement
-        summary.tarjetaCuenta = cardMovement
+        summary.tarjetaCuenta = nonCashMovement
         summary.saldoActualTotal = summary.efectivo + nonCashMovement
         summary.accountBalances.addAll(buildAccountBalances(allTransModels))
         summary.latestTransactions.addAll(allTransModels.filter { !it.isInitialBalance }.take(5))
