@@ -140,7 +140,7 @@ public class MainActivity extends AppCompatActivity {
             toolbar.setVisibility((isWelcomeScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
             setContentTopMargin((isWelcomeScreen || hasLocalHeader) ? 0 : contentTopMargin);
             boolean bottomVisible = isBottomDestination(destId);
-            setContentBottomMargin(bottomVisible ? dp(96) : contentBottomMargin);
+            setContentBottomMargin(bottomVisible ? dp(86) : contentBottomMargin);
             if (bottomNavContainer != null) {
                 bottomNavContainer.setVisibility(bottomVisible ? View.VISIBLE : View.GONE);
             }

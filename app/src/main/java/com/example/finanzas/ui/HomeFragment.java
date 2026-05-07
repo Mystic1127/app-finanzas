@@ -76,7 +76,7 @@ public class HomeFragment extends Fragment {
     private TextView tvBudgetPercent;
     private TextView tvBudgetTop;
     private LinearProgressIndicator progressBudget;
-    private TextView btnSeeTransactions;
+    private View btnSeeTransactions;
     private LinearLayout listLatest;
     private TextView tvLatestEmpty;
     private HomeViewModel viewModel;

@@ -72,21 +72,21 @@
                     android:layout_marginTop="8dp"
                     android:text="@string/home_total_balance_title"
                     android:textColor="@color/md_theme_onSurface"
-                    android:textSize="25sp" />
+                    android:textSize="19sp" />
 
                 <TextView
                     android:id="@+id/tvHomeBalanceTotal"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:autoSizeMaxTextSize="54sp"
-                    android:autoSizeMinTextSize="28sp"
+                    android:autoSizeMaxTextSize="40sp"
+                    android:autoSizeMinTextSize="24sp"
                     android:autoSizeStepGranularity="1sp"
                     android:autoSizeTextType="uniform"
                     android:includeFontPadding="false"
                     android:maxLines="1"
                     android:textColor="@color/md_theme_onSurface"
-                    android:textSize="54sp"
+                    android:textSize="40sp"
                     android:textStyle="bold"
                     tools:text="S/ 1,000.00" />
 
@@ -198,13 +198,16 @@
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:padding="14dp">
+                        android:paddingStart="16dp"
+                        android:paddingTop="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="16dp">
 
                         <TextView
                             android:id="@+id/tvHomeBudgetPercent"
                             android:layout_width="82dp"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/md_theme_primary"
+                            android:textColor="@color/income"
                             android:textSize="30sp"
                             android:textStyle="bold"
                             tools:text="45%" />
@@ -226,7 +229,7 @@
                                 android:id="@+id/tvHomeBudgetTop"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:textColor="@color/md_theme_primary"
+                                android:textColor="@color/income"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 tools:text="Gasto más en Vivienda" />
@@ -236,7 +239,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="10dp"
                                 android:layout_marginTop="14dp"
-                                app:indicatorColor="@color/md_theme_primary"
+                                app:indicatorColor="@color/income"
                                 app:trackColor="@color/md_theme_outlineVariant"
                                 app:trackCornerRadius="5dp" />
                         </LinearLayout>
@@ -259,16 +262,17 @@
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
-                    <TextView
+                    <ImageButton
                         android:id="@+id/btnHomeSeeTransactions"
-                        android:layout_width="68dp"
+                        android:layout_width="44dp"
                         android:layout_height="36dp"
                         android:background="@drawable/bg_pill_outline"
+                        android:contentDescription="@string/home_ver_lista"
                         android:gravity="center"
-                        android:text="@string/home_ver_lista"
-                        android:textColor="@color/md_theme_primary"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
+                        android:padding="8dp"
+                        android:scaleType="center"
+                        android:src="@drawable/ic_eye"
+                        android:tint="@color/md_theme_primary" />
                 </LinearLayout>
 
                 <LinearLayout
