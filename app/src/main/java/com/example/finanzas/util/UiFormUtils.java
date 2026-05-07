@@ -7,6 +7,7 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -14,6 +15,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.example.finanzas.R;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -164,11 +166,31 @@ public final class UiFormUtils {
     }
 
     public static void showMessage(@NonNull View anchor, int resId) {
-        Snackbar.make(anchor, resId, Snackbar.LENGTH_SHORT).show();
+        showAnchoredSnackbar(Snackbar.make(anchor, resId, Snackbar.LENGTH_SHORT), anchor);
     }
 
     public static void showMessage(@NonNull View anchor, @NonNull CharSequence message) {
-        Snackbar.make(anchor, message, Snackbar.LENGTH_LONG).show();
+        showAnchoredSnackbar(Snackbar.make(anchor, message, Snackbar.LENGTH_LONG), anchor);
+    }
+
+    private static void showAnchoredSnackbar(@NonNull Snackbar snackbar, @NonNull View source) {
+        View bottomNav = source.getRootView().findViewById(R.id.bottom_nav_container);
+        if (bottomNav != null && bottomNav.getVisibility() == View.VISIBLE) {
+            snackbar.setAnchorView(bottomNav);
+        } else {
+            View view = snackbar.getView();
+            ViewGroup.LayoutParams rawParams = view.getLayoutParams();
+            if (rawParams instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) rawParams;
+                params.bottomMargin += dp(source, 16);
+                view.setLayoutParams(params);
+            }
+        }
+        snackbar.show();
+    }
+
+    private static int dp(@NonNull View view, int value) {
+        return Math.round(value * view.getResources().getDisplayMetrics().density);
     }
 
     public static void setActionLoading(@Nullable TextView action, boolean loading) {

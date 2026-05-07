@@ -23,7 +23,6 @@ import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.Calendar;
@@ -173,7 +172,7 @@ public class PresupuestoFragment extends Fragment {
         });
         viewModel.getMessage().observe(getViewLifecycleOwner(), msgRes -> {
             if (msgRes != null) {
-                Snackbar.make(requireView(), msgRes, Snackbar.LENGTH_SHORT).show();
+                UiFormUtils.showMessage(requireView(), msgRes);
                 viewModel.consumeMessage();
             }
         });

@@ -11,7 +11,7 @@ class FinancialRecommendationEngine {
     ): List<String> {
         if (summary.ingresos <= 0.0 && summary.gastos <= 0.0) {
             if (summary.saldoActualTotal > 0.0 || summary.hasInitialBalance()) {
-                return listOf("Registra movimientos habituales para mejorar el analisis")
+                return listOf("Registra movimientos habituales para mejorar el análisis")
             }
             return listOf("Registra ingresos y gastos para recibir recomendaciones inteligentes")
         }
@@ -55,9 +55,9 @@ class FinancialRecommendationEngine {
     private fun addSavingRecommendation(summary: HomeSummary, out: MutableList<String>) {
         when {
             summary.ahorroSugerido > 0.0 && summary.isProyeccionPreliminar ->
-                out.add("Puedes separar un ahorro pequeno, pero confirma con mas movimientos")
+                out.add("Puedes separar un ahorro pequeño, pero confirma con más movimientos")
             summary.ahorroSugerido <= 0.0 && summary.saldoActualTotal > 0.0 ->
-                out.add("Conserva tu saldo disponible antes de separar mas ahorro")
+                out.add("Conserva tu saldo disponible antes de separar más ahorro")
             summary.ahorroSugerido > 0.0 && summary.scoreFinanciero >= 70 ->
                 out.add("Puedes aumentar tu ahorro si mantienes este ritmo")
             summary.ahorroSugerido <= 0.0 && summary.ingresos > 0.0 ->
@@ -97,7 +97,7 @@ class FinancialRecommendationEngine {
 
     private fun addScoreRecommendation(summary: HomeSummary, out: MutableList<String>) {
         if (summary.isProyeccionPreliminar) {
-            out.add("Tu analisis es preliminar; registra mas movimientos para mejorar recomendaciones")
+            out.add("Tu análisis es preliminar; registra más movimientos para mejorar recomendaciones")
             return
         }
         if (summary.scoreFinanciero < 40) {

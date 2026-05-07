@@ -62,9 +62,9 @@ object FinancialAnalysisRules {
         val remainingDays = (daysInMonth - elapsedDays).coerceAtLeast(0)
         val confidence = confidence(expenseCount, movementDays)
         val confidenceMessage = when (confidence) {
-            ProjectionConfidence.LOW -> "Proyeccion preliminar: aun hay pocos datos para estimar con precision."
-            ProjectionConfidence.MEDIUM -> "Proyeccion con confianza media; puede cambiar con nuevos movimientos."
-            ProjectionConfidence.HIGH -> "Proyeccion con confianza alta segun los movimientos registrados."
+            ProjectionConfidence.LOW -> "Proyección preliminar: aún hay pocos datos para estimar con precisión."
+            ProjectionConfidence.MEDIUM -> "Proyección con confianza media; puede cambiar con nuevos movimientos."
+            ProjectionConfidence.HIGH -> "Proyección con confianza alta según los movimientos registrados."
         }
 
         val currentExpenses = expenses.sumOf { it.monto }
@@ -196,10 +196,10 @@ object FinancialAnalysisRules {
         val notes = mutableListOf<String>()
         val hasAnyData = summary.gastos > 0.0 || summary.ingresos > 0.0 || summary.saldoActualTotal > 0.0
         if (confidence == ProjectionConfidence.LOW && hasAnyData) {
-            notes.add("El analisis aun es preliminar porque hay pocos movimientos.")
+            notes.add("El análisis aún es preliminar porque hay pocos movimientos.")
         }
         if (money.hasInitialBalance && money.recurringIncome <= 0.0 && summary.saldoActualTotal > 0.0) {
-            notes.add("Ya tienes saldo inicial registrado. Registra ingresos y gastos habituales para mejorar el analisis.")
+            notes.add("Ya tienes saldo inicial registrado. Registra ingresos y gastos habituales para mejorar el análisis.")
         }
         if (money.hasInitialBalance && money.operatingBalance < 0.0 && money.visibleBalance >= 0.0 && summary.gastos > 0.0) {
             notes.add("El balance operativo excluye el saldo inicial; sirve solo para proyectar ingresos habituales.")
@@ -215,22 +215,22 @@ object FinancialAnalysisRules {
         money: AnalysisMoney
     ): String {
         if (money.recurringIncome <= 0.0 && summary.gastos <= 0.0 && summary.saldoActualTotal > 0.0) {
-            return "Tu saldo actual esta estable. Aun no hay suficientes movimientos para evaluar tu ritmo mensual."
+            return "Tu saldo actual está estable. Aún no hay suficientes movimientos para evaluar tu ritmo mensual."
         }
         if (money.recurringIncome <= 0.0 && summary.gastos <= 0.0) {
-            return "Aun no tienes datos suficientes este mes."
+            return "Aún no tienes datos suficientes este mes."
         }
         if (confidence == ProjectionConfidence.LOW) {
             return when {
                 summary.saldoActualTotal > 0.0 && summary.gastos > summary.saldoActualTotal ->
                     "Tu saldo actual sigue positivo, pero el margen esta ajustado."
                 summary.saldoActualTotal > 0.0 ->
-                    "Tu saldo actual esta positivo. El analisis aun es preliminar."
+                    "Tu saldo actual está positivo. El análisis aún es preliminar."
                 money.recurringIncome > summary.gastos ->
-                    "Vas bien: tus gastos estan por debajo de tus ingresos, aunque aun hay pocos datos."
+                    "Vas bien: tus gastos están por debajo de tus ingresos, aunque aún hay pocos datos."
                 money.recurringIncome <= 0.0 && summary.saldoActualTotal <= 0.0 ->
                     "No hay ingresos registrados y tu saldo esta ajustado."
-                else -> "Aun hay pocos datos para una proyeccion precisa."
+                else -> "Aún hay pocos datos para una proyección precisa."
             }
         }
 
@@ -246,11 +246,11 @@ object FinancialAnalysisRules {
 
         return when {
             summary.saldoActualTotal > 0.0 && money.operatingBalance < 0.0 && money.visibleBalance >= 0.0 ->
-                "Tu saldo actual sigue positivo; la proyeccion separa el saldo inicial de tus ingresos habituales."
+                "Tu saldo actual sigue positivo; la proyección separa el saldo inicial de tus ingresos habituales."
             summary.saldoActualTotal > 0.0 && money.visibleBalance < 0.0 ->
                 "Tus gastos del mes superan los ingresos visibles, aunque tu saldo actual sigue positivo."
             money.recurringIncome > summary.gastos ->
-                "Vas bien: tus gastos estan por debajo de tus ingresos."
+                "Vas bien: tus gastos están por debajo de tus ingresos."
             else -> "Revisa tus gastos principales para mantener tu saldo bajo control."
         }
     }
@@ -287,16 +287,16 @@ object FinancialAnalysisRules {
         money: AnalysisMoney
     ): String = when {
         suggestedSaving > 0.0 && confidence == ProjectionConfidence.LOW ->
-            "Podrias separar un ahorro pequeno, pero el analisis aun es preliminar."
+            "Podrías separar un ahorro pequeño, pero el análisis aún es preliminar."
         suggestedSaving > 0.0 ->
-            "Podrias ahorrar este mes sin comprometer tu saldo disponible."
+            "Podrías ahorrar este mes sin comprometer tu saldo disponible."
         summary.saldoActualTotal > 0.0 && confidence == ProjectionConfidence.LOW && money.hasInitialBalance ->
-            "Tu saldo sigue positivo; espera mas movimientos antes de separar ahorro."
+            "Tu saldo sigue positivo; espera más movimientos antes de separar ahorro."
         summary.saldoActualTotal > 0.0 && money.operatingBalance < 0.0 ->
-            "Tu saldo sigue positivo, pero espera mas movimientos antes de apartar ahorro."
+            "Tu saldo sigue positivo, pero espera más movimientos antes de apartar ahorro."
         summary.saldoActualTotal > 0.0 && money.recurringIncome <= 0.0 ->
             "Tienes saldo disponible; registra ingresos habituales antes de comprometerlo."
-        else -> "No se recomienda ahorrar mas por ahora porque tu margen disponible es bajo."
+        else -> "No se recomienda ahorrar más por ahora porque tu margen disponible es bajo."
     }
 
     private fun savingStatus(
@@ -383,7 +383,7 @@ object FinancialAnalysisRules {
         if (money.recurringIncome <= 0.0 && summary.gastos > 0.0 && summary.saldoActualTotal > 0.0) {
             parts.add("ingresos habituales pendientes")
         }
-        if (confidence == ProjectionConfidence.LOW) parts.add("proyeccion preliminar")
+        if (confidence == ProjectionConfidence.LOW) parts.add("proyección preliminar")
         if (summary.presupuestoMonto > 0.0) {
             parts.add(if (summary.presupuestoPorcentaje <= 85.0) "presupuesto bajo control" else "presupuesto cerca del limite")
         }
