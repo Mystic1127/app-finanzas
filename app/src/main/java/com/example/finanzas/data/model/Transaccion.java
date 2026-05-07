@@ -153,7 +153,7 @@ public class Transaccion {
         if (!isTransfer()) return cleanNote;
         int close = cleanNote.indexOf(']');
         if (close < 0 || close + 1 >= cleanNote.length()) return "";
-        return cleanNote.substring(close + 1).trim();
+        return stripRecurringMarker(cleanNote.substring(close + 1).trim());
     }
 
     private static String stripRecurringMarker(String raw) {

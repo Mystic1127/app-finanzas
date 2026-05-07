@@ -3,6 +3,7 @@ package com.example.finanzas.ui;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.MenuItem;
@@ -131,15 +132,20 @@ public class MainActivity extends AppCompatActivity {
                     || destId == R.id.nav_register
                     || destId == R.id.nav_welcome
                     || destId == R.id.nav_pin_lock);
-            boolean isWelcomeScreen = destId == R.id.nav_welcome;
+            boolean isImmersiveAuthScreen = (destId == R.id.nav_login
+                    || destId == R.id.nav_register
+                    || destId == R.id.nav_welcome);
+            if (isImmersiveAuthScreen) {
+                applyAuthSystemBars();
+            }
             boolean hasLocalHeader = destId == R.id.nav_home
                     || destId == R.id.nav_analysis
                     || destId == R.id.nav_budget
                     || destId == R.id.nav_settings
                     || destId == R.id.nav_categories
                     || destId == R.id.nav_planning;
-            toolbar.setVisibility((isWelcomeScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
-            setContentTopMargin((isWelcomeScreen || hasLocalHeader) ? 0 : contentTopMargin);
+            toolbar.setVisibility((isImmersiveAuthScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
+            setContentTopMargin((isImmersiveAuthScreen || hasLocalHeader) ? 0 : contentTopMargin);
             boolean bottomVisible = isBottomDestination(destId);
             setContentBottomMargin(bottomVisible ? dp(86) : contentBottomMargin);
             if (bottomNavContainer != null) {
@@ -421,6 +427,25 @@ public class MainActivity extends AppCompatActivity {
         WindowInsetsControllerCompat controller =
                 new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
         controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(!night);
+    }
+
+    private void applyAuthSystemBars() {
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+        int authBarColor = night ? Color.rgb(2, 8, 18) : Color.rgb(253, 254, 254);
+        getWindow().setStatusBarColor(authBarColor);
+        getWindow().setNavigationBarColor(authBarColor);
+        getWindow().getDecorView().setBackgroundColor(authBarColor);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(!night);
         controller.setAppearanceLightNavigationBars(!night);
     }
 

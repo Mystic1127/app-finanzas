@@ -40,7 +40,8 @@ class MonthlyReportPdfExporter(private val context: Context) {
             .replace(Regex("[^a-z0-9]+"), "-")
             .trim('-')
             .ifBlank { "mensual" }
-        val file = File(dir, "reporte-financiero-$safeMonth.pdf")
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(Date())
+        val file = File(dir, "reporte-financiero-$safeMonth-$stamp.pdf")
         val document = PdfDocument()
 
         try {

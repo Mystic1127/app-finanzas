@@ -67,7 +67,7 @@ class DashboardRepository(context: Context) {
                 val year = cal.get(Calendar.YEAR)
                 val month = cal.get(Calendar.MONTH) + 1
                 val tx = local.listTransaccionesEnMonedaBase(year, month)
-                val ingresos = tx.filter { it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
+                val ingresos = tx.filter { it.isEsIngreso && !it.isTransfer && !it.isInitialBalance }.sumOf { it.monto }
                 val gastos = tx.filter { !it.isEsIngreso && !it.isTransfer }.sumOf { it.monto }
                 MonthlyTrendPoint().apply {
                     this.anio = year

@@ -35,6 +35,8 @@ object RecurringTransactionStore {
 
     const val FREQUENCY_WEEKDAYS = "WEEKDAYS"
     const val FREQUENCY_EVERYDAY = "EVERYDAY"
+    const val FREQUENCY_WEEKLY = "WEEKLY"
+    const val FREQUENCY_MONTHLY = "MONTHLY"
     const val FREQUENCY_CUSTOM = "CUSTOM"
     const val ACTION_RECURRING_TRANSACTION = "com.example.finanzas.action.RECURRING_TRANSACTION"
 
@@ -202,9 +204,21 @@ object RecurringTransactionStore {
                 day != Calendar.SATURDAY && day != Calendar.SUNDAY
             }
             FREQUENCY_EVERYDAY -> true
+            FREQUENCY_WEEKLY -> {
+                val first = Calendar.getInstance().apply { timeInMillis = item.firstDate }
+                calendar.get(Calendar.DAY_OF_WEEK) == first.get(Calendar.DAY_OF_WEEK)
+            }
+            FREQUENCY_MONTHLY -> {
+                val first = Calendar.getInstance().apply { timeInMillis = item.firstDate }
+                calendar.get(Calendar.DAY_OF_MONTH) == monthlyTriggerDay(first, calendar)
+            }
             FREQUENCY_CUSTOM -> (item.daysMask and bitForCalendarDay(calendar.get(Calendar.DAY_OF_WEEK))) != 0
             else -> false
         }
+    }
+
+    private fun monthlyTriggerDay(first: Calendar, targetMonth: Calendar): Int {
+        return first.get(Calendar.DAY_OF_MONTH).coerceAtMost(targetMonth.getActualMaximum(Calendar.DAY_OF_MONTH))
     }
 
     private fun scheduleAllActive(context: Context) {
@@ -329,6 +343,8 @@ object RecurringTransactionStore {
         return when (frequency?.trim()?.uppercase(Locale.ROOT)) {
             FREQUENCY_WEEKDAYS -> FREQUENCY_WEEKDAYS
             "DAILY", FREQUENCY_EVERYDAY -> FREQUENCY_EVERYDAY
+            "SEMANAL", FREQUENCY_WEEKLY -> FREQUENCY_WEEKLY
+            "MENSUAL", FREQUENCY_MONTHLY -> FREQUENCY_MONTHLY
             FREQUENCY_CUSTOM -> FREQUENCY_CUSTOM
             else -> null
         }
@@ -341,6 +357,31 @@ object RecurringTransactionStore {
             FREQUENCY_EVERYDAY -> (0..6).fold(0) { acc, offset -> acc or (1 shl offset) }
             else -> daysMask and 0x7F
         }
+    }
+
+    internal fun matchesFrequencyOnDate(frequency: String, firstDate: Long, daysMask: Int, targetDate: Long): Boolean {
+        val normalizedFrequency = normalizeFrequency(frequency) ?: return false
+        val item = RecurringTransactionEntity(
+            id = 1,
+            userId = 1,
+            sourceTransactionId = 1,
+            frequency = normalizedFrequency,
+            daysMask = normalizeDaysMask(normalizedFrequency, daysMask),
+            isActive = 1,
+            isTransfer = 0,
+            categoryId = 1,
+            isIncome = 0,
+            amount = 1.0,
+            currency = "PEN",
+            accountType = "CARD",
+            destinationAccountType = null,
+            note = "",
+            labelId = null,
+            firstDate = firstDate,
+            lastGeneratedDay = null
+        )
+        val target = Calendar.getInstance().apply { timeInMillis = targetDate }
+        return matchesDay(item, target)
     }
 
     @JvmStatic

@@ -6,6 +6,7 @@ import com.example.finanzas.data.model.Transaccion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.text.Normalizer
 import java.util.Calendar
 import java.util.Date
 
@@ -54,9 +55,9 @@ class FinancialAnalysisRulesTest {
 
         assertEquals(ProjectionConfidence.LOW, result.confidence)
         assertTrue(result.projectedEndBalance > 1100.0)
-        assertTrue(result.primaryInsight.contains("saldo actual esta positivo", ignoreCase = true))
+        assertTrue(result.primaryInsight.plain().contains("saldo actual esta positivo", ignoreCase = true))
         assertTrue(result.score >= 60)
-        assertTrue(result.savingMessage.contains("espera mas movimientos", ignoreCase = true))
+        assertTrue(result.savingMessage.plain().contains("espera mas movimientos", ignoreCase = true))
     }
 
     @Test
@@ -81,7 +82,7 @@ class FinancialAnalysisRulesTest {
         assertEquals(0.0, result.recurringIncome, 0.001)
         assertEquals(45.0, result.visibleBalance, 0.001)
         assertEquals(-15.0, result.operatingBalance, 0.001)
-        assertTrue(result.primaryInsight.contains("saldo actual esta positivo", ignoreCase = true))
+        assertTrue(result.primaryInsight.plain().contains("saldo actual esta positivo", ignoreCase = true))
         assertTrue(result.alerts.none { it.contains("No hay ingresos registrados", ignoreCase = true) })
         assertTrue(result.infoNotes.any { it.contains("saldo inicial registrado", ignoreCase = true) })
         assertEquals(0.0, result.suggestedSaving, 0.001)
@@ -113,7 +114,7 @@ class FinancialAnalysisRulesTest {
         assertEquals(0.0, result.recurringIncome, 0.001)
         assertEquals(150.0, result.visibleBalance, 0.001)
         assertEquals(-10.0, result.operatingBalance, 0.001)
-        assertTrue(result.primaryInsight.contains("saldo actual esta positivo", ignoreCase = true))
+        assertTrue(result.primaryInsight.plain().contains("saldo actual esta positivo", ignoreCase = true))
         assertTrue(result.primaryInsight.contains("preliminar", ignoreCase = true))
         assertTrue(result.primaryInsight.contains("balance del mes", ignoreCase = true).not())
         assertTrue(result.primaryInsight.length <= 120)
@@ -145,7 +146,7 @@ class FinancialAnalysisRulesTest {
         val result = FinancialAnalysisRules.analyze(summary, tx, emptyList(), false, today(day = 1))
 
         assertEquals(ProjectionConfidence.LOW, result.confidence)
-        assertTrue(result.primaryInsight.contains("saldo actual esta estable", ignoreCase = true))
+        assertTrue(result.primaryInsight.plain().contains("saldo actual esta estable", ignoreCase = true))
         assertTrue(result.alerts.isEmpty())
         assertTrue(result.infoNotes.any { it.contains("preliminar", ignoreCase = true) })
     }
@@ -207,6 +208,11 @@ class FinancialAnalysisRulesTest {
             categoriaNombre = name
             gastado = amount
         }
+    }
+
+    private fun String.plain(): String {
+        return Normalizer.normalize(this, Normalizer.Form.NFD)
+            .replace("\\p{Mn}+".toRegex(), "")
     }
 
     private fun today(day: Int): Calendar {

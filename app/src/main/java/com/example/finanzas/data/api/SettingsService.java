@@ -29,6 +29,7 @@ public class SettingsService {
     private static final String KEY_INITIAL_BALANCES_PREFIX = "initial_balances_user_";
     private static final String KEY_FINANCIAL_ACCOUNTS_PREFIX = "financial_accounts_user_";
     private static final String KEY_THEME_MODE = "theme_mode";
+    private static final String KEY_THEME_MODE_PREFIX = "theme_mode_user_";
     public static final String THEME_SYSTEM = "system";
     public static final String THEME_LIGHT = "light";
     public static final String THEME_DARK = "dark";
@@ -533,15 +534,22 @@ public class SettingsService {
 
     public static String getThemeMode(Context ctx) {
         SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String mode = sp.getString(KEY_THEME_MODE, THEME_SYSTEM);
+        long userId = safeCurrentUserId(ctx);
+        String mode = userId > 0
+                ? sp.getString(themeModeKey(userId), sp.getString(KEY_THEME_MODE, THEME_SYSTEM))
+                : sp.getString(KEY_THEME_MODE, THEME_SYSTEM);
         return normalizeThemeMode(mode);
     }
 
     public static void saveThemeMode(Context ctx, String mode) {
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putString(KEY_THEME_MODE, normalizeThemeMode(mode))
-                .apply();
+        SharedPreferences.Editor editor = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+        long userId = safeCurrentUserId(ctx);
+        if (userId > 0) {
+            editor.putString(themeModeKey(userId), normalizeThemeMode(mode));
+        } else {
+            editor.putString(KEY_THEME_MODE, normalizeThemeMode(mode));
+        }
+        editor.apply();
     }
 
     public static void applyThemeMode(Context ctx) {
@@ -560,11 +568,26 @@ public class SettingsService {
 
         String legacyValue = sp.getString(legacyKey, null);
         if (legacyValue != null) {
-            sp.edit().putString(userKey, legacyValue).apply();
+            sp.edit()
+                    .putString(userKey, legacyValue)
+                    .remove(legacyKey)
+                    .apply();
             return legacyValue;
         }
 
         return "{}";
+    }
+
+    private static long safeCurrentUserId(Context ctx) {
+        try {
+            return Prefs.getCurrentUserId(ctx.getApplicationContext());
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
+    private static String themeModeKey(long userId) {
+        return KEY_THEME_MODE_PREFIX + userId;
     }
 
     private static String normalizeCurrency(String code) {

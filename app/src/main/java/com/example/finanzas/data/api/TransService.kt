@@ -4,6 +4,8 @@ import android.content.Context
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.Transaccion
 import com.example.finanzas.data.model.TransaccionFiltro
+import com.example.finanzas.util.RecurringTransactionStore
+import com.example.finanzas.util.TransactionLabelStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -103,8 +105,28 @@ object TransService {
             .createTransfer(originAccountType, destinationAccountType, monto, nota, fecha, moneda)
     }
 
+    suspend fun updateTransfer(
+        ctx: Context,
+        id: Long,
+        originAccountType: String,
+        destinationAccountType: String,
+        monto: Double,
+        nota: String,
+        fecha: Long,
+        moneda: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        LocalRepository.getInstance(ctx)
+            .updateTransfer(id.toInt(), originAccountType, destinationAccountType, monto, nota, fecha, moneda)
+    }
+
     suspend fun delete(ctx: Context, id: Long): Boolean = withContext(Dispatchers.IO) {
-        LocalRepository.getInstance(ctx).deleteTransaccion(id.toInt())
+        val transactionId = id.toInt()
+        val deleted = LocalRepository.getInstance(ctx).deleteTransaccion(transactionId)
+        if (deleted) {
+            TransactionLabelStore.setLabel(ctx, transactionId, null)
+            RecurringTransactionStore.deleteTemplateForSource(ctx, transactionId)
+        }
+        deleted
     }
 
     suspend fun exportToTxt(ctx: Context): String = withContext(Dispatchers.IO) {
@@ -167,6 +189,15 @@ object TransService {
             runCatching { createTransfer(ctx, originAccountType, destinationAccountType, monto, nota, fecha, moneda) }
                 .onSuccess(cb::onOk)
                 .onFailure { cb.onError(transactionErrorMessage(it, "No se pudo crear la transferencia")) }
+        }
+    }
+
+    @JvmStatic
+    fun updateTransfer(ctx: Context, id: Long, originAccountType: String, destinationAccountType: String, monto: Double, nota: String, fecha: Long, moneda: String, cb: VoidCb) {
+        scope.launch {
+            runCatching { updateTransfer(ctx, id, originAccountType, destinationAccountType, monto, nota, fecha, moneda) }
+                .onSuccess { if (it) cb.onOk() else cb.onError("No se pudo actualizar la transferencia") }
+                .onFailure { cb.onError(transactionErrorMessage(it, "No se pudo actualizar la transferencia")) }
         }
     }
 

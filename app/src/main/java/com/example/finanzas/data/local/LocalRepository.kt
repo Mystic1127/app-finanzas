@@ -593,6 +593,38 @@ class LocalRepository private constructor(
         ).toInt().also { bumpDataVersion() }
     }
 
+    suspend fun updateTransfer(id: Int, originAccountType: String, destinationAccountType: String, monto: Double, nota: String?, fecha: Long, moneda: String = baseCurrency()): Boolean = withContext(Dispatchers.IO) {
+        require(id > 0) { "Transaccion invalida" }
+        require(monto > 0.0) { "Monto invalido" }
+        require(fecha > 0L) { "Fecha invalida" }
+        val userId = currentUserId()
+        val origin = normalizeAccountType(originAccountType)
+        val destination = normalizeAccountType(destinationAccountType)
+        require(origin != destination) { "El origen y destino deben ser distintos" }
+        val normalizedCurrency = CurrencyConverter.normalize(moneda)
+        val base = baseCurrency()
+        val rate = manualRate()
+        val amountInBase = convertToBase(monto, normalizedCurrency, base, rate)
+        val available = accountBalanceInBase(userId, origin, base, rate, id)
+        if (amountInBase - available > BALANCE_EPSILON) {
+            throw InsufficientBalanceException(origin)
+        }
+        val categoryId = ensureTransferCategory(userId)
+        val updated = db.transaccionDao().updateById(
+            id = id,
+            userId = userId,
+            categoriaId = categoryId,
+            esIngreso = 0,
+            monto = monto,
+            moneda = normalizedCurrency,
+            fecha = fecha,
+            accountType = origin,
+            nota = Transaccion.buildTransferNote(destination, nota)
+        )
+        if (updated > 0) bumpDataVersion()
+        updated > 0
+    }
+
     suspend fun deleteTransaccion(id: Int): Boolean = withContext(Dispatchers.IO) {
         (db.transaccionDao().deleteById(id, currentUserId()) > 0).also { if (it) bumpDataVersion() }
     }

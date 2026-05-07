@@ -4,33 +4,31 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,7 +38,14 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
+import com.example.finanzas.ui.compose.HighlightedSentence
+import com.example.finanzas.ui.compose.SpendlyAuthBackground
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
+import com.example.finanzas.ui.compose.SpendlyLogoMark
+import com.example.finanzas.ui.compose.SpendlyOutlinedButton
+import com.example.finanzas.ui.compose.SpendlyPrimaryButton
+import com.example.finanzas.ui.compose.SpendlySimpleDot
+import com.example.finanzas.ui.compose.spendlyAuthColors
 import com.example.finanzas.util.Prefs
 
 class WelcomeFragment : Fragment() {
@@ -48,8 +53,8 @@ class WelcomeFragment : Fragment() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View = ComposeView(requireContext()).apply {
-        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+    ): View = androidx.compose.ui.platform.ComposeView(requireContext()).apply {
+        setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             SpendlyComposeTheme {
                 WelcomeScreen(
@@ -75,118 +80,172 @@ private fun WelcomeScreen(
     onLoginClick: () -> Unit,
     onRegisterClick: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
+    val colors = spendlyAuthColors()
+    SpendlyAuthBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(horizontal = 28.dp, vertical = 24.dp),
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.weight(0.6f))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            SpendlyWelcomeVisual()
+            SpendlyLogoMark(markSize = 74.dp)
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = stringResource(R.string.app_name_spendly),
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 46.sp,
+                color = colors.text,
+                fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.sp,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = stringResource(R.string.welcome_tagline),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center
+            HighlightedSentence(
+                before = "Controla ",
+                highlighted = "tu dinero",
+                after = " con claridad.",
+                modifier = Modifier.padding(top = 2.dp),
+                fontSize = 18
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = stringResource(R.string.welcome_description),
+                color = colors.muted,
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .fillMaxWidth(0.92f)
+            )
 
-            Column(
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Button(
-                    onClick = onLoginClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(text = stringResource(R.string.welcome_login))
-                }
-
-                OutlinedButton(
-                    onClick = onRegisterClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(text = stringResource(R.string.welcome_register))
-                }
+                WelcomeInfoCard(
+                    iconRes = R.drawable.ic_account_balance_wallet,
+                    title = stringResource(R.string.welcome_card_budget_title),
+                    description = "Planifica",
+                    tint = colors.accent,
+                    modifier = Modifier.weight(1f)
+                )
+                WelcomeInfoCard(
+                    iconRes = R.drawable.ic_credit_card,
+                    title = stringResource(R.string.welcome_card_cards_title),
+                    description = "Gestiona",
+                    tint = colors.cyan,
+                    modifier = Modifier.weight(1f)
+                )
+                WelcomeInfoCard(
+                    iconRes = R.drawable.ic_trending_up,
+                    title = stringResource(R.string.welcome_card_reports_title),
+                    description = "Visualiza",
+                    tint = colors.accent,
+                    modifier = Modifier.weight(1f)
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SpendlyPrimaryButton(
+                text = stringResource(R.string.welcome_login),
+                onClick = onLoginClick
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SpendlyOutlinedButton(
+                text = stringResource(R.string.welcome_register),
+                onClick = onRegisterClick
+            )
+
+            SpendlySimpleDot(modifier = Modifier.padding(top = 22.dp), size = 8.dp)
 
             Text(
                 text = stringResource(R.string.welcome_beta_version),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Center
+                color = colors.muted,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
             )
         }
     }
 }
 
 @Composable
-private fun SpendlyWelcomeVisual() {
-    val colors = MaterialTheme.colorScheme
-    Box(
-        modifier = Modifier
-            .size(144.dp)
-            .clip(RoundedCornerShape(36.dp))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(colors.primaryContainer, colors.surfaceVariant),
-                    start = Offset.Zero,
-                    end = Offset.Infinite
-                )
-            ),
-        contentAlignment = Alignment.Center
+private fun WelcomeInfoCard(
+    iconRes: Int,
+    title: String,
+    description: String,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    val colors = spendlyAuthColors()
+    Column(
+        modifier = modifier
+            .height(154.dp)
+            .clip(RoundedCornerShape(17.dp))
+            .background(colors.surface)
+            .border(1.dp, colors.border.copy(alpha = 0.80f), RoundedCornerShape(17.dp))
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                color = Color.White.copy(alpha = 0.18f),
-                radius = size.minDimension * 0.34f,
-                center = Offset(size.width * 0.28f, size.height * 0.28f)
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(tint.copy(alpha = 0.24f), tint.copy(alpha = 0.07f), Color.Transparent)
+                    )
+                )
+                .border(1.dp, tint.copy(alpha = 0.10f), CircleShape)
+                .padding(1.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .padding(0.dp)
             )
-            drawCircle(
-                color = colors.primary.copy(alpha = 0.36f),
-                radius = size.minDimension * 0.28f,
-                center = Offset(size.width * 0.72f, size.height * 0.68f)
-            )
-            drawRoundRect(
-                color = colors.surface.copy(alpha = 0.78f),
-                topLeft = Offset(size.width * 0.24f, size.height * 0.34f),
-                size = androidx.compose.ui.geometry.Size(size.width * 0.52f, size.height * 0.32f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(18.dp.toPx())
-            )
-            drawCircle(
-                color = colors.primary,
-                radius = size.minDimension * 0.055f,
-                center = Offset(size.width * 0.62f, size.height * 0.50f)
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(32.dp)
             )
         }
+
+        Text(
+            text = title,
+            color = colors.text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            lineHeight = 15.sp,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+
+        Text(
+            text = description,
+            color = colors.muted,
+            fontSize = 13.sp,
+            lineHeight = 16.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+
+        SpendlySimpleDot(modifier = Modifier.padding(top = 12.dp), color = tint, size = 7.dp)
     }
 }

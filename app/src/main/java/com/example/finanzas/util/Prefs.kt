@@ -143,19 +143,13 @@ object Prefs {
 
     @JvmStatic
     fun clearAuth(ctx: Context) {
-        val userId = getCurrentUserId(ctx)
-        val editor = prefs(ctx).edit()
+        prefs(ctx).edit()
             .remove(KEY_TOKEN)
             .remove(KEY_TOKEN_ISSUED_AT)
             .remove(KEY_USER_ID)
             .remove(KEY_USER_EMAIL)
             .remove(KEY_USER_NAME)
-
-        if (userId > 0) {
-            editor.remove(pinHashKey(userId))
-                .putBoolean(pinEnabledKey(userId), false)
-        }
-        editor.apply()
+            .apply()
     }
 
     @JvmStatic

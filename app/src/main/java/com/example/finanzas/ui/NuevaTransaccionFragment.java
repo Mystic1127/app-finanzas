@@ -76,6 +76,7 @@ public class NuevaTransaccionFragment extends Fragment {
     public static final String EXTRA_FECHA      = "EXTRA_FECHA";
     public static final String EXTRA_MONEDA     = "EXTRA_MONEDA";
     public static final String EXTRA_ACCOUNT_TYPE = "EXTRA_ACCOUNT_TYPE";
+    public static final String EXTRA_DESTINATION_ACCOUNT_TYPE = "EXTRA_DESTINATION_ACCOUNT_TYPE";
     public static final String EXTRA_IS_TRANSFER = "EXTRA_IS_TRANSFER";
 
     private EditText etMonto;
@@ -335,6 +336,8 @@ public class NuevaTransaccionFragment extends Fragment {
                 new String[]{
                         getString(R.string.transaction_recurrence_weekdays),
                         getString(R.string.transaction_recurrence_everyday),
+                        getString(R.string.transaction_recurrence_weekly),
+                        getString(R.string.transaction_recurrence_monthly),
                         getString(R.string.transaction_recurrence_custom)
                 }
         );
@@ -1014,7 +1017,6 @@ public class NuevaTransaccionFragment extends Fragment {
             if (m >= 0) etMonto.setText(String.valueOf(m));
 
             String nota = args.getString(EXTRA_NOTA);
-            if (nota != null) etNota.setText(nota);
 
             boolean isTransfer = args.getBoolean(EXTRA_IS_TRANSFER, false);
             boolean esIngreso = args.getBoolean(EXTRA_ES_INGRESO, false);
@@ -1024,6 +1026,7 @@ public class NuevaTransaccionFragment extends Fragment {
             } else {
                 setSelectedTransactionType(esIngreso);
             }
+            if (nota != null) etNota.setText(isTransfer ? stripTransferAutoPrefix(nota) : nota);
 
             long fechaMs = args.getLong(EXTRA_FECHA, -1L);
             if (fechaMs > 0) {
@@ -1038,6 +1041,10 @@ public class NuevaTransaccionFragment extends Fragment {
                 updateCurrencyPrefix();
             }
             setSelectedAccountType(args.getString(EXTRA_ACCOUNT_TYPE, "CARD"));
+            if (isTransfer) {
+                String destination = args.getString(EXTRA_DESTINATION_ACCOUNT_TYPE, selectedDestinationAccountType);
+                populateDestinationAccountButtons(destination);
+            }
             selectedLabelId = TransactionLabelStore.assignedLabelId(requireContext(), editingId);
             updateSelectedLabelText();
             loadExistingRecurrence(editingId);
@@ -1237,6 +1244,10 @@ public class NuevaTransaccionFragment extends Fragment {
             actRecurrence.setText(getString(R.string.transaction_recurrence_weekdays), false);
         } else if (RecurringTransactionStore.FREQUENCY_EVERYDAY.equals(template.getFrequency())) {
             actRecurrence.setText(getString(R.string.transaction_recurrence_everyday), false);
+        } else if (RecurringTransactionStore.FREQUENCY_WEEKLY.equals(template.getFrequency())) {
+            actRecurrence.setText(getString(R.string.transaction_recurrence_weekly), false);
+        } else if (RecurringTransactionStore.FREQUENCY_MONTHLY.equals(template.getFrequency())) {
+            actRecurrence.setText(getString(R.string.transaction_recurrence_monthly), false);
         } else if (RecurringTransactionStore.FREQUENCY_CUSTOM.equals(template.getFrequency())) {
             actRecurrence.setText(getString(R.string.transaction_recurrence_custom), false);
             renderCustomRecurrenceDayChips(template.getDaysMask());
@@ -1583,8 +1594,21 @@ public class NuevaTransaccionFragment extends Fragment {
 
         if (transferLocal) {
             if (editingIdLocal != null && editingIdLocal > 0) {
-                UiFormUtils.showMessage(requireView(), R.string.error_guardar_transaccion);
-                UiFormUtils.setActionLoading(btnGuardar, false);
+                final String transferNoteLocal = buildTransferDisplayNote(accountTypeLocal, destinationTypeLocal, notaLocal);
+                TransService.updateTransfer(requireContext(), editingIdLocal, accountTypeLocal, destinationTypeLocal, montoLocal, transferNoteLocal, fechaMs, monedaLocal,
+                        new TransService.VoidCb() {
+                            @Override public void onOk() {
+                                persistOptionalLabel(editingIdLocal);
+                                persistOptionalRecurrence(editingIdLocal, true, accountTypeLocal, destinationTypeLocal, montoLocal, transferNoteLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
+                                UiFormUtils.setActionLoading(btnGuardar, false);
+                                UiFormUtils.showMessage(requireView(), R.string.trans_updated);
+                                NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
+                            }
+                            @Override public void onError(@Nullable String message) {
+                                UiFormUtils.setActionLoading(btnGuardar, false);
+                                UiFormUtils.showMessage(requireView(), !TextUtils.isEmpty(message) ? message : getString(R.string.error_guardar_transaccion));
+                            }
+                        });
                 return;
             }
             final String transferNoteLocal = buildTransferDisplayNote(accountTypeLocal, destinationTypeLocal, notaLocal);
@@ -1649,7 +1673,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private String buildTransferDisplayNote(@NonNull String originAccountType, @NonNull String destinationAccountType, @Nullable String userNote) {
         String clean = userNote == null ? "" : userNote.trim();
         String normalized = normalize(clean);
-        if (normalized.startsWith("deposito") || normalized.startsWith("retiro") || normalized.startsWith("transaccion")) {
+        if (hasTransferDisplayPrefix(normalized)) {
             return clean;
         }
         String origin = SettingsService.normalizeAccountType(originAccountType);
@@ -1663,6 +1687,29 @@ public class NuevaTransaccionFragment extends Fragment {
             prefix = "Transacci\u00f3n";
         }
         return TextUtils.isEmpty(clean) ? prefix : prefix + " - " + clean;
+    }
+
+    @NonNull
+    private String stripTransferAutoPrefix(@Nullable String displayNote) {
+        String clean = displayNote == null ? "" : displayNote.trim();
+        String normalized = normalize(clean);
+        if (normalized.equals("deposito") || normalized.equals("retiro") || normalized.equals("transaccion")) {
+            return "";
+        }
+        if (normalized.startsWith("deposito - ") || normalized.startsWith("retiro - ") || normalized.startsWith("transaccion - ")) {
+            int separator = clean.indexOf(" - ");
+            return separator >= 0 && separator + 3 < clean.length() ? clean.substring(separator + 3).trim() : "";
+        }
+        return clean;
+    }
+
+    private boolean hasTransferDisplayPrefix(@NonNull String normalized) {
+        return normalized.equals("deposito")
+                || normalized.equals("retiro")
+                || normalized.equals("transaccion")
+                || normalized.startsWith("deposito - ")
+                || normalized.startsWith("retiro - ")
+                || normalized.startsWith("transaccion - ");
     }
 
     private Date parseFechaSegura(String raw) {
@@ -1763,6 +1810,8 @@ public class NuevaTransaccionFragment extends Fragment {
         String value = actRecurrence.getText().toString();
         if (value.equals(getString(R.string.transaction_recurrence_weekdays))) return RecurringTransactionStore.FREQUENCY_WEEKDAYS;
         if (value.equals(getString(R.string.transaction_recurrence_everyday))) return RecurringTransactionStore.FREQUENCY_EVERYDAY;
+        if (value.equals(getString(R.string.transaction_recurrence_weekly))) return RecurringTransactionStore.FREQUENCY_WEEKLY;
+        if (value.equals(getString(R.string.transaction_recurrence_monthly))) return RecurringTransactionStore.FREQUENCY_MONTHLY;
         if (value.equals(getString(R.string.transaction_recurrence_custom))) return RecurringTransactionStore.FREQUENCY_CUSTOM;
         return null;
     }
