@@ -42,6 +42,7 @@ import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.CurrencyConverter;
+import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.TransactionLabelStore;
@@ -291,7 +292,7 @@ public class ListaTransaccionesFragment extends Fragment {
         }
 
         viewModel.clearTransientEvents();
-        Navigation.findNavController(requireView()).navigate(R.id.nav_new, args);
+        Navigation.findNavController(requireView()).navigate(R.id.nav_new, args, NavigationAnimations.detailSlide());
     }
 
     private void confirmDeleteTransaction(@NonNull Transaccion t) {

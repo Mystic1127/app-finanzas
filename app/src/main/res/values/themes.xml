@@ -74,6 +74,17 @@
 
     <style name="Theme.Finanzas" parent="Base.Theme.Finanzas" />
 
+    <style name="Theme.Finanzas.Starting" parent="Theme.SplashScreen.IconBackground">
+        <item name="windowSplashScreenBackground">@color/md_theme_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_spendly_wallet</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/md_theme_primary</item>
+        <item name="postSplashScreenTheme">@style/Theme.Finanzas</item>
+        <item name="android:statusBarColor">@color/md_theme_background</item>
+        <item name="android:navigationBarColor">@color/md_theme_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
     <style name="Widget.Finanzas.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="android:background">@color/md_theme_background</item>
         <item name="titleTextColor">@color/md_theme_onSurface</item>

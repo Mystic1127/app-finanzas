@@ -1381,7 +1381,7 @@ class LocalRepository private constructor(
         summary.latestTransactions.addAll(
             allRawTrans
                 .filter { !it.isInitialBalance }
-                .sortedByDescending { it.fecha?.time ?: 0L }
+                .sortedWith(compareByDescending<Transaccion> { it.fecha?.time ?: 0L }.thenByDescending { it.id })
                 .take(5)
         )
 
@@ -1455,7 +1455,7 @@ class LocalRepository private constructor(
                     it.nota
                 )
             }
-            .sortedByDescending { it.fecha?.time ?: 0L }
+            .sortedWith(compareByDescending<Transaccion> { it.fecha?.time ?: 0L }.thenByDescending { it.id })
         val initialCash = allTrans.sumOf {
             if (isInitialBalanceEntity(it, initialCategoryIds) && "CASH".equals(it.accountType, ignoreCase = true)) {
                 convertToBase(it.monto, it.moneda, base, rate)

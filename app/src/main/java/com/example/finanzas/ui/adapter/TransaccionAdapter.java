@@ -59,6 +59,7 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
             @NonNull List<Transaccion> transactions,
             @Nullable Map<Integer, TransactionLabelStore.Label> labels
     ) {
+        accountNameCache.clear();
         Map<Integer, TransactionLabelStore.Label> safeLabels = labels == null ? new HashMap<>() : labels;
         List<TransactionRow> rows = new ArrayList<>(transactions.size());
         for (Transaccion transaction : transactions) {
@@ -262,12 +263,16 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
             Transaccion newTx = newItem.transaction;
             return oldTx.getCategoriaId() == newTx.getCategoriaId()
                     && oldTx.isEsIngreso() == newTx.isEsIngreso()
+                    && oldTx.isTransfer() == newTx.isTransfer()
+                    && oldTx.isInitialBalance() == newTx.isInitialBalance()
                     && Double.compare(oldTx.getMonto(), newTx.getMonto()) == 0
                     && Objects.equals(oldTx.getCategoriaNombre(), newTx.getCategoriaNombre())
                     && Objects.equals(oldTx.getMoneda(), newTx.getMoneda())
                     && Objects.equals(timeMillis(oldTx.getFecha()), timeMillis(newTx.getFecha()))
                     && Objects.equals(oldTx.getAccountType(), newTx.getAccountType())
+                    && Objects.equals(oldTx.getTransferDestinationAccountType(), newTx.getTransferDestinationAccountType())
                     && Objects.equals(oldTx.getNota(), newTx.getNota())
+                    && Objects.equals(oldTx.getDisplayNote(), newTx.getDisplayNote())
                     && sameLabel(oldItem.label, newItem.label);
         }
     };

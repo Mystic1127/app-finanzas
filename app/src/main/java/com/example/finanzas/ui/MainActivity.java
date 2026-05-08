@@ -18,6 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -40,6 +41,7 @@ import com.example.finanzas.ui.viewmodel.ReportsViewModel;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.RecurringTransactionStore;
+import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.PinSession;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
@@ -64,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SettingsService.applyThemeMode(this);
+        SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
         seedBenchmarkSessionIfBenchmarkBuild();
         setContentView(R.layout.activity_main);
@@ -308,18 +311,17 @@ public class MainActivity extends AppCompatActivity {
         Prefs.setUserSession(this, 1L, "macrobenchmark@spendly.test", "Macrobenchmark");
         Prefs.clearPin(this);
         Prefs.markTesterThanksSeen(this);
+        SettingsService.saveCurrency(this, "PEN", 0.0, new SettingsService.SaveCb() {
+            @Override public void onSuccess() {}
+            @Override public void onFail() {}
+        });
     }
 
     private void navigateFromBottom(int destinationId) {
         NavDestination current = navController.getCurrentDestination();
         if (current != null && current.getId() == destinationId) return;
 
-        NavOptions opts = new NavOptions.Builder()
-                .setLaunchSingleTop(true)
-                .setRestoreState(true)
-                .setPopUpTo(R.id.nav_home, false, true)
-                .build();
-        navController.navigate(destinationId, null, opts);
+        navController.navigate(destinationId, null, NavigationAnimations.mainSection(R.id.nav_home));
     }
 
     private boolean isBottomDestination(int destId) {
@@ -374,12 +376,7 @@ public class MainActivity extends AppCompatActivity {
         navView.postDelayed(() -> {
             if (pendingDrawerDestination != destId) return;
             pendingDrawerDestination = 0;
-            NavOptions opts = new NavOptions.Builder()
-                    .setLaunchSingleTop(true)
-                    .setRestoreState(true)
-                    .setPopUpTo(R.id.nav_home, false, true)
-                    .build();
-            navController.navigate(destId, null, opts);
+            navController.navigate(destId, null, NavigationAnimations.mainSection(R.id.nav_home));
         }, 160L);
     }
 

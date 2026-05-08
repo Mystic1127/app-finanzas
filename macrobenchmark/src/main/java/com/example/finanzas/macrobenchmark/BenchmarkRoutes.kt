@@ -22,7 +22,7 @@ internal fun MacrobenchmarkScope.prepareLoggedInState() {
     startActivityAndWait(launchIntent(seedSession = true))
     device.dismissPermissionDialogIfPresent()
     check(device.waitForHome(DEFAULT_TIMEOUT_MS)) {
-        "No se pudo llegar a Inicio. Revisa si el flujo de sesión cambió."
+        "No se pudo llegar a Inicio. Revisa si el flujo de sesion cambio."
     }
     pressHome()
 }
@@ -40,11 +40,11 @@ internal fun MacrobenchmarkScope.navigateMainSections() {
     device.pressBack()
     device.waitForHomeOrThrow()
     device.clickRes("bottomNavNew")
-    device.waitForTextOrThrow("Nueva transacción")
+    device.waitForResOrThrow("etMonto")
     device.clickRes("bottomNavAnalysis")
-    device.waitForTextOrThrow("Análisis")
+    device.waitForResOrThrow("swipeAnalysis")
     device.clickRes("bottomNavBudget")
-    device.waitForTextOrThrow("Presupuesto")
+    device.waitForResOrThrow("etPresupuesto")
     device.clickRes("bottomNavHome")
     device.waitForHomeOrThrow()
 }
@@ -97,7 +97,7 @@ internal fun UiDevice.waitForHome(timeoutMs: Long = DEFAULT_TIMEOUT_MS): Boolean
 }
 
 internal fun UiDevice.waitForHomeOrThrow() {
-    check(waitForHome()) { "No apareció la pantalla Inicio dentro del tiempo esperado." }
+    check(waitForHome()) { "No aparecio la pantalla Inicio dentro del tiempo esperado." }
 }
 
 internal fun UiDevice.clickRes(resourceId: String) {
@@ -118,15 +118,25 @@ internal fun UiDevice.waitForTextOrThrow(text: String): UiObject2 {
     return waitForObject(By.text(text), DEFAULT_TIMEOUT_MS)
 }
 
+internal fun UiDevice.waitForResOrThrow(resourceId: String): UiObject2 {
+    return waitForObject(By.res(TARGET_PACKAGE, resourceId), DEFAULT_TIMEOUT_MS)
+}
+
 private fun UiDevice.waitForObject(selector: BySelector, timeoutMs: Long): UiObject2 {
     wait(Until.hasObject(selector), timeoutMs)
-    return findObject(selector) ?: error("No se encontró el selector: $selector")
+    return findObject(selector) ?: error("No se encontro el selector: $selector")
 }
 
 private fun UiDevice.dismissPermissionDialogIfPresent() {
-    val allowSelector = By.res("com.android.permissioncontroller", "permission_allow_button")
-    wait(Until.hasObject(allowSelector), 3_000L)
-    val allow = findObject(allowSelector)
+    val allow = waitForFirstOptional(
+        3_000L,
+        By.res("com.android.permissioncontroller", "permission_allow_button"),
+        By.res("com.google.android.permissioncontroller", "permission_allow_button"),
+        By.text("Allow"),
+        By.text("Permitir"),
+        By.textContains("allow"),
+        By.textContains("permitir")
+    )
     if (allow != null) {
         allow.click()
         waitForIdle()
@@ -138,4 +148,15 @@ private fun UiDevice.dismissPermissionDialogIfPresent() {
         deny.click()
         waitForIdle()
     }
+}
+
+private fun UiDevice.waitForFirstOptional(timeoutMs: Long, vararg selectors: BySelector): UiObject2? {
+    val deadline = System.currentTimeMillis() + timeoutMs
+    while (System.currentTimeMillis() < deadline) {
+        selectors.forEach { selector ->
+            findObject(selector)?.let { return it }
+        }
+        Thread.sleep(100)
+    }
+    return null
 }

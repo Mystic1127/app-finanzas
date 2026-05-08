@@ -28,6 +28,7 @@ import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.ui.viewmodel.ReportsViewModel;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.CurrencyConverter;
+import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.PinSession;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -174,7 +175,7 @@ public class SettingsFragment extends Fragment {
     }
 
     private void navigate(int destination) {
-        NavHostFragment.findNavController(this).navigate(destination);
+        NavHostFragment.findNavController(this).navigate(destination, null, NavigationAnimations.detailSlide());
     }
 
     private void confirmLogout() {

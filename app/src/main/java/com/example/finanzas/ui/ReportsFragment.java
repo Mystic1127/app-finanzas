@@ -52,6 +52,7 @@ public class ReportsFragment extends Fragment {
     private long perfStartMs;
     private long loadStartMs;
     private boolean firstRenderLogged;
+    private FinancialReport lastRenderedReport;
 
     @Nullable
     @Override
@@ -83,6 +84,7 @@ public class ReportsFragment extends Fragment {
         btnToggleDetails = view.findViewById(R.id.btnReportToggleDetails);
         MaterialButton btnExport = view.findViewById(R.id.btnExportReportPdf);
 
+        lastRenderedReport = null;
         viewModel = new ViewModelProvider(requireActivity()).get(ReportsViewModel.class);
         viewModel.clearCacheIfUserChanged();
         swipe.setOnRefreshListener(() -> {
@@ -99,6 +101,12 @@ public class ReportsFragment extends Fragment {
         }
         observeViewModel();
         PerfLogger.logSince("ReportsFragment", "onViewCreated", perfStartMs);
+    }
+
+    @Override
+    public void onDestroyView() {
+        lastRenderedReport = null;
+        super.onDestroyView();
     }
 
     @Override
@@ -139,6 +147,8 @@ public class ReportsFragment extends Fragment {
     }
 
     private void render(@NonNull FinancialReport report) {
+        if (report == lastRenderedReport) return;
+        lastRenderedReport = report;
         if (!firstRenderLogged) {
             firstRenderLogged = true;
             PerfLogger.logSince("ReportsFragment", "firstRender", perfStartMs);

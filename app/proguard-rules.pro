@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Optional annotations/providers referenced by transitive libraries during release shrinking.
+-dontwarn javax.annotation.Nullable
+-dontwarn javax.annotation.concurrent.GuardedBy
+-dontwarn org.conscrypt.Conscrypt$ProviderBuilder
+-dontwarn org.conscrypt.Conscrypt

@@ -44,6 +44,8 @@ import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.FinancialAlertNotifier;
 import com.example.finanzas.util.LabelColorUtils;
+import com.example.finanzas.util.MicroAnimations;
+import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.TransactionLabelStore;
 import com.example.finanzas.util.UiFormUtils;
@@ -58,12 +60,14 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Objects;
 
 public class HomeFragment extends Fragment {
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
@@ -92,6 +96,10 @@ public class HomeFragment extends Fragment {
     private Double lastRenderedBalance = null;
     private ValueAnimator balanceAnimator;
     private Double balanceAnimationTarget = null;
+    private String lastCardMetricRenderKey;
+    private String lastLatestRenderKey;
+    private String lastNotificationRenderKey;
+    private Integer lastBudgetProgress = null;
 
     @Nullable
     @Override
@@ -123,6 +131,7 @@ public class HomeFragment extends Fragment {
         tvLatestEmpty = view.findViewById(R.id.tvHomeLatestEmpty);
         viewModel = new ViewModelProvider(requireActivity()).get(HomeViewModel.class);
         currencyCode = SettingsService.getCurrencyCode(requireContext());
+        resetViewRenderCache();
 
         setupNavigation(view);
         swipe.setOnRefreshListener(() -> loadSummary(true));
@@ -144,12 +153,21 @@ public class HomeFragment extends Fragment {
             balanceAnimator = null;
         }
         balanceAnimationTarget = null;
+        resetViewRenderCache();
         super.onDestroyView();
     }
 
+    private void resetViewRenderCache() {
+        lastCardMetricRenderKey = null;
+        lastLatestRenderKey = null;
+        lastBudgetProgress = null;
+    }
+
     private void setupNavigation(@NonNull View root) {
-        btnSettings.setOnClickListener(v -> Navigation.findNavController(v).navigate(R.id.nav_settings));
-        btnSeeTransactions.setOnClickListener(v -> Navigation.findNavController(root).navigate(R.id.nav_list));
+        btnSettings.setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.nav_settings, null, NavigationAnimations.detailSlide()));
+        btnSeeTransactions.setOnClickListener(v ->
+                Navigation.findNavController(root).navigate(R.id.nav_list, null, NavigationAnimations.detailSlide()));
     }
 
     private void observeViewModel() {
@@ -159,7 +177,9 @@ public class HomeFragment extends Fragment {
             swipe.setRefreshing(isLoading && lastSummary != null);
         });
         viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
-            if (code != null && !code.trim().isEmpty()) currencyCode = code;
+            String nextCode = code == null ? "" : code.trim();
+            if (nextCode.isEmpty() || nextCode.equals(currencyCode)) return;
+            currencyCode = nextCode;
             HomeSummary summary = viewModel.getSummary().getValue();
             if (summary != null && isAdded()) render(summary);
         });
@@ -186,6 +206,18 @@ public class HomeFragment extends Fragment {
         renderAccounts(summary.getAccountBalances());
         renderBudget(summary);
         renderLatest(summary.getLatestTransactions());
+        notifyImportantAlertIfNeeded(summary);
+    }
+
+    private void notifyImportantAlertIfNeeded(@NonNull HomeSummary summary) {
+        String key = summary.getAnio()
+                + "|" + summary.getMes()
+                + "|" + Math.round(summary.getSaldoActualTotal() * 100.0)
+                + "|" + Math.round(summary.getProyeccionFinMes() * 100.0)
+                + "|" + summary.getAlertaPrincipal()
+                + "|" + currencyCode;
+        if (Objects.equals(key, lastNotificationRenderKey)) return;
+        lastNotificationRenderKey = key;
         FinancialAlertNotifier.maybeNotifyImportantAlert(requireContext(), summary, currencyCode);
     }
 
@@ -219,20 +251,13 @@ public class HomeFragment extends Fragment {
     }
 
     private void renderAccounts(@Nullable List<AccountBalance> balances) {
-        listAccounts.removeAllViews();
+        if (listAccounts.getChildCount() > 0) listAccounts.removeAllViews();
         hasDynamicAccounts = false;
-        listAccounts.setVisibility(View.GONE);
+        if (listAccounts.getVisibility() != View.GONE) listAccounts.setVisibility(View.GONE);
     }
 
     private void renderCardMetric(@NonNull HomeSummary summary) {
         if (!(cardCard instanceof MaterialCardView)) return;
-        MaterialCardView card = (MaterialCardView) cardCard;
-        card.removeAllViews();
-        card.setCardBackgroundColor(color(R.color.md_theme_surface));
-        card.setStrokeColor(color(R.color.md_theme_outlineVariant));
-        card.setStrokeWidth(dp(1));
-        card.setRadius(dp(8));
-
         Map<String, Double> balances = accountBalanceMap(summary.getAccountBalances());
         List<FinancialAccount> cards = SettingsService.listCardAccounts(requireContext());
         List<FinancialAccount> included = new java.util.ArrayList<>();
@@ -242,6 +267,17 @@ public class HomeFragment extends Fragment {
         if (included.isEmpty() && !cards.isEmpty()) included.add(SettingsService.getVisibleCardAccount(requireContext()));
         boolean summaryMode = included.size() > 1;
         FinancialAccount visible = summaryMode ? null : (included.isEmpty() ? SettingsService.getVisibleCardAccount(requireContext()) : included.get(0));
+        double amountValue = summaryMode ? sumBalances(included, balances) : balanceFor(visible, balances);
+        String renderKey = cardMetricRenderKey(cards, included, visible, summaryMode, amountValue);
+        MaterialCardView card = (MaterialCardView) cardCard;
+        if (Objects.equals(renderKey, lastCardMetricRenderKey) && card.getChildCount() > 0) return;
+        lastCardMetricRenderKey = renderKey;
+
+        card.removeAllViews();
+        card.setCardBackgroundColor(color(R.color.md_theme_surface));
+        card.setStrokeColor(color(R.color.md_theme_outlineVariant));
+        card.setStrokeWidth(dp(1));
+        card.setRadius(dp(8));
 
         FrameLayout body = new FrameLayout(requireContext());
         body.setPadding(dp(16), dp(14), dp(9), dp(14));
@@ -288,7 +324,6 @@ public class HomeFragment extends Fragment {
         subtitle.setVisibility(TextUtils.isEmpty(subtitleText) ? View.GONE : View.VISIBLE);
         text.addView(subtitle);
 
-        double amountValue = summaryMode ? sumBalances(included, balances) : balanceFor(visible, balances);
         TextView amount = new TextView(requireContext());
         amount.setText(Format.money(amountValue, currencyCode));
         amount.setTextColor(color(R.color.chartBalance));
@@ -376,13 +411,22 @@ public class HomeFragment extends Fragment {
             return;
         }
 
+        if (!MicroAnimations.areAnimationsEnabled(requireContext())) {
+            if (balanceAnimator != null) balanceAnimator.cancel();
+            balanceAnimationTarget = null;
+            tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
+            tvBalanceTotal.setTextColor(color(R.color.md_theme_onSurface));
+            lastRenderedBalance = newBalance;
+            return;
+        }
+
         if (balanceAnimator != null) balanceAnimator.cancel();
         double from = lastRenderedBalance;
         int defaultColor = color(R.color.md_theme_onSurface);
         int pulseColor = newBalance > from ? color(R.color.income) : color(R.color.expense);
         balanceAnimationTarget = newBalance;
         balanceAnimator = ValueAnimator.ofFloat((float) from, (float) newBalance);
-        balanceAnimator.setDuration(650L);
+        balanceAnimator.setDuration(420L);
         balanceAnimator.addUpdateListener(animation -> {
             double value = ((Float) animation.getAnimatedValue()).doubleValue();
             tvBalanceTotal.setText(Format.money(value, currencyCode));
@@ -414,28 +458,136 @@ public class HomeFragment extends Fragment {
         boolean hasBudget = summary.getPresupuestoMonto() > 0;
         tvBudgetMissing.setVisibility(hasBudget ? View.GONE : View.VISIBLE);
         cardBudget.setVisibility(hasBudget ? View.VISIBLE : View.GONE);
-        if (!hasBudget) return;
+        if (!hasBudget) {
+            lastBudgetProgress = null;
+            return;
+        }
         int percent = (int) Math.max(0, Math.min(999, Math.round(summary.getPresupuestoPorcentaje())));
         tvBudgetPercent.setText(getString(R.string.home_budget_used_value, percent));
         String top = summary.getCategoriaMayorGasto() == null || summary.getCategoriaMayorGastoMonto() <= 0
                 ? getString(R.string.home_top_category_empty)
                 : getString(R.string.home_top_category_value, summary.getCategoriaMayorGasto(), Format.money(summary.getCategoriaMayorGastoMonto(), currencyCode));
         tvBudgetTop.setText(top);
-        progressBudget.setProgressCompat(Math.min(100, percent), true);
+        int progress = Math.min(100, percent);
+        boolean animateProgress = lastBudgetProgress != null
+                && lastBudgetProgress != progress
+                && MicroAnimations.areAnimationsEnabled(requireContext());
+        progressBudget.setProgressCompat(progress, animateProgress);
+        lastBudgetProgress = progress;
     }
 
     private void renderLatest(@Nullable List<Transaccion> transactions) {
-        listLatest.removeAllViews();
         boolean empty = transactions == null || transactions.isEmpty();
-        tvLatestEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
-        if (empty) return;
+        if (empty) {
+            if (!Objects.equals(lastLatestRenderKey, "empty")
+                    || listLatest.getChildCount() > 0
+                    || tvLatestEmpty.getVisibility() != View.VISIBLE) {
+                listLatest.removeAllViews();
+                lastLatestRenderKey = "empty";
+            }
+            tvLatestEmpty.setVisibility(View.VISIBLE);
+            return;
+        }
+        List<Transaccion> orderedTransactions = latestFirst(transactions);
         Map<Integer, TransactionLabelStore.Label> labels = TransactionLabelStore.assignedLabelDetails(requireContext());
+        String renderKey = latestRenderKey(orderedTransactions, labels);
+        if (Objects.equals(renderKey, lastLatestRenderKey)
+                && listLatest.getChildCount() > 0
+                && tvLatestEmpty.getVisibility() != View.VISIBLE) return;
+        lastLatestRenderKey = renderKey;
+
+        listLatest.removeAllViews();
+        tvLatestEmpty.setVisibility(View.GONE);
         int count = 0;
-        for (Transaccion tx : transactions) {
+        for (Transaccion tx : orderedTransactions) {
             if (tx == null || count >= 5) continue;
             listLatest.addView(transactionRow(tx, labels.get(tx.getId())));
             count++;
         }
+    }
+
+    @NonNull
+    private List<Transaccion> latestFirst(@NonNull List<Transaccion> transactions) {
+        List<Transaccion> ordered = new ArrayList<>(transactions);
+        ordered.sort((left, right) -> {
+            int byDate = Long.compare(transactionTime(right), transactionTime(left));
+            if (byDate != 0) return byDate;
+            int leftId = left == null ? 0 : left.getId();
+            int rightId = right == null ? 0 : right.getId();
+            return Integer.compare(rightId, leftId);
+        });
+        return ordered;
+    }
+
+    private long transactionTime(@Nullable Transaccion tx) {
+        Date date = tx == null ? null : tx.getFecha();
+        return date == null ? 0L : date.getTime();
+    }
+
+    private String cardMetricRenderKey(
+            @NonNull List<FinancialAccount> cards,
+            @NonNull List<FinancialAccount> included,
+            @Nullable FinancialAccount visible,
+            boolean summaryMode,
+            double amountValue
+    ) {
+        StringBuilder key = new StringBuilder(currencyCode)
+                .append('|')
+                .append(summaryMode)
+                .append('|')
+                .append(Math.round(amountValue * 100.0));
+        key.append("|cards=");
+        for (FinancialAccount account : cards) {
+            if (account == null) continue;
+            key.append(account.getId())
+                    .append(':')
+                    .append(account.getName())
+                    .append(':')
+                    .append(account.getLast4())
+                    .append(':')
+                    .append(account.isIncludedInTotal())
+                    .append(';');
+        }
+        key.append("|included=");
+        for (FinancialAccount account : included) {
+            if (account != null) key.append(account.getId()).append(';');
+        }
+        key.append("|visible=").append(visible == null ? "" : visible.getId());
+        return key.toString();
+    }
+
+    private String latestRenderKey(
+            @NonNull List<Transaccion> transactions,
+            @NonNull Map<Integer, TransactionLabelStore.Label> labels
+    ) {
+        StringBuilder key = new StringBuilder(currencyCode);
+        int count = 0;
+        for (Transaccion tx : transactions) {
+            if (tx == null || count >= 5) continue;
+            TransactionLabelStore.Label label = labels.get(tx.getId());
+            key.append('|')
+                    .append(tx.getId())
+                    .append(':')
+                    .append(tx.getCategoriaId())
+                    .append(':')
+                    .append(tx.getCategoriaNombre())
+                    .append(':')
+                    .append(tx.isEsIngreso())
+                    .append(':')
+                    .append(tx.getMonto())
+                    .append(':')
+                    .append(tx.getMoneda())
+                    .append(':')
+                    .append(tx.getFecha() == null ? 0L : tx.getFecha().getTime())
+                    .append(':')
+                    .append(tx.getAccountType())
+                    .append(':')
+                    .append(tx.getNota())
+                    .append(":label=")
+                    .append(label == null ? "" : label.id + "," + label.name + "," + label.colorHex);
+            count++;
+        }
+        return key.toString();
     }
 
     @NonNull

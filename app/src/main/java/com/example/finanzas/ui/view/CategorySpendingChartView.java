@@ -61,6 +61,7 @@ public class CategorySpendingChartView extends View {
     }
 
     public void setData(@NonNull List<Slice> newSlices, @NonNull String centerLabel, @NonNull String totalText) {
+        if (sameData(newSlices, centerLabel, totalText)) return;
         slices.clear();
         for (Slice slice : newSlices) {
             if (slice != null && slice.value > 0f) slices.add(slice);
@@ -68,6 +69,25 @@ public class CategorySpendingChartView extends View {
         this.centerLabel = centerLabel;
         this.totalText = totalText;
         invalidate();
+    }
+
+    private boolean sameData(@NonNull List<Slice> newSlices, @NonNull String newCenterLabel, @NonNull String newTotalText) {
+        if (!TextUtils.equals(centerLabel, newCenterLabel) || !TextUtils.equals(totalText, newTotalText)) {
+            return false;
+        }
+        int filteredIndex = 0;
+        for (Slice slice : newSlices) {
+            if (slice == null || slice.value <= 0f) continue;
+            if (filteredIndex >= slices.size()) return false;
+            Slice current = slices.get(filteredIndex);
+            if (!TextUtils.equals(current.label, slice.label)
+                    || Float.compare(current.value, slice.value) != 0
+                    || current.color != slice.color) {
+                return false;
+            }
+            filteredIndex++;
+        }
+        return filteredIndex == slices.size();
     }
 
     private void init() {

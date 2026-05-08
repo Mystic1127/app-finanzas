@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
 
@@ -64,12 +65,31 @@ public class TrendOverviewView extends View {
     }
 
     public void setData(@NonNull List<TrendPoint> newPoints, @NonNull String currencyCode) {
+        if (sameData(newPoints, currencyCode)) return;
         points.clear();
         for (TrendPoint point : newPoints) {
             if (point != null) points.add(point);
         }
         this.currencyCode = currencyCode;
         invalidate();
+    }
+
+    private boolean sameData(@NonNull List<TrendPoint> newPoints, @NonNull String newCurrencyCode) {
+        if (!TextUtils.equals(currencyCode, newCurrencyCode)) return false;
+        int filteredIndex = 0;
+        for (TrendPoint point : newPoints) {
+            if (point == null) continue;
+            if (filteredIndex >= points.size()) return false;
+            TrendPoint current = points.get(filteredIndex);
+            if (!TextUtils.equals(current.label, point.label)
+                    || Float.compare(current.income, point.income) != 0
+                    || Float.compare(current.expense, point.expense) != 0
+                    || Float.compare(current.balance, point.balance) != 0) {
+                return false;
+            }
+            filteredIndex++;
+        }
+        return filteredIndex == points.size();
     }
 
     private void init() {

@@ -26,8 +26,8 @@ class BudgetViewModel(application: Application) : AndroidViewModel(application) 
     private val _loading = MutableLiveData(false)
     val loading: LiveData<Boolean> = _loading
 
-    private val _budget = MutableLiveData<Double>()
-    val budget: LiveData<Double> = _budget
+    private val _budget = MutableLiveData<Double?>()
+    val budget: LiveData<Double?> = _budget
 
     private val _categoryBudgets = MutableLiveData<List<CategoryBudgetInput>>(emptyList())
     val categoryBudgets: LiveData<List<CategoryBudgetInput>> = _categoryBudgets

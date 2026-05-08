@@ -26,11 +26,11 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _loading = MutableLiveData(false)
     val loading: LiveData<Boolean> = _loading
 
-    private val _report = MutableLiveData<FinancialReport>()
-    val report: LiveData<FinancialReport> = _report
+    private val _report = MutableLiveData<FinancialReport?>()
+    val report: LiveData<FinancialReport?> = _report
 
-    private val _pdfPath = MutableLiveData<String>()
-    val pdfPath: LiveData<String> = _pdfPath
+    private val _pdfPath = MutableLiveData<String?>()
+    val pdfPath: LiveData<String?> = _pdfPath
 
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error

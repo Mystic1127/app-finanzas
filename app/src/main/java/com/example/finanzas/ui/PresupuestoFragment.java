@@ -33,6 +33,7 @@ import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
 import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 import com.example.finanzas.util.CategoryVisuals;
+import com.example.finanzas.util.MicroAnimations;
 import com.example.finanzas.util.PerfLogger;
 import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
@@ -158,6 +159,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         }
 
         tilPresupuesto.setError(null);
+        MicroAnimations.pulseAction(btnGuardarPresupuesto);
         viewModel.saveBudget(anio, mes, val, SettingsService.getCurrencyCode(requireContext()));
     }
 

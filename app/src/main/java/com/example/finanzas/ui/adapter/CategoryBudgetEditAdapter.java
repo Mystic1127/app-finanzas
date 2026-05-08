@@ -22,6 +22,7 @@ import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
+import com.example.finanzas.util.MicroAnimations;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -71,6 +72,10 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         String symbol = SettingsService.getCurrencySymbol(currency);
         Categoria categoria = new Categoria(item.getCategoriaId(), item.getCategoriaNombre(), false);
         int accent = CategoryVisuals.colorFor(holder.itemView.getContext(), categoria);
+        if (holder.boundCategoryId != item.getCategoriaId()) {
+            holder.boundCategoryId = item.getCategoriaId();
+            holder.lastProgress = -1;
+        }
 
         holder.tvNombre.setText(item.getCategoriaNombre());
         holder.tilMonto.setPrefixText(symbol + " ");
@@ -127,11 +132,17 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         holder.progressContainer.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         if (showProgress) {
             int progress = (int) Math.max(0, Math.min(100, Math.round(percentage)));
-            holder.progress.setProgressCompat(progress, false);
+            boolean animateProgress = holder.lastProgress >= 0
+                    && holder.lastProgress != progress
+                    && MicroAnimations.areAnimationsEnabled(holder.itemView.getContext());
+            holder.progress.setProgressCompat(progress, animateProgress);
+            holder.lastProgress = progress;
             holder.progress.setIndicatorColor(ContextCompat.getColor(holder.itemView.getContext(),
                     item.getDisponible() >= 0 ? R.color.income : R.color.expense));
             holder.progress.setTrackColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_outlineVariant));
             holder.tvPercent.setText(String.format(Locale.US, "%d%%", progress));
+        } else {
+            holder.lastProgress = -1;
         }
     }
 
@@ -190,6 +201,8 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         final TextView tvGastado;
         final TextView tvDisponible;
         TextWatcher watcher;
+        int boundCategoryId = RecyclerView.NO_POSITION;
+        int lastProgress = -1;
 
         VH(@NonNull View itemView) {
             super(itemView);

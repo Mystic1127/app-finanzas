@@ -26,8 +26,8 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
     private val _exportPath = MutableLiveData<String>()
     val exportPath: LiveData<String> = _exportPath
 
-    private val _deleted = MutableLiveData<Boolean>()
-    val deleted: LiveData<Boolean> = _deleted
+    private val _deleted = MutableLiveData<Boolean?>()
+    val deleted: LiveData<Boolean?> = _deleted
 
     private var loadedYear = 0
     private var loadedMonth = 0

@@ -47,6 +47,8 @@ import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.CategoryPrefs;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.LabelColorUtils;
+import com.example.finanzas.util.MicroAnimations;
+import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.RecurringTransactionStore;
 import com.example.finanzas.util.TransactionLabelStore;
 import com.example.finanzas.util.UiFormUtils;
@@ -106,6 +108,11 @@ public class NuevaTransaccionFragment extends Fragment {
     private TextView tvMontoCurrency, tvMontoError;
     private boolean moreOptionsExpanded = false;
     private boolean saveButtonExpandTouch = false;
+    private boolean microAnimationsReady = false;
+    private boolean suppressSelectionAnimation = false;
+    private int lastAnimatedTransactionTypeId = View.NO_ID;
+    private int lastAnimatedAccountTypeId = View.NO_ID;
+    private int lastAnimatedDestinationTypeId = View.NO_ID;
 
     private Integer editingId = null;
     private List<Categoria> categorias;
@@ -184,6 +191,8 @@ public class NuevaTransaccionFragment extends Fragment {
 
         precargarDesdeArgs();
         cargarCategoriasYRefrescar();
+        rememberSelectionAnimationState();
+        microAnimationsReady = true;
 
         if (etFecha != null && (etFecha.getText() == null || TextUtils.isEmpty(etFecha.getText().toString()))) {
             etFecha.setText(UiFormUtils.formatUiDate(new Date()));
@@ -211,6 +220,20 @@ public class NuevaTransaccionFragment extends Fragment {
         btnGuardar.setOnClickListener(this::onGuardar);
         if (btnSwitchCard != null) btnSwitchCard.setOnClickListener(v16 -> showSelectCardSheet());
         if (btnSwitchDestinationCard != null) btnSwitchDestinationCard.setOnClickListener(v16 -> showSelectDestinationCardSheet());
+    }
+
+    @Override
+    public void onDestroyView() {
+        microAnimationsReady = false;
+        MicroAnimations.cancelAndReset(
+                btnTipoGasto,
+                btnTipoTransferencia,
+                btnTipoIngreso,
+                btnGuardar,
+                btnSwitchCard,
+                btnSwitchDestinationCard
+        );
+        super.onDestroyView();
     }
 
     @Override
@@ -291,7 +314,10 @@ public class NuevaTransaccionFragment extends Fragment {
         if (toggleTipo == null) return;
         toggleTipo.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (!isChecked) return;
+            boolean animateSelection = shouldAnimateSelection(checkedId, lastAnimatedTransactionTypeId);
             updateTransactionTypeUi();
+            if (animateSelection) MicroAnimations.pulseSelection(group.findViewById(checkedId));
+            lastAnimatedTransactionTypeId = checkedId;
             if (!isTransferSelected()) {
                 aplicarFiltroYRefrescar(isIncomeSelected(), false, null);
             } else if (actCategoria != null) {
@@ -312,7 +338,8 @@ public class NuevaTransaccionFragment extends Fragment {
 
     private void setSelectedTransactionType(boolean income) {
         if (toggleTipo != null) {
-            toggleTipo.check(income ? R.id.btnTipoIngreso : R.id.btnTipoGasto);
+            runWithoutSelectionAnimation(() ->
+                    toggleTipo.check(income ? R.id.btnTipoIngreso : R.id.btnTipoGasto));
         }
         updateTransactionTypeUi();
     }
@@ -322,10 +349,10 @@ public class NuevaTransaccionFragment extends Fragment {
         styleToggleButton(btnTipoTransferencia, isTransferSelected());
         styleToggleButton(btnTipoIngreso, isIncomeSelected());
         boolean transfer = isTransferSelected();
-        if (tilCategoria != null) tilCategoria.setVisibility(transfer ? View.GONE : View.VISIBLE);
-        if (tvTransferHint != null) tvTransferHint.setVisibility(transfer ? View.VISIBLE : View.GONE);
-        if (scrollTransferDestination != null) scrollTransferDestination.setVisibility(transfer ? View.VISIBLE : View.GONE);
-        if (btnSwitchDestinationCard != null) btnSwitchDestinationCard.setVisibility(transfer ? View.VISIBLE : View.GONE);
+        setTransactionTypeVisibility(tilCategoria, !transfer);
+        setTransactionTypeVisibility(tvTransferHint, transfer);
+        setTransactionTypeVisibility(scrollTransferDestination, transfer);
+        setTransactionTypeVisibility(btnSwitchDestinationCard, transfer);
         updateDestinationAccountUi();
     }
 
@@ -340,9 +367,12 @@ public class NuevaTransaccionFragment extends Fragment {
         if (toggleAccountType == null) return;
         toggleAccountType.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (!isChecked) return;
+            boolean animateSelection = shouldAnimateSelection(checkedId, lastAnimatedAccountTypeId);
             String type = accountTypesByButtonId.get(checkedId);
             if (type != null) selectedAccountType = type;
             updateAccountTypeUi();
+            if (animateSelection) MicroAnimations.pulseSelection(group.findViewById(checkedId));
+            lastAnimatedAccountTypeId = checkedId;
             if (SettingsService.normalizeAccountType(selectedDestinationAccountType).equals(resolveSelectedAccountType())) {
                 selectedDestinationAccountType = nextAvailableDestinationCardId();
             }
@@ -355,9 +385,12 @@ public class NuevaTransaccionFragment extends Fragment {
         if (toggleDestinationAccount == null) return;
         toggleDestinationAccount.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (!isChecked) return;
+            boolean animateSelection = shouldAnimateSelection(checkedId, lastAnimatedDestinationTypeId);
             String type = destinationTypesByButtonId.get(checkedId);
             if (type != null) selectedDestinationAccountType = type;
             updateDestinationAccountUi();
+            if (animateSelection) MicroAnimations.pulseSelection(group.findViewById(checkedId));
+            lastAnimatedDestinationTypeId = checkedId;
         });
         populateDestinationAccountButtons("CASH");
     }
@@ -486,7 +519,7 @@ public class NuevaTransaccionFragment extends Fragment {
         if (toggleAccountType != null) {
             for (Map.Entry<Integer, String> entry : accountTypesByButtonId.entrySet()) {
                 if (entry.getValue().equals(normalized)) {
-                    toggleAccountType.check(entry.getKey());
+                    runWithoutSelectionAnimation(() -> toggleAccountType.check(entry.getKey()));
                     updateAccountTypeUi();
                     return;
                 }
@@ -496,7 +529,10 @@ public class NuevaTransaccionFragment extends Fragment {
                 first = id;
                 break;
             }
-            if (first != null) toggleAccountType.check(first);
+            if (first != null) {
+                int firstId = first;
+                runWithoutSelectionAnimation(() -> toggleAccountType.check(firstId));
+            }
         }
         updateAccountTypeUi();
     }
@@ -917,13 +953,13 @@ public class NuevaTransaccionFragment extends Fragment {
         if (toggleDestinationAccount != null) {
             for (Map.Entry<Integer, String> entry : destinationTypesByButtonId.entrySet()) {
                 if (entry.getValue().equals(normalized)) {
-                    toggleDestinationAccount.check(entry.getKey());
+                    runWithoutSelectionAnimation(() -> toggleDestinationAccount.check(entry.getKey()));
                     updateDestinationAccountUi();
                     return;
                 }
             }
             for (Integer id : destinationTypesByButtonId.keySet()) {
-                toggleDestinationAccount.check(id);
+                runWithoutSelectionAnimation(() -> toggleDestinationAccount.check(id));
                 break;
             }
         }
@@ -955,6 +991,40 @@ public class NuevaTransaccionFragment extends Fragment {
         button.setTextColor(foreground);
         button.setIconTint(foregroundList);
         button.setStrokeColor(ColorStateList.valueOf(stroke));
+    }
+
+    private void setTransactionTypeVisibility(@Nullable View view, boolean visible) {
+        if (view == null) return;
+        if (microAnimationsReady && !suppressSelectionAnimation) {
+            MicroAnimations.fadeVisibility(view, visible);
+        } else {
+            view.animate().cancel();
+            view.setAlpha(1f);
+            view.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private boolean shouldAnimateSelection(int checkedId, int lastAnimatedId) {
+        return microAnimationsReady
+                && !suppressSelectionAnimation
+                && checkedId != View.NO_ID
+                && checkedId != lastAnimatedId;
+    }
+
+    private void runWithoutSelectionAnimation(@NonNull Runnable action) {
+        boolean previous = suppressSelectionAnimation;
+        suppressSelectionAnimation = true;
+        try {
+            action.run();
+        } finally {
+            suppressSelectionAnimation = previous;
+        }
+    }
+
+    private void rememberSelectionAnimationState() {
+        lastAnimatedTransactionTypeId = toggleTipo == null ? View.NO_ID : toggleTipo.getCheckedButtonId();
+        lastAnimatedAccountTypeId = toggleAccountType == null ? View.NO_ID : toggleAccountType.getCheckedButtonId();
+        lastAnimatedDestinationTypeId = toggleDestinationAccount == null ? View.NO_ID : toggleDestinationAccount.getCheckedButtonId();
     }
 
     private void setMoreOptionsExpanded(boolean expanded) {
@@ -1529,6 +1599,7 @@ public class NuevaTransaccionFragment extends Fragment {
         final Categoria catSel = seleccionada;
         final Integer editingIdLocal = editingId;
 
+        MicroAnimations.pulseAction(btnGuardar);
         UiFormUtils.setActionLoading(btnGuardar, true);
 
         if (transferLocal) {
@@ -1689,7 +1760,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private void finishAfterCreate() {
         NavController controller = NavHostFragment.findNavController(this);
         if (!controller.popBackStack(R.id.nav_home, false)) {
-            controller.navigate(R.id.nav_home);
+            controller.navigate(R.id.nav_home, null, NavigationAnimations.mainFade());
         }
     }
 

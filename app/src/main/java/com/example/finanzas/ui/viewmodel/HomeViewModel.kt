@@ -32,8 +32,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _loading = MutableLiveData(false)
     val loading: LiveData<Boolean> = _loading
 
-    private val _summary = MutableLiveData<HomeSummary>()
-    val summary: LiveData<HomeSummary> = _summary
+    private val _summary = MutableLiveData<HomeSummary?>()
+    val summary: LiveData<HomeSummary?> = _summary
 
     private val _error = MutableLiveData<Unit>()
     val error: LiveData<Unit> = _error

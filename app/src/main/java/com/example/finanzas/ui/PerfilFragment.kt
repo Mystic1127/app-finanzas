@@ -65,6 +65,7 @@ import com.example.finanzas.ui.viewmodel.HomeViewModel
 import com.example.finanzas.ui.viewmodel.ReportsViewModel
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel
 import com.example.finanzas.util.CurrencyConverter
+import com.example.finanzas.util.NavigationAnimations
 import com.example.finanzas.util.PerfLogger
 import com.example.finanzas.util.Prefs
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -145,8 +146,20 @@ class PerfilFragment : Fragment() {
                     currentUserId = currentUserId,
                     accounts = accounts,
                     onSwitchAccount = { switchAccount(it) },
-                    onChangePassword = { findNavController().navigate(R.id.nav_change_password) },
-                    onConfigurePin = { findNavController().navigate(R.id.nav_pin_setup) },
+                    onChangePassword = {
+                        findNavController().navigate(
+                            R.id.nav_change_password,
+                            null,
+                            NavigationAnimations.detailSlide()
+                        )
+                    },
+                    onConfigurePin = {
+                        findNavController().navigate(
+                            R.id.nav_pin_setup,
+                            null,
+                            NavigationAnimations.detailSlide()
+                        )
+                    },
                     onRemovePin = { confirmRemovePin() },
                     onDeleteFinancialData = { confirmDeleteFinancialData() }
                 )

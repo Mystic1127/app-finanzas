@@ -35,6 +35,7 @@ import com.patrykandpatrick.vico.views.cartesian.CartesianChartView;
 
 import java.util.Calendar;
 import java.util.List;
+import java.util.Objects;
 
 public class AnalysisFragment extends Fragment {
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
@@ -63,6 +64,8 @@ public class AnalysisFragment extends Fragment {
     private HomeViewModel viewModel;
     private String currencyCode = "PEN";
     private HomeSummary lastSummary;
+    private String lastSummaryRenderKey;
+    private AnalysisChartState lastRenderedChartState;
 
     @Nullable
     @Override
@@ -101,6 +104,7 @@ public class AnalysisFragment extends Fragment {
         chartSavings = view.findViewById(R.id.chartAnalysisSavings);
         listCategoryBars = view.findViewById(R.id.listAnalysisCategoryBars);
         viewModel = new ViewModelProvider(requireActivity()).get(HomeViewModel.class);
+        resetRenderCache();
         chartIncomeExpense.setModelProducer(viewModel.getIncomeExpenseChartProducer());
         chartExpenseTrend.setModelProducer(viewModel.getExpenseTrendChartProducer());
         chartBalance.setModelProducer(viewModel.getBalanceChartProducer());
@@ -113,7 +117,9 @@ public class AnalysisFragment extends Fragment {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading ->
                 swipe.setRefreshing(Boolean.TRUE.equals(loading)));
         viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
-            if (code != null && !code.trim().isEmpty()) currencyCode = code;
+            String nextCode = code == null ? "" : code.trim();
+            if (nextCode.isEmpty() || nextCode.equals(currencyCode)) return;
+            currencyCode = nextCode;
             HomeSummary summary = viewModel.getSummary().getValue();
             if (summary != null && isAdded()) render(summary);
         });
@@ -124,6 +130,17 @@ public class AnalysisFragment extends Fragment {
             if (state != null && isAdded()) renderAnalysisCharts(state);
         });
         load(false);
+    }
+
+    @Override
+    public void onDestroyView() {
+        resetRenderCache();
+        super.onDestroyView();
+    }
+
+    private void resetRenderCache() {
+        lastSummaryRenderKey = null;
+        lastRenderedChartState = null;
     }
 
     private void styleDetailButton(@NonNull MaterialButton button) {
@@ -155,6 +172,9 @@ public class AnalysisFragment extends Fragment {
     }
 
     private void render(@NonNull HomeSummary summary) {
+        String renderKey = analysisSummaryRenderKey(summary);
+        if (Objects.equals(renderKey, lastSummaryRenderKey)) return;
+        lastSummaryRenderKey = renderKey;
         lastSummary = summary;
         tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
         tvScore.setText(getString(
@@ -172,6 +192,8 @@ public class AnalysisFragment extends Fragment {
     }
 
     private void renderAnalysisCharts(@NonNull AnalysisChartState state) {
+        if (state.equals(lastRenderedChartState)) return;
+        lastRenderedChartState = state;
         currencyCode = nonEmpty(state.getCurrencyCode(), currencyCode);
         setChartState(chartIncomeExpense, tvIncomeExpenseEmpty, state.hasIncomeExpense());
         setChartState(chartExpenseTrend, tvExpenseTrendEmpty, state.hasExpenseTrend());
@@ -181,8 +203,28 @@ public class AnalysisFragment extends Fragment {
         renderCategoryBars(state.getCategories());
     }
 
+    private String analysisSummaryRenderKey(@NonNull HomeSummary summary) {
+        return currencyCode
+                + "|" + summary.getAnio()
+                + "|" + summary.getMes()
+                + "|" + summary.getScoreFinanciero()
+                + "|" + summary.getScoreEstado()
+                + "|" + summary.getInsightPrincipal()
+                + "|" + summary.getScoreExplicacion()
+                + "|" + summary.getEstadoAhorro()
+                + "|" + Math.round(summary.getAhorroSugerido() * 100.0)
+                + "|" + summary.getRecomendacionAhorroMeta();
+    }
+
     private void renderChartSummaries(@NonNull List<AnalysisMonthlyPoint> months) {
-        if (months.isEmpty()) return;
+        if (months.isEmpty()) {
+            tvIncomeExpenseSummary.setText(R.string.analysis_income_expense_subtitle);
+            tvExpenseTrendSummary.setText(R.string.analysis_expense_trend_subtitle);
+            tvBalanceSummary.setText(R.string.analysis_balance_subtitle);
+            tvSavingsSummary.setText(R.string.analysis_savings_subtitle);
+            tvSavingsSummary.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+            return;
+        }
         AnalysisMonthlyPoint latest = months.get(months.size() - 1);
         tvIncomeExpenseSummary.setText(
                 "Último mes: ingresos " + Format.money(latest.getIngresos(), currencyCode)
