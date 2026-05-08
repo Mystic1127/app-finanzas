@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,15 +25,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -87,30 +92,30 @@ internal fun spendlyAuthColors(): SpendlyAuthColors {
     return if (dark) {
         SpendlyAuthColors(
             dark = true,
-            bg = Color(0xFF020812),
-            bgDeep = Color(0xFF00040A),
-            surface = Color(0xB30A1320),
-            field = Color(0x73060D16),
-            border = Color(0xFF26384B),
-            text = Color(0xFFF4F7F8),
-            muted = Color(0xFFACB8C7),
-            accent = Color(0xFF06402B),
-            teal = Color(0xFF06402B),
-            cyan = Color(0xFF36C8D6)
+            bg = Color(0xFF07111A),
+            bgDeep = Color(0xFF07111A),
+            surface = Color(0xFF0D1B2A),
+            field = Color(0xFF0D1B2A),
+            border = Color(0xFF17324A),
+            text = Color(0xFFF8FAFC),
+            muted = Color(0xFF94A3B8),
+            accent = Color(0xFF19B47A),
+            teal = Color(0xFF36D399),
+            cyan = Color(0xFF22D3EE)
         )
     } else {
         SpendlyAuthColors(
             dark = false,
-            bg = Color(0xFFFDFEFE),
-            bgDeep = Color(0xFFF5FAF7),
-            surface = Color(0xFAFFFFFF),
-            field = Color.White,
-            border = Color(0xFFE4EEE9),
-            text = Color(0xFF071827),
-            muted = Color(0xFF5F6B80),
+            bg = Color(0xFFF8FAF8),
+            bgDeep = Color(0xFFF8FAF8),
+            surface = Color(0xFFFFFFFF),
+            field = Color(0xFFFFFFFF),
+            border = Color(0xFFE7F5E8),
+            text = Color(0xFF0F172A),
+            muted = Color(0xFF667085),
             accent = Color(0xFF7BC47F),
-            teal = Color(0xFF7BC47F),
-            cyan = Color(0xFF32C5D2)
+            teal = Color(0xFF92D496),
+            cyan = Color(0xFF36C2CF)
         )
     }
 }
@@ -140,9 +145,9 @@ internal fun SpendlyAuthBackground(content: @Composable () -> Unit) {
             .background(
                 Brush.radialGradient(
                     colors = if (colors.dark) {
-                        listOf(Color(0xFF071B23), colors.bg, colors.bgDeep)
+                        listOf(Color(0xFF0A1723), colors.bg, colors.bgDeep)
                     } else {
-                        listOf(Color.White, colors.bg, colors.bgDeep)
+                        listOf(colors.bg, colors.bg, colors.bgDeep)
                     },
                     center = Offset(0.50f, 0.30f),
                     radius = 980f
@@ -152,7 +157,7 @@ internal fun SpendlyAuthBackground(content: @Composable () -> Unit) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(colors.teal.copy(alpha = if (colors.dark) 0.16f else 0.10f), Color.Transparent),
+                    colors = listOf(if (colors.dark) Color(0xFF1A3A4D).copy(alpha = 0.20f) else colors.teal.copy(alpha = 0.22f), Color.Transparent),
                     center = Offset(size.width * 0.50f, size.height * 0.24f),
                     radius = size.width * 0.70f
                 ),
@@ -160,7 +165,7 @@ internal fun SpendlyAuthBackground(content: @Composable () -> Unit) {
                 center = Offset(size.width * 0.50f, size.height * 0.24f)
             )
             drawArc(
-                color = colors.accent.copy(alpha = if (colors.dark) 0.46f else 0.38f),
+                color = if (colors.dark) Color(0xFF123348).copy(alpha = 0.30f) else Color(0xFFD7ECD9).copy(alpha = 0.72f),
                 startAngle = 157f,
                 sweepAngle = 228f,
                 useCenter = false,
@@ -169,7 +174,7 @@ internal fun SpendlyAuthBackground(content: @Composable () -> Unit) {
                 style = Stroke(width = 1.25.dp.toPx(), cap = StrokeCap.Round)
             )
             drawArc(
-                color = colors.cyan.copy(alpha = if (colors.dark) 0.10f else 0.20f),
+                color = if (colors.dark) Color(0xFF16384D).copy(alpha = 0.30f) else Color(0xFFD8F3F6).copy(alpha = 0.72f),
                 startAngle = 184f,
                 sweepAngle = 165f,
                 useCenter = false,
@@ -178,11 +183,11 @@ internal fun SpendlyAuthBackground(content: @Composable () -> Unit) {
                 style = Stroke(width = 1.dp.toPx(), cap = StrokeCap.Round)
             )
             listOf(
-                Offset(size.width * 0.18f, size.height * 0.28f) to 3.2f,
-                Offset(size.width * 0.78f, size.height * 0.25f) to 6f,
-                Offset(size.width * 0.92f, size.height * 0.10f) to 5f
-            ).forEach { (center, radius) ->
-                drawCircle(colors.accent.copy(alpha = if (colors.dark) 0.85f else 0.95f), radius = radius.dp.toPx(), center = center)
+                Triple(Offset(size.width * 0.18f, size.height * 0.28f), 3.2f, colors.accent),
+                Triple(Offset(size.width * 0.78f, size.height * 0.25f), 6f, if (colors.dark) colors.cyan else colors.teal),
+                Triple(Offset(size.width * 0.92f, size.height * 0.10f), 5f, colors.accent)
+            ).forEach { (center, radius, dotColor) ->
+                drawCircle(dotColor.copy(alpha = if (colors.dark) 0.50f else 0.58f), radius = radius.dp.toPx(), center = center)
             }
         }
 
@@ -208,7 +213,7 @@ internal fun SpendlyTopBar(
                 .align(Alignment.CenterStart)
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(if (colors.dark) Color(0x3309121F) else Color.White.copy(alpha = 0.70f))
+                .background(if (colors.dark) Color(0x3309121F) else Color(0xFFFFFFFF))
                 .border(1.dp, colors.border.copy(alpha = 0.78f), CircleShape)
                 .clickable(onClick = onBackClick),
             contentAlignment = Alignment.Center
@@ -245,7 +250,7 @@ internal fun SpendlyLogoMark(
             val center = Offset(size.width / 2f, size.height / 2f)
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(colors.accent.copy(alpha = if (colors.dark) 0.34f else 0.18f), Color.Transparent),
+                    colors = listOf(if (colors.dark) Color(0xFF1A3A4D).copy(alpha = 0.20f) else colors.accent.copy(alpha = 0.18f), Color.Transparent),
                     center = center,
                     radius = size.minDimension * 0.48f
                 ),
@@ -254,7 +259,7 @@ internal fun SpendlyLogoMark(
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(colors.cyan.copy(alpha = if (colors.dark) 0.13f else 0.12f), Color.Transparent),
+                    colors = listOf(colors.cyan.copy(alpha = if (colors.dark) 0.10f else 0.12f), Color.Transparent),
                     center = Offset(size.width * 0.60f, size.height * 0.42f),
                     radius = size.minDimension * 0.34f
                 ),
@@ -267,17 +272,17 @@ internal fun SpendlyLogoMark(
             modifier = Modifier
                 .size(markSize)
                 .clip(RoundedCornerShape(markSize * 0.22f))
-                .background(if (colors.dark) Color(0x2BFFFFFF) else Color(0x8CFFFFFF))
-                .border(1.dp, colors.teal.copy(alpha = if (colors.dark) 0.40f else 0.58f), RoundedCornerShape(markSize * 0.22f))
+                .background(if (colors.dark) colors.surface else Color(0x8CFFFFFF))
+                .border(1.dp, if (colors.dark) colors.border else colors.teal.copy(alpha = 0.58f), RoundedCornerShape(markSize * 0.22f))
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawCircle(
-                    color = Color.White.copy(alpha = if (colors.dark) 0.23f else 0.50f),
+                    color = if (colors.dark) Color(0xFF1A3A4D).copy(alpha = 0.20f) else Color.White.copy(alpha = 0.50f),
                     radius = size.minDimension * 0.36f,
                     center = Offset(size.width * 0.25f, size.height * 0.27f)
                 )
                 drawCircle(
-                    color = colors.accent.copy(alpha = if (colors.dark) 0.54f else 0.35f),
+                    color = colors.accent.copy(alpha = if (colors.dark) 0.28f else 0.35f),
                     radius = size.minDimension * 0.33f,
                     center = Offset(size.width * 0.72f, size.height * 0.70f)
                 )
@@ -314,7 +319,7 @@ internal fun SpendlyBrandTitle(
     val colors = spendlyAuthColors()
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = colors.accent)) { append("Spend") }
+            withStyle(SpanStyle(color = colors.text)) { append("Spend") }
             withStyle(SpanStyle(color = colors.text)) { append("ly") }
         },
         fontSize = fontSize.sp,
@@ -327,12 +332,14 @@ internal fun SpendlyBrandTitle(
 @Composable
 internal fun SpendlyAuthCard(content: @Composable ColumnScope.() -> Unit) {
     val colors = spendlyAuthColors()
+    val radius = if (colors.dark) 30.dp else 24.dp
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(30.dp))
+            .then(if (colors.dark) Modifier.shadow(6.dp, RoundedCornerShape(radius), clip = false) else Modifier)
+            .clip(RoundedCornerShape(radius))
             .background(colors.surface)
-            .border(1.dp, colors.border.copy(alpha = 0.82f), RoundedCornerShape(30.dp))
+            .border(1.dp, colors.border.copy(alpha = if (colors.dark) 0.82f else 1f), RoundedCornerShape(radius))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
@@ -429,14 +436,13 @@ internal fun SpendlyPasswordField(
             )
         },
         trailingIcon = {
-            TextButton(onClick = onToggleVisible, enabled = enabled) {
-                Text(
-                    text = if (visible) "Ocultar" else "Ver",
-                    color = colors.accent,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            SpendlyVisibilityToggle(
+                visible = visible,
+                onToggleVisible = onToggleVisible,
+                enabled = enabled,
+                showDescription = "Mostrar contraseña",
+                hideDescription = "Ocultar contraseña"
+            )
         },
         textStyle = TextStyle(color = colors.text, fontSize = 17.sp),
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -444,6 +450,25 @@ internal fun SpendlyPasswordField(
         shape = RoundedCornerShape(10.dp),
         colors = authTextFieldColors(colors)
     )
+}
+
+@Composable
+internal fun SpendlyVisibilityToggle(
+    visible: Boolean,
+    onToggleVisible: () -> Unit,
+    enabled: Boolean = true,
+    showDescription: String,
+    hideDescription: String
+) {
+    val colors = spendlyAuthColors()
+    IconButton(onClick = onToggleVisible, enabled = enabled) {
+        Icon(
+            painter = painterResource(if (visible) R.drawable.ic_visibilityoff else R.drawable.ic_visibility),
+            contentDescription = if (visible) hideDescription else showDescription,
+            tint = colors.accent,
+            modifier = Modifier.size(22.dp)
+        )
+    }
 }
 
 @Composable
@@ -472,19 +497,31 @@ internal fun SpendlyPrimaryButton(
     onClick: () -> Unit
 ) {
     val colors = spendlyAuthColors()
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .then(if (!colors.dark && enabled && !loading) Modifier.shadow(4.dp, shape, clip = false) else Modifier)
+            .clip(shape)
             .background(
                 if (enabled && !loading) {
                     Brush.horizontalGradient(listOf(colors.accent, colors.accent))
                 } else {
-                    Brush.horizontalGradient(listOf(Color(0xFF31554A), Color(0xFF29473F)))
+                    Brush.horizontalGradient(
+                        listOf(
+                            if (colors.dark) Color(0xFF31554A) else Color(0xFFD0D5DD),
+                            if (colors.dark) Color(0xFF29473F) else Color(0xFFD0D5DD)
+                        )
+                    )
                 }
             )
-            .clickable(enabled = enabled && !loading, onClick = onClick),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = if (colors.dark) Color(0xFF169B69) else Color(0xFF5FA764)),
+                enabled = enabled && !loading,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         if (loading) {
@@ -511,19 +548,24 @@ internal fun SpendlyOutlinedButton(
     onClick: () -> Unit
 ) {
     val colors = spendlyAuthColors()
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.Transparent)
-            .border(1.dp, colors.accent.copy(alpha = 0.95f), RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick),
+            .clip(shape)
+            .background(if (colors.dark) colors.bg else Color(0xFFFFFFFF))
+            .border(1.dp, colors.accent.copy(alpha = 0.95f), shape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = if (colors.dark) colors.border else Color(0xFFDFF3E1)),
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = colors.accent,
+            color = if (colors.dark) colors.teal else colors.accent,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
@@ -622,7 +664,7 @@ internal fun HighlightedSentence(
     Text(
         text = buildAnnotatedString {
             withStyle(SpanStyle(color = colors.muted)) { append(before) }
-            withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.Bold)) { append(highlighted) }
+            withStyle(SpanStyle(color = if (colors.dark) colors.teal else colors.accent, fontWeight = FontWeight.Bold)) { append(highlighted) }
             withStyle(SpanStyle(color = colors.muted)) { append(after) }
         },
         modifier = modifier,

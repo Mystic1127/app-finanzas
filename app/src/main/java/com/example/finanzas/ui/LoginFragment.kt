@@ -213,7 +213,7 @@ private fun LoginScreen(
 
             Text(
                 text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = colors.accent.copy(alpha = 0.78f))) {
+                    withStyle(SpanStyle(color = colors.muted)) {
                         append("¿No tienes cuenta? ")
                     }
                     withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.Bold)) {

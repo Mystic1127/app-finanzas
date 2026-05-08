@@ -37,6 +37,7 @@ import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.compose.SpendlySecondaryTextButton
+import com.example.finanzas.ui.compose.SpendlyVisibilityToggle
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.PinSession
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -133,9 +134,12 @@ private fun PinLockScreen(
                 visualTransformation = if (pinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 trailingIcon = {
-                    androidx.compose.material3.TextButton(onClick = { pinVisible = !pinVisible }) {
-                        Text(if (pinVisible) "Ocultar" else "Ver")
-                    }
+                    SpendlyVisibilityToggle(
+                        visible = pinVisible,
+                        onToggleVisible = { pinVisible = !pinVisible },
+                        showDescription = "Mostrar PIN",
+                        hideDescription = "Ocultar PIN"
+                    )
                 }
             )
 

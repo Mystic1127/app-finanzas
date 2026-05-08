@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -171,7 +172,7 @@ private fun WelcomeScreen(
 
             Text(
                 text = stringResource(R.string.welcome_beta_version),
-                color = colors.muted,
+                color = if (colors.dark) colors.muted else Color(0xFF98A2B3),
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
@@ -192,9 +193,10 @@ private fun WelcomeInfoCard(
     Column(
         modifier = modifier
             .height(154.dp)
-            .clip(RoundedCornerShape(17.dp))
+            .then(if (colors.dark) Modifier.shadow(6.dp, RoundedCornerShape(24.dp), clip = false) else Modifier)
+            .clip(RoundedCornerShape(24.dp))
             .background(colors.surface)
-            .border(1.dp, colors.border.copy(alpha = 0.80f), RoundedCornerShape(17.dp))
+            .border(1.dp, colors.border.copy(alpha = if (colors.dark) 1f else 1f), RoundedCornerShape(24.dp))
             .padding(horizontal = 8.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -203,11 +205,17 @@ private fun WelcomeInfoCard(
                 .size(60.dp)
                 .clip(CircleShape)
                 .background(
-                    Brush.radialGradient(
-                        colors = listOf(tint.copy(alpha = 0.24f), tint.copy(alpha = 0.07f), Color.Transparent)
-                    )
+                    if (colors.dark) {
+                        Brush.radialGradient(
+                            colors = listOf(colors.bg, colors.bg)
+                        )
+                    } else {
+                        Brush.radialGradient(
+                            colors = listOf(Color(0xFFF8FAF8), Color(0xFFF8FAF8))
+                        )
+                    }
                 )
-                .border(1.dp, tint.copy(alpha = 0.10f), CircleShape)
+                .border(1.dp, if (colors.dark) colors.border else colors.border, CircleShape)
                 .padding(1.dp),
             contentAlignment = Alignment.Center
         ) {

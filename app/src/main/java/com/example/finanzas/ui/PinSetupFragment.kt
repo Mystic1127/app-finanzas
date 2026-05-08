@@ -13,7 +13,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +36,7 @@ import com.example.finanzas.ui.compose.SpendlyAuthHeader
 import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
+import com.example.finanzas.ui.compose.SpendlyVisibilityToggle
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.PinSession
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -185,9 +185,12 @@ private fun PinTextField(
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         trailingIcon = {
-            TextButton(onClick = onToggleVisible) {
-                Text(if (visible) "Ocultar" else "Ver")
-            }
+            SpendlyVisibilityToggle(
+                visible = visible,
+                onToggleVisible = onToggleVisible,
+                showDescription = "Mostrar PIN",
+                hideDescription = "Ocultar PIN"
+            )
         }
     )
 }

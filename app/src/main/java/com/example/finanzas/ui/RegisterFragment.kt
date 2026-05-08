@@ -225,7 +225,7 @@ private fun RegisterScreen(
 
             Text(
                 text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = colors.accent.copy(alpha = 0.78f))) {
+                    withStyle(SpanStyle(color = colors.muted)) {
                         append("¿Ya tienes cuenta? ")
                     }
                     withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.Bold)) {

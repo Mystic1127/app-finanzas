@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#06402B</color>
+    <color name="colorPrimary">#0B8F68</color>
     <color name="colorOnPrimary">#FFFFFF</color>
-    <color name="colorAccent">#06402B</color>
+    <color name="colorAccent">#0B8F68</color>
     <color name="danger">#FF7A8A</color>
     <color name="bg">#02070D</color>
 
-    <color name="md_theme_primary">#06402B</color>
+    <color name="md_theme_primary">#0B8F68</color>
     <color name="md_theme_onPrimary">#FFFFFF</color>
-    <color name="md_theme_primaryContainer">#06402B</color>
+    <color name="md_theme_primaryContainer">#0B8F68</color>
     <color name="md_theme_onPrimaryContainer">#FFFFFF</color>
 
     <color name="md_theme_secondary">#82B6A3</color>
@@ -44,7 +44,7 @@
 
     <color name="income">#18B77D</color>
     <color name="expense">#FF6577</color>
-    <color name="chartBudget">#06402B</color>
+    <color name="chartBudget">#0B8F68</color>
     <color name="chartBalance">#58C7D6</color>
     <color name="chartAccent">#7C9CFF</color>
     <color name="chart_line_income">#12C779</color>
@@ -90,14 +90,14 @@
     <color name="planning_dialog_surface">#060D16</color>
     <color name="planning_dialog_field">#060D16</color>
     <color name="planning_dialog_field_stroke">#164D52</color>
-    <color name="planning_dialog_icon">#06402B</color>
+    <color name="planning_dialog_icon">#0B8F68</color>
     <color name="planning_dialog_title">#F0F5F7</color>
     <color name="planning_dialog_text">#F0F5F7</color>
     <color name="planning_dialog_hint">#A6B0BE</color>
-    <color name="planning_dialog_button">#06402B</color>
+    <color name="planning_dialog_button">#0B8F68</color>
     <color name="planning_dialog_button_pressed">#04331F</color>
     <color name="quick_filter_all_stroke">#7A1F2A</color>
-    <color name="quick_filter_other_stroke">#06402B</color>
+    <color name="quick_filter_other_stroke">#0B8F68</color>
     <color name="transaction_secondary_button_text">#FFFFFF</color>
     <color name="category_icon_picker_bg">#060D16</color>
     <color name="planning_dialog_notification_bg">#09231F</color>
