@@ -25,7 +25,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="20dp">
+            app:cardCornerRadius="8dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -50,11 +50,19 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnNewImport"
-                                style="@style/Widget.Material3.Button.TextButton"
+                                style="@style/Widget.Finanzas.Button.Secondary"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/imports_new" />
                         </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/imports_help_short"
+                            android:textColor="@color/md_theme_onSurfaceVariant"
+                            android:textSize="14sp" />
 
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rvImports"
@@ -78,7 +86,7 @@
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:cardCornerRadius="20dp">
+            app:cardCornerRadius="8dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -103,11 +111,19 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnAddRule"
-                                style="@style/Widget.Material3.Button.TextButton"
+                                style="@style/Widget.Finanzas.Button.Secondary"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/imports_rule_add" />
                         </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/imports_rules_help_short"
+                            android:textColor="@color/md_theme_onSurfaceVariant"
+                            android:textSize="14sp" />
 
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rvRules"

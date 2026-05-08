@@ -23,6 +23,7 @@ Thumbs.db
 
 # Kotlin build cache
 kotlinc/
+.kotlin/
 
 # Google Services
 google-services.json

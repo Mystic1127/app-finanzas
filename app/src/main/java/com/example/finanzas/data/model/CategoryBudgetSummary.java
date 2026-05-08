@@ -4,6 +4,7 @@ public class CategoryBudgetSummary {
     private int categoriaId;
     private String categoriaNombre;
     private double limite;
+    private String moneda;
     private double gastado;
     private double disponible;
     private double porcentaje;
@@ -18,6 +19,9 @@ public class CategoryBudgetSummary {
     public double getLimite() { return limite; }
     public void setLimite(double limite) { this.limite = limite; }
 
+    public String getMoneda() { return moneda == null || moneda.trim().isEmpty() ? "PEN" : moneda; }
+    public void setMoneda(String moneda) { this.moneda = moneda; }
+
     public double getGastado() { return gastado; }
     public void setGastado(double gastado) { this.gastado = gastado; }
 
@@ -28,5 +32,6 @@ public class CategoryBudgetSummary {
     public void setPorcentaje(double porcentaje) { this.porcentaje = porcentaje; }
 
     public boolean isAlerta() { return alerta; }
+    public boolean getAlerta() { return alerta; }
     public void setAlerta(boolean alerta) { this.alerta = alerta; }
 }

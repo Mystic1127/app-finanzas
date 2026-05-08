@@ -8,7 +8,6 @@ import com.example.finanzas.data.model.ExchangeRate;
 import com.example.finanzas.data.model.GamificationChallenge;
 import com.example.finanzas.data.model.GoalMilestone;
 import com.example.finanzas.data.model.HomeSummary;
-import com.example.finanzas.data.model.HouseholdSummary;
 import com.example.finanzas.data.model.CategorySuggestion;
 import com.example.finanzas.data.model.ImportJob;
 import com.example.finanzas.data.model.ImportRule;
@@ -48,6 +47,7 @@ public class JsonMapper {
             String categoriaNombre = o.optString("categoria_nombre", "");
             boolean esIngreso = safeBool(o, "es_ingreso");
             double monto = safeDouble(o, "monto");
+            String moneda = o.optString("moneda", "PEN");
             String sFecha = o.optString("fecha", "");
             String nota = o.optString("nota", "");
 
@@ -58,6 +58,7 @@ public class JsonMapper {
                     categoriaNombre,
                     esIngreso,
                     Math.abs(monto),
+                    moneda,
                     fecha,
                     nota
             );
@@ -78,6 +79,9 @@ public class JsonMapper {
             summary.setIngresos(totales.optDouble("ingresos", 0));
             summary.setGastos(totales.optDouble("gastos", 0));
             summary.setSaldo(totales.optDouble("saldo", 0));
+            summary.setIngresosRecurrentes(totales.optDouble("ingresos_recurrentes", summary.getIngresos()));
+            summary.setBalanceVisibleMes(totales.optDouble("balance_visible_mes", summary.getSaldo()));
+            summary.setBalanceOperativoMes(totales.optDouble("balance_operativo_mes", summary.getIngresosRecurrentes() - summary.getGastos()));
         }
 
         JSONObject presupuesto = res.optJSONObject("presupuesto");
@@ -194,6 +198,16 @@ public class JsonMapper {
             }
         }
 
+        JSONArray arrNotes = res.optJSONArray("notas_informativas");
+        if (arrNotes != null) {
+            for (int i = 0; i < arrNotes.length(); i++) {
+                String note = arrNotes.optString(i, null);
+                if (note != null && !note.isEmpty()) {
+                    summary.getNotasInformativas().add(note);
+                }
+            }
+        }
+
         JSONArray arrChartCat = res.optJSONArray("chart_categorias");
         if (arrChartCat != null) {
             for (int i = 0; i < arrChartCat.length(); i++) {
@@ -226,41 +240,6 @@ public class JsonMapper {
         JSONObject imp = res.optJSONObject("importaciones");
         if (imp != null) {
             summary.setImportacionesPendientes(imp.optInt("pendientes", 0));
-        }
-
-        JSONArray arrHogares = res.optJSONArray("hogares");
-        if (arrHogares != null) {
-            for (int i = 0; i < arrHogares.length(); i++) {
-                JSONObject o = arrHogares.optJSONObject(i);
-                if (o == null) continue;
-                HouseholdSummary h = new HouseholdSummary();
-                h.setId(o.optInt("id", 0));
-                h.setNombre(o.optString("nombre", ""));
-                h.setRol(o.optString("rol", ""));
-                h.setMiembros(o.optInt("miembros", 0));
-                JSONObject tot = o.optJSONObject("totales");
-                if (tot != null) {
-                    h.setIngresos(tot.optDouble("ingresos", 0));
-                    h.setGastos(tot.optDouble("gastos", 0));
-                    h.setSaldo(tot.optDouble("saldo", 0));
-                }
-                JSONArray det = o.optJSONArray("detalle");
-                if (det != null) {
-                    for (int j = 0; j < det.length(); j++) {
-                        JSONObject md = det.optJSONObject(j);
-                        if (md == null) continue;
-                        HouseholdSummary.HouseholdMember member = new HouseholdSummary.HouseholdMember();
-                        member.setUserId(md.optInt("user_id", 0));
-                        member.setNombre(md.optString("nombre", ""));
-                        member.setRol(md.optString("rol", ""));
-                        member.setIngresos(md.optDouble("ingresos", 0));
-                        member.setGastos(md.optDouble("gastos", 0));
-                        member.setSaldo(md.optDouble("saldo", 0));
-                        h.getDetalle().add(member);
-                    }
-                }
-                summary.getHogares().add(h);
-            }
         }
 
         JSONArray arrCambios = res.optJSONArray("tipos_cambio");
@@ -515,47 +494,6 @@ public class JsonMapper {
             try { sug.setConfidence(data.getDouble("confidence")); }
             catch (Exception ignored) {}
         }
-    }
-
-    public static List<HouseholdSummary> mapHouseholdList(JSONObject res) {
-        List<HouseholdSummary> out = new ArrayList<>();
-        if (res == null) return out;
-        JSONArray arr = res.optJSONArray("hogares");
-        if (arr == null) return out;
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject o = arr.optJSONObject(i);
-            if (o == null) continue;
-            HouseholdSummary h = new HouseholdSummary();
-            h.setId(o.optInt("id", 0));
-            h.setNombre(o.optString("nombre", ""));
-            h.setRol(o.optString("rol", ""));
-            h.setMiembros(o.optInt("miembros", 0));
-            JSONObject tot = o.optJSONObject("resumen");
-            if (tot == null) tot = o.optJSONObject("totales");
-            if (tot != null) {
-                h.setIngresos(tot.optDouble("ingresos", 0));
-                h.setGastos(tot.optDouble("gastos", 0));
-                h.setSaldo(tot.optDouble("saldo", 0));
-            }
-            JSONArray det = o.optJSONArray("detalle");
-            if (det == null) det = o.optJSONArray("detalle_miembros");
-            if (det != null) {
-                for (int j = 0; j < det.length(); j++) {
-                    JSONObject md = det.optJSONObject(j);
-                    if (md == null) continue;
-                    HouseholdSummary.HouseholdMember member = new HouseholdSummary.HouseholdMember();
-                    member.setUserId(md.optInt("user_id", 0));
-                    member.setNombre(md.optString("nombre", ""));
-                    member.setRol(md.optString("rol", ""));
-                    member.setIngresos(md.optDouble("ingresos", 0));
-                    member.setGastos(md.optDouble("gastos", 0));
-                    member.setSaldo(md.optDouble("saldo", 0));
-                    h.getDetalle().add(member);
-                }
-            }
-            out.add(h);
-        }
-        return out;
     }
 
     private static boolean safeBool(JSONObject o, String key) {

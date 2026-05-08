@@ -11,6 +11,7 @@ public class SavingsGoal {
     private String titulo;
     private double montoObjetivo;
     private double montoActual;
+    private String moneda;
     private double progreso;
     private Date fechaObjetivo;
     private final List<GoalMilestone> hitos = new ArrayList<>();
@@ -26,6 +27,9 @@ public class SavingsGoal {
 
     public double getMontoActual() { return montoActual; }
     public void setMontoActual(double montoActual) { this.montoActual = montoActual; }
+
+    public String getMoneda() { return moneda == null || moneda.trim().isEmpty() ? "PEN" : moneda; }
+    public void setMoneda(String moneda) { this.moneda = moneda; }
 
     public double getProgreso() { return progreso; }
     public void setProgreso(double progreso) { this.progreso = progreso; }

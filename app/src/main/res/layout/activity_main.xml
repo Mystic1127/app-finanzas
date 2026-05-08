@@ -5,22 +5,25 @@
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    app:statusBarBackground="@color/md_theme_background">
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/md_theme_background">
+        android:background="@color/md_theme_background"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/md_theme_surface"
-            android:theme="@style/ThemeOverlay.Material3.Light"
+            android:background="@color/md_theme_background"
             app:title="Finanzas"
             app:titleCentered="true"
-            app:titleTextColor="@color/md_theme_onSurface" />
+            app:titleTextColor="?attr/colorOnSurface"
+            android:elevation="0dp"/>
 
         <androidx.fragment.app.FragmentContainerView
             android:id="@+id/nav_host_fragment"
@@ -28,8 +31,210 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_marginTop="?attr/actionBarSize"
+            android:layout_marginBottom="0dp"
             app:defaultNavHost="true"
             app:navGraph="@navigation/nav_graph" />
+
+        <LinearLayout
+            android:id="@+id/bottom_nav_container"
+            android:layout_width="match_parent"
+            android:layout_height="86dp"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bg_bottom_nav_bar"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:elevation="12dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="4dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/bottomNavHome"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/bottomIconHome"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_home"
+                    app:tint="@color/md_theme_onSurfaceVariant" />
+
+                <TextView
+                    android:id="@+id/bottomLabelHome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:maxLines="1"
+                    android:text="@string/nav_home_title"
+                    android:textSize="10sp" />
+
+                <View
+                    android:id="@+id/bottomDotHome"
+                    android:layout_width="8dp"
+                    android:layout_height="5dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_green_dot"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/bottomNavAnalysis"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/bottomIconAnalysis"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_analytics"
+                    app:tint="@color/md_theme_onSurfaceVariant" />
+
+                <TextView
+                    android:id="@+id/bottomLabelAnalysis"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:maxLines="1"
+                    android:text="@string/nav_analysis_title"
+                    android:textSize="10sp" />
+
+                <View
+                    android:id="@+id/bottomDotAnalysis"
+                    android:layout_width="8dp"
+                    android:layout_height="5dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_green_dot"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/bottomNavNew"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <FrameLayout
+                    android:id="@+id/bottomAddCircle"
+                    android:layout_width="58dp"
+                    android:layout_height="58dp"
+                    android:background="@drawable/bg_bottom_nav_add"
+                    android:clickable="true"
+                    android:elevation="14dp"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackgroundBorderless">
+
+                    <ImageView
+                        android:id="@+id/bottomIconNew"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_add"
+                        app:tint="@color/md_theme_onPrimary" />
+                </FrameLayout>
+
+                <View
+                    android:id="@+id/bottomDotNew"
+                    android:layout_width="8dp"
+                    android:layout_height="5dp"
+                    android:layout_marginTop="3dp"
+                    android:background="@drawable/bg_green_dot"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/bottomNavBudget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/bottomIconBudget"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_wallet"
+                    app:tint="@color/md_theme_onSurfaceVariant" />
+
+                <TextView
+                    android:id="@+id/bottomLabelBudget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:maxLines="1"
+                    android:text="@string/nav_budget_title"
+                    android:textSize="10sp" />
+
+                <View
+                    android:id="@+id/bottomDotBudget"
+                    android:layout_width="8dp"
+                    android:layout_height="5dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_green_dot"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/bottomNavPlanning"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/bottomIconPlanning"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_goal"
+                    app:tint="@color/md_theme_onSurfaceVariant" />
+
+                <TextView
+                    android:id="@+id/bottomLabelPlanning"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:maxLines="1"
+                    android:text="@string/nav_planning_title"
+                    android:textSize="9sp" />
+
+                <View
+                    android:id="@+id/bottomDotPlanning"
+                    android:layout_width="8dp"
+                    android:layout_height="5dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_green_dot"
+                    android:visibility="invisible" />
+            </LinearLayout>
+        </LinearLayout>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
     <com.google.android.material.navigation.NavigationView
@@ -38,7 +243,7 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:fitsSystemWindows="true"
-        android:background="@color/md_theme_background"
+        android:background="@color/drawer_body_background"
         app:itemIconTint="@color/md_theme_onSurfaceVariant"
         app:itemTextColor="@color/md_theme_onSurface"
         app:headerLayout="@layout/nav_header"

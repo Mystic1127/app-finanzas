@@ -1,63 +1,107 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#2E7D5B</color>
+    <color name="colorPrimary">#2F6B48</color>
     <color name="colorOnPrimary">#FFFFFF</color>
-    <color name="colorAccent">#5FB489</color>
-    <color name="danger">#D22F4C</color>
-    <color name="bg">#F6FBF7</color>
-    <color name="md_theme_primary">#2E7D5B</color>
+    <color name="colorAccent">#2F6B48</color>
+    <color name="danger">#BA1A35</color>
+    <color name="bg">#F7FBF8</color>
+
+    <color name="md_theme_primary">#2F6B48</color>
     <color name="md_theme_onPrimary">@color/colorOnPrimary</color>
-    <color name="md_theme_secondary">#5F7D69</color>
-    <color name="md_theme_onSecondary">#F4FFF7</color>
+    <color name="md_theme_primaryContainer">#D8F0E3</color>
+    <color name="md_theme_onPrimaryContainer">#063820</color>
+
+    <color name="md_theme_secondary">#4F695A</color>
+    <color name="md_theme_onSecondary">#FFFFFF</color>
+    <color name="md_theme_secondaryContainer">#E7F1EA</color>
+    <color name="md_theme_onSecondaryContainer">#13251B</color>
+
+    <color name="md_theme_tertiary">#3F6B6B</color>
+    <color name="md_theme_onTertiary">#FFFFFF</color>
+    <color name="md_theme_tertiaryContainer">#D7EEEC</color>
+    <color name="md_theme_onTertiaryContainer">#0D3333</color>
+
     <color name="md_theme_background">@color/bg</color>
-    <color name="md_theme_onBackground">#1F2A24</color>
+    <color name="md_theme_onBackground">#17211B</color>
     <color name="md_theme_surface">#FFFFFF</color>
-    <color name="md_theme_onSurface">#1F2A24</color>
-    <color name="md_theme_outline">#C6D7CC</color>
+    <color name="md_theme_onSurface">#17211B</color>
+    <color name="md_theme_surfaceVariant">#E6F0EA</color>
+    <color name="md_theme_onSurfaceVariant">#516159</color>
+    <color name="md_theme_surfaceDim">#DDE8E1</color>
+    <color name="md_theme_surfaceBright">#FFFFFF</color>
+    <color name="md_theme_surfaceContainerLowest">#FFFFFF</color>
+    <color name="md_theme_surfaceContainerLow">#F4FAF6</color>
+    <color name="md_theme_surfaceContainer">#F0F7F2</color>
+    <color name="md_theme_surfaceContainerHigh">#EAF2ED</color>
+    <color name="md_theme_surfaceContainerHighest">#E4EEE8</color>
+    <color name="md_theme_outline">#B8C8BF</color>
+    <color name="md_theme_outlineVariant">#DDE9E2</color>
+
     <color name="md_theme_error">@color/danger</color>
-    <color name="md_theme_onSecondaryContainer">#1C2C23</color>
-    <color name="income">#218A5C</color>
-    <color name="expense">#D0444F</color>
-    <color name="md_theme_outlineVariant">#E3EFE6</color>
-    <color name="md_theme_onSurfaceVariant">#4C5A53</color>
-    <color name="chartBudget">#4FA679</color>
-    <color name="chartBalance">#2B8D67</color>
-    <color name="md_theme_primaryContainer">#D9F2E6</color>
-    <color name="md_theme_onPrimaryContainer">#0F3322</color>
-
-    <color name="md_theme_secondaryContainer">#E8F3EC</color>
-
-    <color name="md_theme_tertiary">#4E6F60</color>
-    <color name="md_theme_onTertiary">#F5FFF8</color>
-    <color name="md_theme_tertiaryContainer">#DCECE4</color>
-    <color name="md_theme_onTertiaryContainer">#23362E</color>
-
     <color name="md_theme_onError">#FFFFFF</color>
-    <color name="md_theme_errorContainer">#FFD5DE</color>
-    <color name="md_theme_onErrorContainer">#5C0B1B</color>
+    <color name="md_theme_errorContainer">#FFD9DE</color>
+    <color name="md_theme_onErrorContainer">#40000B</color>
 
+    <color name="income">#1F7A55</color>
+    <color name="expense">#C33B4A</color>
+    <color name="chartBudget">#4A9A76</color>
+    <color name="chartBalance">#1F6F62</color>
+    <color name="chartAccent">#5A71B9</color>
+    <color name="chart_line_income">#18764F</color>
+    <color name="chart_line_expense">#B83243</color>
+    <color name="chart_line_balance">#2B6F79</color>
+    <color name="chart_pie_1">#18764F</color>
+    <color name="chart_pie_2">#B83243</color>
+    <color name="chart_pie_3">#4A67B0</color>
+    <color name="chart_pie_4">#C58A21</color>
+    <color name="chart_pie_5">#7A5CA8</color>
+    <color name="chart_pie_6">#2C7A7B</color>
+    <color name="chart_pie_7">#8C5C35</color>
+    <color name="chart_pie_8">#5E7D3B</color>
+    <color name="chart_pie_9">#D05A3A</color>
+    <color name="chart_pie_10">#2E8F9E</color>
+    <color name="chart_pie_11">#A14C7C</color>
+    <color name="chart_pie_12">#6E8E23</color>
+    <color name="chart_pie_13">#D06B9A</color>
+    <color name="chart_pie_14">#397FBD</color>
+    <color name="chart_pie_15">#9A6A16</color>
+    <color name="chart_pie_16">#426B5B</color>
 
-    <!-- Colores para el chip de riesgo -->
-    <color name="risk_low_bg">#D9F2E6</color>
-    <color name="risk_low_text">#1E7A53</color>
+    <color name="risk_low_bg">#D8F0E3</color>
+    <color name="risk_low_text">#1F6E4C</color>
+    <color name="risk_medium_bg">#FFF3D7</color>
+    <color name="risk_medium_text">#946200</color>
+    <color name="risk_high_bg">#FFDAD6</color>
+    <color name="risk_high_text">#A7363F</color>
 
-    <color name="risk_medium_bg">#FFF7DA</color>
-    <color name="risk_medium_text">#C47A0F</color>
-
-    <color name="risk_high_bg">#FFE3DF</color>
-    <color name="risk_high_text">#B23B3B</color>
-
-    <!-- Colores adicionales para UI -->
     <color name="white">#FFFFFF</color>
-    <color name="black">#0E1511</color>
-    <color name="gray_light">#EEF4EF</color>
-    <color name="gray_medium">#9EB0A5</color>
-    <color name="gray_dark">#2F3D35</color>
+    <color name="black">#111814</color>
+    <color name="gray_light">#EFF5F1</color>
+    <color name="gray_medium">#9AAC9F</color>
+    <color name="gray_dark">#2E3C34</color>
 
-    <!-- Gradientes para fondos -->
-    <color name="gradient_start">#3C8E69</color>  <!-- Verde un poco más claro -->
-    <color name="gradient_end">#2E7D5B</color>    <!-- Tu color principal original -->
-
-
-
+    <color name="gradient_start">#2E7D5B</color>
+    <color name="gradient_end">#1F5E45</color>
+    <color name="nav_header_text">#FFFFFF</color>
+    <color name="nav_header_text_secondary">#EAF7EF</color>
+    <color name="drawer_body_background">#FFFFFF</color>
+    <color name="alert_surface">#FFF6F7</color>
+    <color name="dialog_surface">#FFFFFF</color>
+    <color name="planning_dialog_surface">#F5FBF7</color>
+    <color name="planning_dialog_field">#FFFFFF</color>
+    <color name="planning_dialog_field_stroke">#B9C9C1</color>
+    <color name="planning_dialog_icon">#2F6B48</color>
+    <color name="planning_dialog_title">#063820</color>
+    <color name="planning_dialog_text">#22312A</color>
+    <color name="planning_dialog_hint">#6B7771</color>
+    <color name="planning_dialog_button">#2F6B48</color>
+    <color name="planning_dialog_button_pressed">#04331F</color>
+    <color name="quick_filter_all_stroke">#7A1F2A</color>
+    <color name="quick_filter_other_stroke">#2F6B48</color>
+    <color name="transaction_secondary_button_text">#2F6B48</color>
+    <color name="category_icon_picker_bg">#1F7A55</color>
+    <color name="planning_dialog_notification_bg">#E8F4EE</color>
+    <color name="forecast_gradient_start">#E7F4ED</color>
+    <color name="forecast_gradient_end">#F3FAF5</color>
+    <color name="drawer_scrim">#33000000</color>
 </resources>

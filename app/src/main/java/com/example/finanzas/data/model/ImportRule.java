@@ -22,6 +22,7 @@ public class ImportRule {
     public void setIngreso(boolean ingreso) { this.ingreso = ingreso; this.esIngreso = ingreso; }
 
     public boolean isEsIngreso() { return isIngreso(); }
+    public boolean getEsIngreso() { return isIngreso(); }
     public void setEsIngreso(boolean esIngreso) { this.esIngreso = esIngreso; this.ingreso = esIngreso; }
 
     public String getDescripcion() { return descripcion != null ? descripcion : nota; }

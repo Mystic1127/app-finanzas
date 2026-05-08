@@ -1,1097 +1,1217 @@
 package com.example.finanzas.ui;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.InputFilter;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
+import android.animation.ValueAnimator;
+import android.widget.ArrayAdapter;
+import android.widget.FrameLayout;
+import android.widget.GridLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
+import androidx.core.widget.TextViewCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.recyclerview.widget.ItemTouchHelper;
-import androidx.appcompat.app.AlertDialog;
 
 import com.example.finanzas.R;
-import com.example.finanzas.data.api.DashboardService;
+import com.example.finanzas.data.api.AccountService;
+import com.example.finanzas.data.api.CategoryStore;
 import com.example.finanzas.data.api.SettingsService;
-import com.example.finanzas.data.model.CategoryChartSlice;
+import com.example.finanzas.data.model.AccountBalance;
+import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.HomeSummary;
-import com.example.finanzas.data.model.MonthlyTrendPoint;
-import com.example.finanzas.data.model.DashboardModulePref;
-import com.example.finanzas.data.model.ConversionSummary;
-import com.example.finanzas.data.model.TravelPreference;
-import com.example.finanzas.data.model.GamificationChallenge;
-import com.example.finanzas.ui.adapter.CategoryBudgetSummaryAdapter;
-import com.example.finanzas.ui.adapter.DashboardModuleAdapter;
-import com.example.finanzas.ui.adapter.GoalSummaryAdapter;
-import com.example.finanzas.ui.adapter.ReminderSummaryAdapter;
-import com.example.finanzas.ui.adapter.HouseholdSummaryAdapter;
+import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
+import com.example.finanzas.ui.viewmodel.HomeViewModel;
+import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.example.finanzas.util.FinancialAlertNotifier;
+import com.example.finanzas.util.LabelColorUtils;
+import com.example.finanzas.util.MicroAnimations;
+import com.example.finanzas.util.NavigationAnimations;
+import com.example.finanzas.util.Prefs;
+import com.example.finanzas.util.TransactionLabelStore;
+import com.example.finanzas.util.UiFormUtils;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.switchmaterial.SwitchMaterial;
-import com.github.mikephil.charting.charts.BarChart;
-import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.charts.Chart;
-import com.github.mikephil.charting.components.Legend;
-import com.github.mikephil.charting.components.XAxis;
-import com.github.mikephil.charting.components.YAxis;
-import com.github.mikephil.charting.data.BarData;
-import com.github.mikephil.charting.data.BarDataSet;
-import com.github.mikephil.charting.data.BarEntry;
-import com.github.mikephil.charting.data.Entry;
-import com.github.mikephil.charting.data.LineData;
-import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Objects;
 
 public class HomeFragment extends Fragment {
-
-    private static final String MODULE_BALANCE = "balance";
-    private static final String MODULE_FORECAST = "forecast";
-    private static final String MODULE_SIMULATION = "simulation";
-    private static final String MODULE_AUTOMATION = "automation";
-    private static final String MODULE_QUICK = "quick";
-    private static final String MODULE_GAMIFICATION = "gamification";
-    private static final String MODULE_ALERTS = "alerts";
-    private static final String MODULE_HOUSEHOLDS = "households";
-    private static final String MODULE_BUDGETS = "budgets";
-    private static final String MODULE_GOALS = "goals";
-    private static final String MODULE_REMINDERS = "reminders";
-    private static final String MODULE_CHART_BUDGET = "chart_budget";
-    private static final String MODULE_CHART_TREND = "chart_trend";
-    private static final String MODULE_CHART_BALANCE = "chart_balance";
-    private static final String MODULE_CHART_GOALS = "chart_goals";
-    private static final List<String> DEFAULT_MODULE_ORDER = Collections.unmodifiableList(Arrays.asList(
-            MODULE_BALANCE,
-            MODULE_FORECAST,
-            MODULE_SIMULATION,
-            MODULE_AUTOMATION,
-            MODULE_QUICK,
-            MODULE_GAMIFICATION,
-            MODULE_ALERTS,
-            MODULE_HOUSEHOLDS,
-            MODULE_BUDGETS,
-            MODULE_GOALS,
-            MODULE_REMINDERS,
-            MODULE_CHART_BALANCE,
-            MODULE_CHART_GOALS,
-            MODULE_CHART_BUDGET,
-            MODULE_CHART_TREND
-    ));
-
-    private TextView tvSaldo;
-    private TextView tvIngresos;
-    private TextView tvGastos;
-    private TextView tvAlertas;
-    private TextView tvAlertasTitulo;
-    private TextView tvPresupuestoResumen;
-    private TextView tvConversionResumen;
-    private TextView tvBudgetsEmpty;
-    private TextView tvGoalsEmpty;
-    private TextView tvRemindersEmpty;
-    private TextView tvChartCategoriasEmpty;
-    private TextView tvChartTrendEmpty;
-    private TextView tvChartBalanceEmpty;
-    private TextView tvChartGoalsEmpty;
-    private TextView tvPredictProjected;
-    private TextView tvPredictDaily;
-    private TextView tvPredictDays;
-    private TextView tvPredictAlerts;
-    private TextView tvImportPend;
-    private TextView tvHogaresEmpty;
-    private TextView tvSimResultado;
-    private TextView tvSimDetalle;
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout swipe;
     private CircularProgressIndicator progress;
-
-    private CategoryBudgetSummaryAdapter budgetAdapter;
-    private GoalSummaryAdapter goalAdapter;
-    private ReminderSummaryAdapter reminderAdapter;
-    private HouseholdSummaryAdapter householdAdapter;
-    private BarChart chartCategorias;
-    private LineChart chartTrend;
-    private BarChart chartBalance;
-    private BarChart chartGoals;
-    private Chip chipRiesgo;
-    private ChipGroup chipGamificacion;
-    private TextView tvGamificacionEmpty;
-    private EditText etSimIngreso;
-    private EditText etSimGasto;
-    private LinearLayout moduleContainer;
-    private final Map<String, View> moduleViews = new LinkedHashMap<>();
+    private TextView tvPeriod;
+    private TextView tvBalanceTotal;
+    private View cardIncome;
+    private View cardExpense;
+    private View cardCash;
+    private View cardCard;
+    private View btnSettings;
+    private GridLayout listAccounts;
+    private TextView tvBudgetMissing;
+    private MaterialCardView cardBudget;
+    private TextView tvBudgetPercent;
+    private TextView tvBudgetTop;
+    private LinearProgressIndicator progressBudget;
+    private View btnSeeTransactions;
+    private LinearLayout listLatest;
+    private TextView tvLatestEmpty;
+    private HomeViewModel viewModel;
+    private String currencyCode = "PEN";
     private HomeSummary lastSummary;
+    private boolean hasDynamicAccounts;
+    private boolean testerThanksDialogShowing;
+    private Double lastRenderedBalance = null;
+    private ValueAnimator balanceAnimator;
+    private Double balanceAnimationTarget = null;
+    private String lastCardMetricRenderKey;
+    private String lastLatestRenderKey;
+    private String lastNotificationRenderKey;
+    private Integer lastBudgetProgress = null;
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_home, container, false);
     }
 
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setHasOptionsMenu(true);
-    }
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        view.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
+        swipe = view.findViewById(R.id.swipeHome);
+        progress = view.findViewById(R.id.progressHome);
+        tvPeriod = view.findViewById(R.id.tvHomePeriod);
+        tvBalanceTotal = view.findViewById(R.id.tvHomeBalanceTotal);
+        cardIncome = view.findViewById(R.id.cardIncome);
+        cardExpense = view.findViewById(R.id.cardExpense);
+        cardCash = view.findViewById(R.id.cardCash);
+        cardCard = view.findViewById(R.id.cardCard);
+        btnSettings = view.findViewById(R.id.btnHomeSettings);
+        listAccounts = view.findViewById(R.id.listHomeAccounts);
+        tvBudgetMissing = view.findViewById(R.id.tvHomeBudgetMissing);
+        cardBudget = view.findViewById(R.id.cardHomeBudget);
+        tvBudgetPercent = view.findViewById(R.id.tvHomeBudgetPercent);
+        tvBudgetTop = view.findViewById(R.id.tvHomeBudgetTop);
+        progressBudget = view.findViewById(R.id.progressHomeBudget);
+        btnSeeTransactions = view.findViewById(R.id.btnHomeSeeTransactions);
+        listLatest = view.findViewById(R.id.listHomeLatestTransactions);
+        tvLatestEmpty = view.findViewById(R.id.tvHomeLatestEmpty);
+        viewModel = new ViewModelProvider(requireActivity()).get(HomeViewModel.class);
+        currencyCode = SettingsService.getCurrencyCode(requireContext());
+        resetViewRenderCache();
 
-    @Override
-    public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(v, savedInstanceState);
-
-        tvSaldo = v.findViewById(R.id.tvSaldo);
-        tvIngresos = v.findViewById(R.id.tvIngresos);
-        tvGastos = v.findViewById(R.id.tvGastos);
-        tvAlertas = v.findViewById(R.id.tvAlertas);
-        tvAlertasTitulo = v.findViewById(R.id.tvAlertasTitulo);
-        tvBudgetsEmpty = v.findViewById(R.id.tvBudgetsEmpty);
-        tvGoalsEmpty = v.findViewById(R.id.tvGoalsEmpty);
-        tvRemindersEmpty = v.findViewById(R.id.tvRemindersEmpty);
-        tvPresupuestoResumen = v.findViewById(R.id.tvPresupuestoResumen);
-        tvConversionResumen = v.findViewById(R.id.tvConversionResumen);
-        tvChartCategoriasEmpty = v.findViewById(R.id.tvChartCategoriasEmpty);
-        tvChartTrendEmpty = v.findViewById(R.id.tvChartTrendEmpty);
-        tvChartBalanceEmpty = v.findViewById(R.id.tvChartBalanceEmpty);
-        tvChartGoalsEmpty = v.findViewById(R.id.tvChartGoalsEmpty);
-        tvPredictProjected = v.findViewById(R.id.tvPredictProjected);
-        tvPredictDaily = v.findViewById(R.id.tvPredictDaily);
-        tvPredictDays = v.findViewById(R.id.tvPredictDays);
-        tvPredictAlerts = v.findViewById(R.id.tvPredictAlerts);
-        tvImportPend = v.findViewById(R.id.tvImportPend);
-        tvHogaresEmpty = v.findViewById(R.id.tvHogaresEmpty);
-        chipRiesgo = v.findViewById(R.id.chipRiesgo);
-        chipGamificacion = v.findViewById(R.id.chipGamificacion);
-        tvGamificacionEmpty = v.findViewById(R.id.tvGamificacionEmpty);
-        etSimIngreso = v.findViewById(R.id.etSimIngreso);
-        etSimGasto = v.findViewById(R.id.etSimGasto);
-        tvSimResultado = v.findViewById(R.id.tvSimResultado);
-        tvSimDetalle = v.findViewById(R.id.tvSimDetalle);
-        moduleContainer = v.findViewById(R.id.containerModules);
-        swipe = v.findViewById(R.id.swipeHome);
-        progress = v.findViewById(R.id.progressHome);
-        chartCategorias = v.findViewById(R.id.chartCategorias);
-        chartTrend = v.findViewById(R.id.chartTrend);
-        chartBalance = v.findViewById(R.id.chartBalance);
-        chartGoals = v.findViewById(R.id.chartGoals);
-
-        resetSimulation();
-        setupModules(v);
-
-        Button btnSimular = v.findViewById(R.id.btnSimular);
-        btnSimular.setOnClickListener(view -> runSimulation());
-
-        androidx.recyclerview.widget.RecyclerView rvBudgets = v.findViewById(R.id.rvBudgets);
-        androidx.recyclerview.widget.RecyclerView rvGoals = v.findViewById(R.id.rvGoals);
-        androidx.recyclerview.widget.RecyclerView rvReminders = v.findViewById(R.id.rvReminders);
-        RecyclerView rvHogares = v.findViewById(R.id.rvHogares);
-
-        rvBudgets.setLayoutManager(new LinearLayoutManager(requireContext()));
-        rvGoals.setLayoutManager(new LinearLayoutManager(requireContext()));
-        rvReminders.setLayoutManager(new LinearLayoutManager(requireContext()));
-        rvHogares.setLayoutManager(new LinearLayoutManager(requireContext()));
-
-        budgetAdapter = new CategoryBudgetSummaryAdapter();
-        goalAdapter = new GoalSummaryAdapter();
-        reminderAdapter = new ReminderSummaryAdapter();
-        householdAdapter = new HouseholdSummaryAdapter();
-
-        rvBudgets.setAdapter(budgetAdapter);
-        rvGoals.setAdapter(goalAdapter);
-        rvReminders.setAdapter(reminderAdapter);
-        rvHogares.setAdapter(householdAdapter);
-
-        setupChart(chartCategorias);
-        setupChart(chartTrend);
-        setupChart(chartBalance);
-        setupChart(chartGoals);
-
-        v.findViewById(R.id.btnLista)
-                .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_list));
-        v.findViewById(R.id.btnPresupuesto)
-                .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_budget));
-        v.findViewById(R.id.btnMetas)
-                .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_goals));
-        v.findViewById(R.id.btnRecordatorios)
-                .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_reminders));
-        v.findViewById(R.id.btnImportaciones)
-                .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_imports));
-        v.findViewById(R.id.btnHogares)
-                .setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_households));
-
-        FloatingActionButton fabNueva = v.findViewById(R.id.fabNueva);
-        fabNueva.setOnClickListener(view -> Navigation.findNavController(view).navigate(R.id.nav_new));
-
-        swipe.setOnRefreshListener(this::cargarResumen);
+        setupNavigation(view);
+        swipe.setOnRefreshListener(() -> loadSummary(true));
+        observeViewModel();
+        maybeShowInitialCurrencyDialog();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        cargarResumen();
+        currencyCode = SettingsService.getCurrencyCode(requireContext());
+        loadSummary(false);
     }
 
-    private void cargarResumen() {
-        showLoading(true);
+    @Override
+    public void onDestroyView() {
+        if (balanceAnimator != null) {
+            balanceAnimator.cancel();
+            balanceAnimator = null;
+        }
+        balanceAnimationTarget = null;
+        resetViewRenderCache();
+        super.onDestroyView();
+    }
+
+    private void resetViewRenderCache() {
+        lastCardMetricRenderKey = null;
+        lastLatestRenderKey = null;
+        lastBudgetProgress = null;
+    }
+
+    private void setupNavigation(@NonNull View root) {
+        btnSettings.setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.nav_settings, null, NavigationAnimations.detailSlide()));
+        btnSeeTransactions.setOnClickListener(v ->
+                Navigation.findNavController(root).navigate(R.id.nav_list, null, NavigationAnimations.detailSlide()));
+    }
+
+    private void observeViewModel() {
+        viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
+            boolean isLoading = Boolean.TRUE.equals(loading);
+            progress.setVisibility(isLoading && lastSummary == null ? View.VISIBLE : View.GONE);
+            swipe.setRefreshing(isLoading && lastSummary != null);
+        });
+        viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
+            String nextCode = code == null ? "" : code.trim();
+            if (nextCode.isEmpty() || nextCode.equals(currencyCode)) return;
+            currencyCode = nextCode;
+            HomeSummary summary = viewModel.getSummary().getValue();
+            if (summary != null && isAdded()) render(summary);
+        });
+        viewModel.getSummary().observe(getViewLifecycleOwner(), summary -> {
+            if (summary != null && isAdded()) render(summary);
+        });
+        viewModel.getError().observe(getViewLifecycleOwner(), ignored ->
+                UiFormUtils.showMessage(requireView(), R.string.error_cargar_transacciones));
+    }
+
+    private void loadSummary(boolean force) {
         Calendar cal = Calendar.getInstance();
-        final int anio = cal.get(Calendar.YEAR);
-        final int mes = cal.get(Calendar.MONTH) + 1;
-
-        DashboardService.getSummary(requireContext(), anio, mes, new DashboardService.SummaryCb() {
-            @Override
-            public void onOk(HomeSummary summary) {
-                if (!isAdded()) return;
-                swipe.setRefreshing(false);
-                showLoading(false);
-                pintarResumen(summary);
-            }
-
-            @Override
-            public void onError() {
-                if (!isAdded()) return;
-                swipe.setRefreshing(false);
-                showLoading(false);
-                // dejar datos anteriores
-            }
-        });
+        viewModel.loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, force);
     }
 
-    private void pintarResumen(HomeSummary summary) {
+    private void render(@NonNull HomeSummary summary) {
         lastSummary = summary;
-        applyModulePreferences(summary);
-        resetSimulation();
+        tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
+        renderAnimatedBalance(summary.getSaldoActualTotal());
+        styleMetric(cardIncome, R.string.home_ingresos, Format.money(summary.getIngresos(), currencyCode), R.drawable.ic_income, color(R.color.income));
+        styleMetric(cardExpense, R.string.home_gastos, Format.money(summary.getGastos(), currencyCode), R.drawable.ic_expense, color(R.color.expense));
+        styleMetric(cardCash, R.string.home_cash, Format.money(summary.getEfectivo(), currencyCode), R.drawable.ic_cash, color(R.color.income));
+        renderCardMetric(summary);
+        renderAccounts(summary.getAccountBalances());
+        renderBudget(summary);
+        renderLatest(summary.getLatestTransactions());
+        notifyImportantAlertIfNeeded(summary);
+    }
 
-        tvIngresos.setText(Format.money(summary.getIngresos()));
-        tvGastos.setText(Format.money(summary.getGastos()));
-        tvSaldo.setText(Format.money(summary.getSaldo()));
+    private void notifyImportantAlertIfNeeded(@NonNull HomeSummary summary) {
+        String key = summary.getAnio()
+                + "|" + summary.getMes()
+                + "|" + Math.round(summary.getSaldoActualTotal() * 100.0)
+                + "|" + Math.round(summary.getProyeccionFinMes() * 100.0)
+                + "|" + summary.getAlertaPrincipal()
+                + "|" + currencyCode;
+        if (Objects.equals(key, lastNotificationRenderKey)) return;
+        lastNotificationRenderKey = key;
+        FinancialAlertNotifier.maybeNotifyImportantAlert(requireContext(), summary, currencyCode);
+    }
 
-        renderConversion(summary.getConversion());
+    private void styleMetric(@NonNull View card, int titleRes, @NonNull String value, @DrawableRes int iconRes, @ColorInt int accent) {
+        TextView title = card.findViewById(R.id.metricTitle);
+        TextView amount = card.findViewById(R.id.metricValue);
+        ImageView icon = card.findViewById(R.id.metricIcon);
+        FrameLayout iconBg = card.findViewById(R.id.metricIconBg);
+        title.setText(titleRes);
+        title.setTextColor(color(R.color.md_theme_onSurface));
+        title.setTextSize(15f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        amount.setText(value);
+        amount.setTextColor(accent);
+        amount.setTextSize(18f);
+        amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        icon.setImageResource(iconRes);
+        icon.setColorFilter(accent);
+        ViewGroup.LayoutParams iconBgParams = iconBg.getLayoutParams();
+        iconBgParams.width = dp(40);
+        iconBgParams.height = dp(40);
+        iconBg.setLayoutParams(iconBgParams);
+        ViewGroup.LayoutParams iconParams = icon.getLayoutParams();
+        iconParams.width = dp(24);
+        iconParams.height = dp(24);
+        icon.setLayoutParams(iconParams);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(ColorUtils.setAlphaComponent(accent, 45));
+        iconBg.setBackground(bg);
+    }
 
-        if (summary.getPresupuestoMonto() > 0) {
-            tvPresupuestoResumen.setVisibility(View.VISIBLE);
-            tvPresupuestoResumen.setText(getString(
-                    R.string.home_month_budget_resume,
-                    Format.money(summary.getPresupuestoMonto()),
-                    Format.money(summary.getPresupuestoRestante())
-            ));
+    private void renderAccounts(@Nullable List<AccountBalance> balances) {
+        if (listAccounts.getChildCount() > 0) listAccounts.removeAllViews();
+        hasDynamicAccounts = false;
+        if (listAccounts.getVisibility() != View.GONE) listAccounts.setVisibility(View.GONE);
+    }
+
+    private void renderCardMetric(@NonNull HomeSummary summary) {
+        if (!(cardCard instanceof MaterialCardView)) return;
+        Map<String, Double> balances = accountBalanceMap(summary.getAccountBalances());
+        List<FinancialAccount> cards = SettingsService.listCardAccounts(requireContext());
+        List<FinancialAccount> included = new java.util.ArrayList<>();
+        for (FinancialAccount account : cards) {
+            if (account.isIncludedInTotal()) included.add(account);
+        }
+        if (included.isEmpty() && !cards.isEmpty()) included.add(SettingsService.getVisibleCardAccount(requireContext()));
+        boolean summaryMode = included.size() > 1;
+        FinancialAccount visible = summaryMode ? null : (included.isEmpty() ? SettingsService.getVisibleCardAccount(requireContext()) : included.get(0));
+        double amountValue = summaryMode ? sumBalances(included, balances) : balanceFor(visible, balances);
+        String renderKey = cardMetricRenderKey(cards, included, visible, summaryMode, amountValue);
+        MaterialCardView card = (MaterialCardView) cardCard;
+        if (Objects.equals(renderKey, lastCardMetricRenderKey) && card.getChildCount() > 0) return;
+        lastCardMetricRenderKey = renderKey;
+
+        card.removeAllViews();
+        card.setCardBackgroundColor(color(R.color.md_theme_surface));
+        card.setStrokeColor(color(R.color.md_theme_outlineVariant));
+        card.setStrokeWidth(dp(1));
+        card.setRadius(dp(8));
+
+        FrameLayout body = new FrameLayout(requireContext());
+        body.setPadding(dp(16), dp(14), dp(9), dp(14));
+        card.addView(body, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(R.drawable.ic_card);
+        icon.setColorFilter(color(R.color.chartBalance));
+        GradientDrawable iconBg = new GradientDrawable();
+        iconBg.setShape(GradientDrawable.OVAL);
+        iconBg.setColor(ColorUtils.setAlphaComponent(color(R.color.chartBalance), 45));
+        icon.setBackground(iconBg);
+        icon.setPadding(dp(7), dp(7), dp(7), dp(7));
+        FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(dp(40), dp(40));
+        iconParams.gravity = android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL;
+        body.addView(icon, iconParams);
+
+        LinearLayout text = new LinearLayout(requireContext());
+        text.setOrientation(LinearLayout.VERTICAL);
+        text.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        text.setMinimumHeight(dp(58));
+        FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        textParams.gravity = android.view.Gravity.CENTER_VERTICAL;
+        textParams.leftMargin = dp(56);
+        textParams.rightMargin = dp(4);
+        body.addView(text, textParams);
+
+        TextView title = new TextView(requireContext());
+        title.setText(summaryMode ? "Tarjetas" : compactName(visible));
+        title.setTextColor(color(R.color.md_theme_onSurface));
+        title.setTextSize(15f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        text.addView(title);
+
+        TextView subtitle = new TextView(requireContext());
+        String subtitleText = summaryMode ? getString(R.string.home_cards_selected_count, included.size()) : maskedLast4(visible);
+        subtitle.setText(subtitleText);
+        subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        subtitle.setTextSize(11.5f);
+        subtitle.setSingleLine(true);
+        subtitle.setEllipsize(TextUtils.TruncateAt.END);
+        subtitle.setVisibility(TextUtils.isEmpty(subtitleText) ? View.GONE : View.VISIBLE);
+        text.addView(subtitle);
+
+        TextView amount = new TextView(requireContext());
+        amount.setText(Format.money(amountValue, currencyCode));
+        amount.setTextColor(color(R.color.chartBalance));
+        amount.setTextSize(18f);
+        amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        amount.setSingleLine(true);
+        amount.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams amountParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        amountParams.topMargin = TextUtils.isEmpty(subtitleText) ? dp(4) : dp(2);
+        text.addView(amount, amountParams);
+
+        LinearLayout actions = new LinearLayout(requireContext());
+        actions.setOrientation(LinearLayout.VERTICAL);
+        actions.setGravity(android.view.Gravity.CENTER);
+        FrameLayout.LayoutParams actionsParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        actionsParams.gravity = android.view.Gravity.END | android.view.Gravity.TOP;
+        body.addView(actions, actionsParams);
+
+        if (cards.size() <= 1) {
+            View add = circularIconButton(R.drawable.ic_add, color(R.color.planning_dialog_button), color(R.color.md_theme_onPrimary), dp(28));
+            add.setOnClickListener(v -> showManageCardsSheet());
+            actions.addView(add);
+        } else if (summaryMode) {
+            View tune = plainIconButton(R.drawable.ic_tune, color(R.color.chartBalance), dp(30));
+            tune.setOnClickListener(v -> showManageCardsSheet());
+            actions.addView(tune);
         } else {
-            tvPresupuestoResumen.setVisibility(View.GONE);
-        }
-
-        tvPredictProjected.setText(Format.money(summary.getGastoProyectado()));
-        tvPredictDaily.setText(Format.money(summary.getGastoPromedioDiario()));
-        tvPredictDays.setText(String.valueOf(summary.getDiasRestantes()));
-        aplicarRiesgo(summary.getRiesgoPresupuesto());
-
-        List<String> alertasPredictivas = summary.getAlertasPredictivas();
-        if (alertasPredictivas != null && !alertasPredictivas.isEmpty()) {
-            tvPredictAlerts.setVisibility(View.VISIBLE);
-            tvPredictAlerts.setText(joinAlertas(alertasPredictivas));
-        } else {
-            tvPredictAlerts.setVisibility(View.GONE);
-        }
-
-        List<String> alertas = summary.getAlertas();
-        if (alertas != null && !alertas.isEmpty()) {
-            tvAlertasTitulo.setVisibility(View.VISIBLE);
-            tvAlertas.setVisibility(View.VISIBLE);
-            tvAlertas.setText(joinAlertas(alertas));
-        } else {
-            tvAlertasTitulo.setVisibility(View.GONE);
-            tvAlertas.setVisibility(View.GONE);
-        }
-
-        if (summary.getImportacionesPendientes() > 0) {
-            tvImportPend.setText(getString(R.string.home_automation_imports_pending, summary.getImportacionesPendientes()));
-        } else {
-            tvImportPend.setText(R.string.home_automation_imports_none);
-        }
-
-        budgetAdapter.setItems(summary.getPresupuestosCategoria());
-        goalAdapter.setItems(summary.getMetas());
-        reminderAdapter.setItems(summary.getRecordatorios());
-        householdAdapter.setItems(summary.getHogares());
-
-        tvBudgetsEmpty.setVisibility(budgetAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
-        tvGoalsEmpty.setVisibility(goalAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
-        tvRemindersEmpty.setVisibility(reminderAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
-        tvHogaresEmpty.setVisibility(householdAdapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
-
-        renderGamification(summary);
-        renderBudgetChart(summary.getChartCategorias());
-        renderBalanceChart(summary.getIngresos(), summary.getGastos(), summary.getSaldo());
-        renderGoalsChart(summary.getMetas());
-        renderTrendChart(summary.getTendenciaMensual());
-    }
-
-    private String joinAlertas(List<String> alertas) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < alertas.size(); i++) {
-            if (i > 0) sb.append('\n');
-            sb.append(alertas.get(i));
-        }
-        return sb.toString();
-    }
-
-    private void aplicarRiesgo(@Nullable String riesgo) {
-        if (chipRiesgo == null) return;
-        String safe = riesgo == null ? "" : riesgo.toLowerCase();
-        int bgRes;
-        int textRes;
-        int labelRes;
-        switch (safe) {
-            case "alto":
-                bgRes = R.color.danger;
-                textRes = R.color.white;
-                labelRes = R.string.home_predict_risk_high;
-                break;
-            case "medio":
-                bgRes = R.color.md_theme_secondary;
-                textRes = R.color.md_theme_onSecondary;
-                labelRes = R.string.home_predict_risk_medium;
-                break;
-            default:
-                bgRes = R.color.chartBalance;
-                textRes = R.color.white;
-                labelRes = R.string.home_predict_risk_low;
-                break;
-        }
-        chipRiesgo.setText(labelRes);
-        chipRiesgo.setChipBackgroundColorResource(bgRes);
-        chipRiesgo.setTextColor(ContextCompat.getColor(requireContext(), textRes));
-    }
-
-    private void showLoading(boolean show) {
-        if (progress != null) {
-            progress.setVisibility(show ? View.VISIBLE : View.GONE);
+            View swap = circularIconButton(R.drawable.ic_swap_horiz, color(R.color.chart_pie_4), color(R.color.black), dp(28));
+            swap.setOnClickListener(v -> showManageCardsSheet());
+            actions.addView(swap);
         }
     }
 
-    private void setupChart(@Nullable Chart<?> chart) {
-        if (chart == null) return;
-        chart.getDescription().setEnabled(false);
-        chart.setNoDataText(getString(R.string.chart_no_data));
-        chart.setNoDataTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        Legend legend = chart.getLegend();
-        legend.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        legend.setXEntrySpace(12f);
+    private Map<String, Double> accountBalanceMap(@Nullable List<AccountBalance> balances) {
+        Map<String, Double> map = new HashMap<>();
+        if (balances == null || balances.isEmpty()) {
+            return map;
+        }
+        for (AccountBalance account : balances) {
+            if (account == null) continue;
+            map.put(SettingsService.normalizeAccountType(account.getId()), account.getBalance());
+        }
+        return map;
     }
 
-    private void renderBudgetChart(@Nullable List<CategoryChartSlice> slices) {
-        if (chartCategorias == null) return;
-        if (slices == null || slices.isEmpty()) {
-            chartCategorias.clear();
-            chartCategorias.invalidate();
-            chartCategorias.setVisibility(View.GONE);
-            if (tvChartCategoriasEmpty != null) {
-                tvChartCategoriasEmpty.setVisibility(View.VISIBLE);
-            }
+    private double balanceFor(@Nullable FinancialAccount account, @NonNull Map<String, Double> balances) {
+        if (account == null) return 0.0;
+        Double value = balances.get(SettingsService.normalizeAccountType(account.getId()));
+        return value == null ? 0.0 : value;
+    }
+
+    private double sumBalances(@NonNull List<FinancialAccount> accounts, @NonNull Map<String, Double> balances) {
+        double sum = 0.0;
+        for (FinancialAccount account : accounts) sum += balanceFor(account, balances);
+        return sum;
+    }
+
+    private String compactName(@Nullable FinancialAccount account) {
+        if (account == null || TextUtils.isEmpty(account.getName())) return getString(R.string.transaction_account_card);
+        String name = account.getName().trim();
+        if (name.toLowerCase(Locale.ROOT).contains("predeterminada")) return getString(R.string.transaction_account_card);
+        return name.length() > 7 ? name.substring(0, 7) : name;
+    }
+
+    private String maskedLast4(@Nullable FinancialAccount account) {
+        String last4 = account == null ? "" : account.getLast4();
+        if (TextUtils.isEmpty(last4)) return "";
+        return "\u2022\u2022\u2022\u2022 " + last4;
+    }
+
+    private void renderAnimatedBalance(double newBalance) {
+        if (tvBalanceTotal == null) return;
+
+        if (balanceAnimator != null && balanceAnimator.isRunning() && balanceAnimationTarget != null
+                && Math.abs(balanceAnimationTarget - newBalance) < 0.005) {
             return;
         }
 
-        if (tvChartCategoriasEmpty != null) {
-            tvChartCategoriasEmpty.setVisibility(View.GONE);
-        }
-        chartCategorias.setVisibility(View.VISIBLE);
-
-        ArrayList<BarEntry> gastos = new ArrayList<>();
-        ArrayList<BarEntry> presupuestos = new ArrayList<>();
-        ArrayList<String> labels = new ArrayList<>();
-
-        for (int i = 0; i < slices.size(); i++) {
-            CategoryChartSlice slice = slices.get(i);
-            labels.add(slice.getCategoriaNombre());
-            gastos.add(new BarEntry(i, (float) slice.getGastado()));
-            presupuestos.add(new BarEntry(i, (float) slice.getPresupuesto()));
-        }
-
-        BarDataSet gastoSet = new BarDataSet(gastos, getString(R.string.chart_label_spent));
-        gastoSet.setColor(ContextCompat.getColor(requireContext(), R.color.expense));
-        gastoSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        gastoSet.setValueTextSize(10f);
-
-        BarDataSet presupuestoSet = new BarDataSet(presupuestos, getString(R.string.chart_label_budget));
-        presupuestoSet.setColor(ContextCompat.getColor(requireContext(), R.color.chartBudget));
-        presupuestoSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        presupuestoSet.setValueTextSize(10f);
-
-        BarData data = new BarData(gastoSet, presupuestoSet);
-        float groupSpace = 0.12f;
-        float barSpace = 0.02f;
-        float barWidth = 0.42f;
-        data.setBarWidth(barWidth);
-
-        chartCategorias.setData(data);
-        chartCategorias.setScaleXEnabled(false);
-        chartCategorias.setScaleYEnabled(false);
-        chartCategorias.setDoubleTapToZoomEnabled(false);
-
-        XAxis xAxis = chartCategorias.getXAxis();
-        xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
-        xAxis.setGranularity(1f);
-        xAxis.setGranularityEnabled(true);
-        xAxis.setCenterAxisLabels(true);
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        xAxis.setDrawGridLines(false);
-        xAxis.setLabelRotationAngle(-20f);
-
-        YAxis left = chartCategorias.getAxisLeft();
-        left.setAxisMinimum(0f);
-        left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        left.setGridColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
-
-        chartCategorias.getAxisRight().setEnabled(false);
-
-        float groupWidth = data.getGroupWidth(groupSpace, barSpace);
-        xAxis.setAxisMinimum(0f);
-        xAxis.setAxisMaximum(0f + groupWidth * labels.size());
-        chartCategorias.groupBars(0f, groupSpace, barSpace);
-
-        Legend legend = chartCategorias.getLegend();
-        legend.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        legend.setXEntrySpace(12f);
-
-        chartCategorias.invalidate();
-    }
-
-    private void renderBalanceChart(double ingresos, double gastos, double saldo) {
-        if (chartBalance == null) return;
-        boolean hasData = ingresos != 0 || gastos != 0 || saldo != 0;
-        if (!hasData) {
-            chartBalance.clear();
-            chartBalance.invalidate();
-            chartBalance.setVisibility(View.GONE);
-            if (tvChartBalanceEmpty != null) tvChartBalanceEmpty.setVisibility(View.VISIBLE);
+        if (lastRenderedBalance == null || Math.abs(lastRenderedBalance - newBalance) < 0.005) {
+            if (balanceAnimator != null) balanceAnimator.cancel();
+            balanceAnimationTarget = null;
+            tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
+            tvBalanceTotal.setTextColor(color(R.color.md_theme_onSurface));
+            lastRenderedBalance = newBalance;
             return;
         }
 
-        if (tvChartBalanceEmpty != null) tvChartBalanceEmpty.setVisibility(View.GONE);
-        chartBalance.setVisibility(View.VISIBLE);
-
-        List<BarEntry> entries = new ArrayList<>();
-        entries.add(new BarEntry(0, (float) ingresos));
-        entries.add(new BarEntry(1, (float) gastos));
-        entries.add(new BarEntry(2, (float) saldo));
-
-        BarDataSet dataSet = new BarDataSet(entries, getString(R.string.home_chart_balance_label));
-        int[] colors = new int[]{
-                ContextCompat.getColor(requireContext(), R.color.income),
-                ContextCompat.getColor(requireContext(), R.color.expense),
-                ContextCompat.getColor(requireContext(), R.color.chartBalance)
-        };
-        dataSet.setColors(colors);
-        dataSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        dataSet.setValueTextSize(12f);
-
-        BarData data = new BarData(dataSet);
-        data.setBarWidth(0.5f);
-        chartBalance.setData(data);
-        chartBalance.setScaleXEnabled(false);
-        chartBalance.setScaleYEnabled(false);
-        chartBalance.setDoubleTapToZoomEnabled(false);
-
-        XAxis xAxis = chartBalance.getXAxis();
-        xAxis.setValueFormatter(new IndexAxisValueFormatter(Arrays.asList(
-                getString(R.string.chart_label_income_short),
-                getString(R.string.chart_label_expense_short),
-                getString(R.string.chart_label_balance)
-        )));
-        xAxis.setGranularity(1f);
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        xAxis.setDrawGridLines(false);
-
-        YAxis left = chartBalance.getAxisLeft();
-        left.setAxisMinimum(Math.min(0f, (float) Math.min(Math.min(ingresos, gastos), saldo)) * 1.1f);
-        left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        left.setGridColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
-        chartBalance.getAxisRight().setEnabled(false);
-
-        Legend legend = chartBalance.getLegend();
-        legend.setEnabled(false);
-
-        chartBalance.invalidate();
-    }
-
-    private void renderGoalsChart(@Nullable List<com.example.finanzas.data.model.SavingsGoal> metas) {
-        if (chartGoals == null) return;
-        if (metas == null || metas.isEmpty()) {
-            chartGoals.clear();
-            chartGoals.invalidate();
-            chartGoals.setVisibility(View.GONE);
-            if (tvChartGoalsEmpty != null) tvChartGoalsEmpty.setVisibility(View.VISIBLE);
+        if (!MicroAnimations.areAnimationsEnabled(requireContext())) {
+            if (balanceAnimator != null) balanceAnimator.cancel();
+            balanceAnimationTarget = null;
+            tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
+            tvBalanceTotal.setTextColor(color(R.color.md_theme_onSurface));
+            lastRenderedBalance = newBalance;
             return;
         }
 
-        if (tvChartGoalsEmpty != null) tvChartGoalsEmpty.setVisibility(View.GONE);
-        chartGoals.setVisibility(View.VISIBLE);
-
-        List<BarEntry> progressEntries = new ArrayList<>();
-        List<String> labels = new ArrayList<>();
-        for (int i = 0; i < metas.size(); i++) {
-            com.example.finanzas.data.model.SavingsGoal goal = metas.get(i);
-            double progreso = goal.getProgreso();
-            if (progreso <= 1) progreso = progreso * 100.0;
-            float clamped = (float) Math.min(100, Math.max(0, progreso));
-            progressEntries.add(new BarEntry(i, clamped));
-            labels.add(goal.getTitulo());
-        }
-
-        BarDataSet dataSet = new BarDataSet(progressEntries, getString(R.string.home_chart_goals_label));
-        dataSet.setColor(ContextCompat.getColor(requireContext(), R.color.chartBudget));
-        dataSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        dataSet.setValueTextSize(12f);
-
-        BarData data = new BarData(dataSet);
-        data.setBarWidth(0.6f);
-        chartGoals.setData(data);
-        chartGoals.setScaleXEnabled(false);
-        chartGoals.setScaleYEnabled(false);
-        chartGoals.setDoubleTapToZoomEnabled(false);
-
-        XAxis xAxis = chartGoals.getXAxis();
-        xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
-        xAxis.setGranularity(1f);
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        xAxis.setDrawGridLines(false);
-        xAxis.setLabelRotationAngle(-25f);
-
-        YAxis left = chartGoals.getAxisLeft();
-        left.setAxisMinimum(0f);
-        left.setAxisMaximum(110f);
-        left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        left.setGridColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
-        chartGoals.getAxisRight().setEnabled(false);
-
-        Legend legend = chartGoals.getLegend();
-        legend.setEnabled(false);
-
-        chartGoals.invalidate();
-    }
-
-    private void renderTrendChart(@Nullable List<MonthlyTrendPoint> points) {
-        if (chartTrend == null) return;
-        if (points == null || points.isEmpty()) {
-            chartTrend.clear();
-            chartTrend.invalidate();
-            chartTrend.setVisibility(View.GONE);
-            if (tvChartTrendEmpty != null) {
-                tvChartTrendEmpty.setVisibility(View.VISIBLE);
-            }
-            return;
-        }
-
-        if (tvChartTrendEmpty != null) {
-            tvChartTrendEmpty.setVisibility(View.GONE);
-        }
-        chartTrend.setVisibility(View.VISIBLE);
-
-        ArrayList<Entry> ingresosEntries = new ArrayList<>();
-        ArrayList<Entry> gastosEntries = new ArrayList<>();
-        ArrayList<Entry> saldoEntries = new ArrayList<>();
-        ArrayList<String> labels = new ArrayList<>();
-        float minValue = 0f;
-
-        for (int i = 0; i < points.size(); i++) {
-            MonthlyTrendPoint point = points.get(i);
-            labels.add(point.getEtiqueta());
-            ingresosEntries.add(new Entry(i, (float) point.getIngresos()));
-            gastosEntries.add(new Entry(i, (float) point.getGastos()));
-            float saldo = (float) point.getSaldo();
-            saldoEntries.add(new Entry(i, saldo));
-            minValue = Math.min(minValue, Math.min((float) point.getIngresos(), Math.min((float) point.getGastos(), saldo)));
-        }
-
-        LineDataSet ingresosSet = new LineDataSet(ingresosEntries, getString(R.string.chart_label_income));
-        ingresosSet.setColor(ContextCompat.getColor(requireContext(), R.color.income));
-        ingresosSet.setCircleColor(ContextCompat.getColor(requireContext(), R.color.income));
-        ingresosSet.setLineWidth(2f);
-        ingresosSet.setCircleRadius(4f);
-        ingresosSet.setValueTextSize(10f);
-        ingresosSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-
-        LineDataSet gastosSet = new LineDataSet(gastosEntries, getString(R.string.chart_label_expense));
-        gastosSet.setColor(ContextCompat.getColor(requireContext(), R.color.expense));
-        gastosSet.setCircleColor(ContextCompat.getColor(requireContext(), R.color.expense));
-        gastosSet.setLineWidth(2f);
-        gastosSet.setCircleRadius(4f);
-        gastosSet.setValueTextSize(10f);
-        gastosSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-
-        LineDataSet saldoSet = new LineDataSet(saldoEntries, getString(R.string.chart_label_balance));
-        saldoSet.setColor(ContextCompat.getColor(requireContext(), R.color.chartBalance));
-        saldoSet.setCircleColor(ContextCompat.getColor(requireContext(), R.color.chartBalance));
-        saldoSet.setLineWidth(2f);
-        saldoSet.setCircleRadius(4f);
-        saldoSet.setValueTextSize(10f);
-        saldoSet.setValueTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        saldoSet.enableDashedLine(10f, 4f, 0f);
-
-        LineData data = new LineData(ingresosSet, gastosSet, saldoSet);
-        chartTrend.setData(data);
-        chartTrend.setDoubleTapToZoomEnabled(false);
-        chartTrend.setScaleXEnabled(false);
-        chartTrend.setScaleYEnabled(false);
-        chartTrend.getAxisRight().setEnabled(false);
-
-        XAxis xAxis = chartTrend.getXAxis();
-        xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
-        xAxis.setGranularity(1f);
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        xAxis.setDrawGridLines(false);
-        xAxis.setLabelRotationAngle(-20f);
-
-        YAxis left = chartTrend.getAxisLeft();
-        if (minValue < 0f) {
-            left.setAxisMinimum(minValue * 1.1f);
-        } else {
-            left.setAxisMinimum(0f);
-        }
-        left.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        left.setGridColor(ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
-
-        Legend legend = chartTrend.getLegend();
-        legend.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
-        legend.setXEntrySpace(12f);
-
-        chartTrend.invalidate();
-    }
-
-    private void renderConversion(@Nullable ConversionSummary conversion) {
-        if (tvConversionResumen == null) return;
-        if (conversion == null || !conversion.isEnabled()) {
-            tvConversionResumen.setVisibility(View.GONE);
-            tvConversionResumen.setText("");
-            return;
-        }
-        String saldo = Format.money(conversion.getSaldo(), conversion.getMonedaDestino());
-        String ingresos = Format.money(conversion.getIngresos(), conversion.getMonedaDestino());
-        String gastos = Format.money(conversion.getGastos(), conversion.getMonedaDestino());
-        tvConversionResumen.setVisibility(View.VISIBLE);
-        tvConversionResumen.setText(getString(R.string.home_conversion_summary, saldo, ingresos, gastos));
-    }
-
-    private void renderGamification(@Nullable HomeSummary summary) {
-        if (chipGamificacion == null) return;
-        chipGamificacion.removeAllViews();
-        if (summary == null) {
-            if (tvGamificacionEmpty != null) tvGamificacionEmpty.setVisibility(View.VISIBLE);
-            chipGamificacion.setVisibility(View.GONE);
-            return;
-        }
-        List<GamificationChallenge> retos = summary.getGamificacionRetos();
-        if (retos == null || retos.isEmpty()) {
-            chipGamificacion.setVisibility(View.GONE);
-            if (tvGamificacionEmpty != null) tvGamificacionEmpty.setVisibility(View.VISIBLE);
-            return;
-        }
-        if (tvGamificacionEmpty != null) tvGamificacionEmpty.setVisibility(View.GONE);
-        LayoutInflater inflater = LayoutInflater.from(requireContext());
-        for (GamificationChallenge challenge : retos) {
-            if (challenge == null) continue;
-            Chip chip = (Chip) inflater.inflate(R.layout.chip_gamification, chipGamificacion, false);
-            chip.setText(challenge.getTitulo());
-            String descripcion = challenge.getDescripcion();
-            if (!TextUtils.isEmpty(descripcion)) {
-                chip.setOnClickListener(v -> Toast.makeText(requireContext(), descripcion, Toast.LENGTH_LONG).show());
-            } else {
-                chip.setOnClickListener(null);
-            }
-            chipGamificacion.addView(chip);
-        }
-        chipGamificacion.setVisibility(View.VISIBLE);
-    }
-
-    private void runSimulation() {
-        if (lastSummary == null) return;
-        double ingresoAdj = parseMontoSeguro(etSimIngreso);
-        double gastoAdj = parseMontoSeguro(etSimGasto);
-        double nuevosIngresos = lastSummary.getIngresos() + ingresoAdj;
-        double nuevosGastos = lastSummary.getGastos() + gastoAdj;
-        double nuevoSaldo = lastSummary.getSaldo() + ingresoAdj - gastoAdj;
-
-        if (tvSimResultado != null) {
-            tvSimResultado.setText(getString(R.string.home_simulation_result, Format.money(nuevoSaldo)));
-            tvSimResultado.setVisibility(View.VISIBLE);
-        }
-        if (tvSimDetalle != null) {
-            String detalle = getString(R.string.home_simulation_breakdown,
-                    Format.money(nuevosIngresos),
-                    Format.money(nuevosGastos));
-            int tipRes = nuevoSaldo >= lastSummary.getSaldo()
-                    ? R.string.home_simulation_tip_positive
-                    : R.string.home_simulation_tip_negative;
-            detalle = detalle + "\n" + getString(tipRes);
-            tvSimDetalle.setText(detalle);
-            tvSimDetalle.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private void resetSimulation() {
-        if (tvSimResultado != null) {
-            tvSimResultado.setVisibility(View.GONE);
-            tvSimResultado.setText("");
-        }
-        if (tvSimDetalle != null) {
-            tvSimDetalle.setVisibility(View.GONE);
-            tvSimDetalle.setText("");
-        }
-    }
-
-    private void setupModules(View root) {
-        if (root == null) return;
-        moduleViews.clear();
-        moduleViews.put(MODULE_BALANCE, root.findViewById(R.id.moduleBalance));
-        moduleViews.put(MODULE_FORECAST, root.findViewById(R.id.moduleForecast));
-        moduleViews.put(MODULE_SIMULATION, root.findViewById(R.id.moduleSimulation));
-        moduleViews.put(MODULE_AUTOMATION, root.findViewById(R.id.moduleAutomation));
-        moduleViews.put(MODULE_QUICK, root.findViewById(R.id.moduleQuick));
-        moduleViews.put(MODULE_GAMIFICATION, root.findViewById(R.id.moduleGamification));
-        moduleViews.put(MODULE_ALERTS, root.findViewById(R.id.moduleAlerts));
-        moduleViews.put(MODULE_HOUSEHOLDS, root.findViewById(R.id.moduleHouseholds));
-        moduleViews.put(MODULE_BUDGETS, root.findViewById(R.id.moduleBudgets));
-        moduleViews.put(MODULE_GOALS, root.findViewById(R.id.moduleGoals));
-        moduleViews.put(MODULE_REMINDERS, root.findViewById(R.id.moduleReminders));
-        moduleViews.put(MODULE_CHART_BALANCE, root.findViewById(R.id.moduleChartBalance));
-        moduleViews.put(MODULE_CHART_GOALS, root.findViewById(R.id.moduleChartGoals));
-        moduleViews.put(MODULE_CHART_BUDGET, root.findViewById(R.id.moduleChartBudget));
-        moduleViews.put(MODULE_CHART_TREND, root.findViewById(R.id.moduleChartTrend));
-        if (moduleContainer == null) return;
-        moduleContainer.removeAllViews();
-        for (String id : DEFAULT_MODULE_ORDER) {
-            View module = moduleViews.get(id);
-            if (module != null) {
-                module.setVisibility(View.VISIBLE);
-                moduleContainer.addView(module);
-            }
-        }
-    }
-
-    private void applyModulePreferences(@Nullable HomeSummary summary) {
-        if (moduleContainer == null || moduleViews.isEmpty()) return;
-        List<String> order = new ArrayList<>(DEFAULT_MODULE_ORDER);
-        Map<String, Boolean> visibility = new HashMap<>();
-        if (summary != null) {
-            List<DashboardModulePref> prefs = summary.getDashboardPreferencias();
-            if (prefs != null && !prefs.isEmpty()) {
-                order.clear();
-                for (DashboardModulePref pref : prefs) {
-                    if (pref == null) continue;
-                    String id = pref.getId();
-                    if (id == null || !moduleViews.containsKey(id)) continue;
-                    order.add(id);
-                    visibility.put(id, pref.isVisible());
-                }
-                for (String def : DEFAULT_MODULE_ORDER) {
-                    if (!order.contains(def)) order.add(def);
-                }
-            }
-        }
-        moduleContainer.removeAllViews();
-        for (String id : order) {
-            View module = moduleViews.get(id);
-            if (module == null) continue;
-            boolean visible = !visibility.containsKey(id) || visibility.get(id);
-            module.setVisibility(visible ? View.VISIBLE : View.GONE);
-            moduleContainer.addView(module);
-        }
-    }
-
-    private List<DashboardModuleAdapter.ModuleItem> buildModuleItems() {
-        List<DashboardModuleAdapter.ModuleItem> items = new ArrayList<>();
-        if (moduleViews.isEmpty()) return items;
-        List<String> order = new ArrayList<>(DEFAULT_MODULE_ORDER);
-        Map<String, Boolean> visibility = new HashMap<>();
-        if (lastSummary != null) {
-            List<DashboardModulePref> prefs = lastSummary.getDashboardPreferencias();
-            if (prefs != null && !prefs.isEmpty()) {
-                order.clear();
-                for (DashboardModulePref pref : prefs) {
-                    if (pref == null) continue;
-                    String id = pref.getId();
-                    if (id == null || !moduleViews.containsKey(id)) continue;
-                    order.add(id);
-                    visibility.put(id, pref.isVisible());
-                }
-                for (String def : DEFAULT_MODULE_ORDER) {
-                    if (!order.contains(def)) order.add(def);
-                }
-            }
-        }
-        for (String id : order) {
-            View module = moduleViews.get(id);
-            if (module == null) continue;
-            boolean visible = visibility.containsKey(id) ? visibility.get(id) : module.getVisibility() != View.GONE;
-            items.add(new DashboardModuleAdapter.ModuleItem(id, getModuleTitle(id), visible));
-        }
-        return items;
-    }
-
-    private String getModuleTitle(String id) {
-        if (!isAdded()) return id;
-        switch (id) {
-            case MODULE_BALANCE:
-                return getString(R.string.dashboard_module_balance);
-            case MODULE_FORECAST:
-                return getString(R.string.dashboard_module_forecast);
-            case MODULE_SIMULATION:
-                return getString(R.string.dashboard_module_simulation);
-            case MODULE_AUTOMATION:
-                return getString(R.string.dashboard_module_automation);
-            case MODULE_QUICK:
-                return getString(R.string.dashboard_module_quick);
-            case MODULE_GAMIFICATION:
-                return getString(R.string.dashboard_module_gamification);
-            case MODULE_ALERTS:
-                return getString(R.string.dashboard_module_alerts);
-            case MODULE_HOUSEHOLDS:
-                return getString(R.string.dashboard_module_households);
-            case MODULE_BUDGETS:
-                return getString(R.string.dashboard_module_budgets);
-            case MODULE_GOALS:
-                return getString(R.string.dashboard_module_goals);
-            case MODULE_REMINDERS:
-                return getString(R.string.dashboard_module_reminders);
-            case MODULE_CHART_BALANCE:
-                return getString(R.string.dashboard_module_chart_balance);
-            case MODULE_CHART_GOALS:
-                return getString(R.string.dashboard_module_chart_goals);
-            case MODULE_CHART_BUDGET:
-                return getString(R.string.dashboard_module_chart_budget);
-            case MODULE_CHART_TREND:
-                return getString(R.string.dashboard_module_chart_trend);
-            default:
-                return id;
-        }
-    }
-
-    @Override
-    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
-        inflater.inflate(R.menu.menu_home, menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.action_customize_dashboard) {
-            showCustomizeDialog();
-            return true;
-        } else if (id == R.id.action_travel_settings) {
-            showTravelDialog();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    private void showCustomizeDialog() {
-        if (!isAdded() || moduleViews.isEmpty()) return;
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_dashboard_modules, null, false);
-        RecyclerView rv = content.findViewById(R.id.rvModules);
-        rv.setLayoutManager(new LinearLayoutManager(requireContext()));
-        DashboardModuleAdapter adapter = new DashboardModuleAdapter();
-        adapter.setItems(buildModuleItems());
-        rv.setAdapter(adapter);
-
-        ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
-            @Override
-            public boolean onMove(@NonNull RecyclerView recyclerView,
-                                  @NonNull RecyclerView.ViewHolder viewHolder,
-                                  @NonNull RecyclerView.ViewHolder target) {
-
-                adapter.moveItem(
-                        viewHolder.getAdapterPosition(),
-                        target.getAdapterPosition()
-                );
-
-                return true;
-            }
-
+        if (balanceAnimator != null) balanceAnimator.cancel();
+        double from = lastRenderedBalance;
+        int defaultColor = color(R.color.md_theme_onSurface);
+        int pulseColor = newBalance > from ? color(R.color.income) : color(R.color.expense);
+        balanceAnimationTarget = newBalance;
+        balanceAnimator = ValueAnimator.ofFloat((float) from, (float) newBalance);
+        balanceAnimator.setDuration(420L);
+        balanceAnimator.addUpdateListener(animation -> {
+            double value = ((Float) animation.getAnimatedValue()).doubleValue();
+            tvBalanceTotal.setText(Format.money(value, currencyCode));
+            tvBalanceTotal.setTextColor(pulseColor);
+            lastRenderedBalance = value;
+        });
+        balanceAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean cancelled;
 
             @Override
-            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) { }
+            public void onAnimationCancel(android.animation.Animator animation) {
+                cancelled = true;
+            }
 
             @Override
-            public boolean isLongPressDragEnabled() {
-                return true;
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (cancelled) return;
+                tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
+                tvBalanceTotal.setTextColor(defaultColor);
+                lastRenderedBalance = newBalance;
+                balanceAnimationTarget = null;
+                balanceAnimator = null;
             }
         });
-        helper.attachToRecyclerView(rv);
+        balanceAnimator.start();
+    }
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.dashboard_customize_title)
-                .setView(content)
-                .setPositiveButton(R.string.dashboard_customize_save, null)
-                .setNegativeButton(android.R.string.cancel, null)
-                .create();
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            List<DashboardModuleAdapter.ModuleItem> snapshot = new ArrayList<>(adapter.getItems());
-            saveDashboardPreferences(snapshot);
+    private void renderBudget(@NonNull HomeSummary summary) {
+        boolean hasBudget = summary.getPresupuestoMonto() > 0;
+        tvBudgetMissing.setVisibility(hasBudget ? View.GONE : View.VISIBLE);
+        cardBudget.setVisibility(hasBudget ? View.VISIBLE : View.GONE);
+        if (!hasBudget) {
+            lastBudgetProgress = null;
+            return;
+        }
+        int percent = (int) Math.max(0, Math.min(999, Math.round(summary.getPresupuestoPorcentaje())));
+        tvBudgetPercent.setText(getString(R.string.home_budget_used_value, percent));
+        String top = summary.getCategoriaMayorGasto() == null || summary.getCategoriaMayorGastoMonto() <= 0
+                ? getString(R.string.home_top_category_empty)
+                : getString(R.string.home_top_category_value, summary.getCategoriaMayorGasto(), Format.money(summary.getCategoriaMayorGastoMonto(), currencyCode));
+        tvBudgetTop.setText(top);
+        int progress = Math.min(100, percent);
+        boolean animateProgress = lastBudgetProgress != null
+                && lastBudgetProgress != progress
+                && MicroAnimations.areAnimationsEnabled(requireContext());
+        progressBudget.setProgressCompat(progress, animateProgress);
+        lastBudgetProgress = progress;
+    }
+
+    private void renderLatest(@Nullable List<Transaccion> transactions) {
+        boolean empty = transactions == null || transactions.isEmpty();
+        if (empty) {
+            if (!Objects.equals(lastLatestRenderKey, "empty")
+                    || listLatest.getChildCount() > 0
+                    || tvLatestEmpty.getVisibility() != View.VISIBLE) {
+                listLatest.removeAllViews();
+                lastLatestRenderKey = "empty";
+            }
+            tvLatestEmpty.setVisibility(View.VISIBLE);
+            return;
+        }
+        List<Transaccion> orderedTransactions = latestFirst(transactions);
+        Map<Integer, TransactionLabelStore.Label> labels = TransactionLabelStore.assignedLabelDetails(requireContext());
+        String renderKey = latestRenderKey(orderedTransactions, labels);
+        if (Objects.equals(renderKey, lastLatestRenderKey)
+                && listLatest.getChildCount() > 0
+                && tvLatestEmpty.getVisibility() != View.VISIBLE) return;
+        lastLatestRenderKey = renderKey;
+
+        listLatest.removeAllViews();
+        tvLatestEmpty.setVisibility(View.GONE);
+        int count = 0;
+        for (Transaccion tx : orderedTransactions) {
+            if (tx == null || count >= 5) continue;
+            listLatest.addView(transactionRow(tx, labels.get(tx.getId())));
+            count++;
+        }
+    }
+
+    @NonNull
+    private List<Transaccion> latestFirst(@NonNull List<Transaccion> transactions) {
+        List<Transaccion> ordered = new ArrayList<>(transactions);
+        ordered.sort((left, right) -> {
+            int byDate = Long.compare(transactionTime(right), transactionTime(left));
+            if (byDate != 0) return byDate;
+            int leftId = left == null ? 0 : left.getId();
+            int rightId = right == null ? 0 : right.getId();
+            return Integer.compare(rightId, leftId);
+        });
+        return ordered;
+    }
+
+    private long transactionTime(@Nullable Transaccion tx) {
+        Date date = tx == null ? null : tx.getFecha();
+        return date == null ? 0L : date.getTime();
+    }
+
+    private String cardMetricRenderKey(
+            @NonNull List<FinancialAccount> cards,
+            @NonNull List<FinancialAccount> included,
+            @Nullable FinancialAccount visible,
+            boolean summaryMode,
+            double amountValue
+    ) {
+        StringBuilder key = new StringBuilder(currencyCode)
+                .append('|')
+                .append(summaryMode)
+                .append('|')
+                .append(Math.round(amountValue * 100.0));
+        key.append("|cards=");
+        for (FinancialAccount account : cards) {
+            if (account == null) continue;
+            key.append(account.getId())
+                    .append(':')
+                    .append(account.getName())
+                    .append(':')
+                    .append(account.getLast4())
+                    .append(':')
+                    .append(account.isIncludedInTotal())
+                    .append(';');
+        }
+        key.append("|included=");
+        for (FinancialAccount account : included) {
+            if (account != null) key.append(account.getId()).append(';');
+        }
+        key.append("|visible=").append(visible == null ? "" : visible.getId());
+        return key.toString();
+    }
+
+    private String latestRenderKey(
+            @NonNull List<Transaccion> transactions,
+            @NonNull Map<Integer, TransactionLabelStore.Label> labels
+    ) {
+        StringBuilder key = new StringBuilder(currencyCode);
+        int count = 0;
+        for (Transaccion tx : transactions) {
+            if (tx == null || count >= 5) continue;
+            TransactionLabelStore.Label label = labels.get(tx.getId());
+            key.append('|')
+                    .append(tx.getId())
+                    .append(':')
+                    .append(tx.getCategoriaId())
+                    .append(':')
+                    .append(tx.getCategoriaNombre())
+                    .append(':')
+                    .append(tx.isEsIngreso())
+                    .append(':')
+                    .append(tx.getMonto())
+                    .append(':')
+                    .append(tx.getMoneda())
+                    .append(':')
+                    .append(tx.getFecha() == null ? 0L : tx.getFecha().getTime())
+                    .append(':')
+                    .append(tx.getAccountType())
+                    .append(':')
+                    .append(tx.getNota())
+                    .append(":label=")
+                    .append(label == null ? "" : label.id + "," + label.name + "," + label.colorHex);
+            count++;
+        }
+        return key.toString();
+    }
+
+    @NonNull
+    private View transactionRow(@NonNull Transaccion tx, @Nullable TransactionLabelStore.Label label) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(14), dp(12), dp(12), dp(12));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(18));
+        int accent = label != null ? label.colorInt() : (tx.isTransfer()
+                ? color(R.color.chartAccent)
+                : CategoryVisuals.colorFor(requireContext(), tx.getCategoriaNombre(), tx.isEsIngreso()));
+        bg.setColor(label != null ? LabelColorUtils.cardBackground(requireContext(), accent) : color(R.color.md_theme_surface));
+        bg.setStroke(dp(1), label != null ? LabelColorUtils.cardStroke(requireContext(), accent) : color(R.color.md_theme_outlineVariant));
+        row.setBackground(bg);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowParams.bottomMargin = dp(10);
+        row.setLayoutParams(rowParams);
+
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(tx.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(tx.getCategoriaNombre(), tx.isEsIngreso()));
+        icon.setColorFilter(accent);
+        GradientDrawable iconBg = new GradientDrawable();
+        iconBg.setShape(GradientDrawable.OVAL);
+        iconBg.setColor(LabelColorUtils.iconBackground(requireContext(), accent));
+        icon.setBackground(iconBg);
+        icon.setPadding(dp(9), dp(9), dp(9), dp(9));
+        row.addView(icon, new LinearLayout.LayoutParams(dp(52), dp(52)));
+
+        LinearLayout textColumn = new LinearLayout(requireContext());
+        textColumn.setOrientation(LinearLayout.VERTICAL);
+        TextView title = new TextView(requireContext());
+        title.setText(tx.isTransfer() ? getString(R.string.tipo_transferencia) : nonEmpty(tx.getCategoriaNombre(), getString(R.string.home_uncategorized)));
+        title.setTextColor(color(R.color.md_theme_onSurface));
+        title.setTextSize(16f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        TextView subtitle = new TextView(requireContext());
+        if (tx.isTransfer()) {
+            subtitle.setText(Format.date(tx.getFecha()) + " " + formatTime(tx.getFecha()) + " - "
+                    + SettingsService.getFinancialAccountName(requireContext(), tx.getAccountType())
+                    + " -> "
+                    + SettingsService.getFinancialAccountName(requireContext(), tx.getTransferDestinationAccountType()));
+        } else {
+            subtitle.setText(Format.date(tx.getFecha()) + " " + formatTime(tx.getFecha()) + " - " + SettingsService.getFinancialAccountName(requireContext(), tx.getAccountType()));
+        }
+        subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        subtitle.setTextSize(13f);
+        textColumn.addView(title);
+        textColumn.addView(subtitle);
+        if (label != null) {
+            TextView labelView = new TextView(requireContext());
+            labelView.setText(label.name);
+            labelView.setTextColor(accent);
+            labelView.setTextSize(12f);
+            labelView.setPadding(dp(8), dp(2), dp(8), dp(2));
+            textColumn.addView(labelView);
+        }
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.leftMargin = dp(12);
+        row.addView(textColumn, textParams);
+
+        TextView amount = new TextView(requireContext());
+        double shown = tx.isTransfer() ? tx.getMonto() : (tx.isEsIngreso() ? tx.getMonto() : -tx.getMonto());
+        amount.setText(Format.money(shown, tx.getMoneda()));
+        amount.setTextColor(color(tx.isTransfer() ? R.color.chartAccent : (tx.isEsIngreso() ? R.color.income : R.color.expense)));
+        amount.setTextSize(14f);
+        amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        amount.setSingleLine(true);
+        amount.setEllipsize(TextUtils.TruncateAt.END);
+        row.addView(amount);
+        return row;
+    }
+
+    private void showManageCardsSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(12), dp(20), dp(22));
+        root.setBackgroundColor(color(R.color.dialog_surface));
+
+        View handle = new View(requireContext());
+        GradientDrawable handleBg = new GradientDrawable();
+        handleBg.setColor(ColorUtils.setAlphaComponent(color(R.color.md_theme_onSurfaceVariant), 150));
+        handleBg.setCornerRadius(dp(3));
+        handle.setBackground(handleBg);
+        LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dp(64), dp(5));
+        handleParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        handleParams.bottomMargin = dp(20);
+        root.addView(handle, handleParams);
+
+        LinearLayout header = new LinearLayout(requireContext());
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        TextView title = new TextView(requireContext());
+        title.setText("Gestionar tarjetas");
+        title.setTextColor(color(R.color.md_theme_onSurface));
+        title.setTextSize(24f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        header.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        View close = plainIconButton(R.drawable.ic_close, color(R.color.md_theme_onSurfaceVariant), dp(42));
+        close.setOnClickListener(v -> dialog.dismiss());
+        header.addView(close);
+        root.addView(header);
+
+        TextView subtitle = new TextView(requireContext());
+        subtitle.setText("Elige que tarjetas cuentan en tu balance y cual se muestra en Inicio.");
+        subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        subtitle.setTextSize(15f);
+        subtitle.setLineSpacing(dp(2), 1f);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = dp(8);
+        subtitleParams.bottomMargin = dp(16);
+        root.addView(subtitle, subtitleParams);
+
+        Map<String, Double> balances = lastSummary == null ? new HashMap<>() : accountBalanceMap(lastSummary.getAccountBalances());
+        for (FinancialAccount account : SettingsService.listCardAccounts(requireContext())) {
+            root.addView(manageCardRow(dialog, account, balances));
+        }
+
+        MaterialButton add = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        add.setText("Agregar nueva tarjeta");
+        add.setAllCaps(false);
+        add.setTextColor(color(R.color.income));
+        add.setIconResource(R.drawable.ic_add);
+        add.setIconTint(ColorStateList.valueOf(color(R.color.income)));
+        add.setStrokeColor(ColorStateList.valueOf(color(R.color.income)));
+        add.setStrokeWidth(dp(1));
+        add.setCornerRadius(dp(16));
+        add.setOnClickListener(v -> {
             dialog.dismiss();
-        }));
+            showCreateAccountDialog();
+        });
+        LinearLayout.LayoutParams addParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58));
+        addParams.topMargin = dp(14);
+        root.addView(add, addParams);
+
+        LinearLayout info = new LinearLayout(requireContext());
+        info.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        info.setOrientation(LinearLayout.HORIZONTAL);
+        ImageView infoIcon = new ImageView(requireContext());
+        infoIcon.setImageResource(R.drawable.ic_info);
+        infoIcon.setColorFilter(color(R.color.md_theme_onSurfaceVariant));
+        info.addView(infoIcon, new LinearLayout.LayoutParams(dp(26), dp(26)));
+        TextView infoText = new TextView(requireContext());
+        infoText.setText("Las tarjetas activas cuentan en tu balance y una se muestra en Inicio.");
+        infoText.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        infoText.setTextSize(13f);
+        LinearLayout.LayoutParams infoTextParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        infoTextParams.leftMargin = dp(10);
+        info.addView(infoText, infoTextParams);
+        LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        infoParams.topMargin = dp(12);
+        root.addView(info, infoParams);
+
+        dialog.setContentView(root);
         dialog.show();
     }
 
-    private void saveDashboardPreferences(List<DashboardModuleAdapter.ModuleItem> modules) {
-        JSONArray arr = new JSONArray();
-        for (DashboardModuleAdapter.ModuleItem item : modules) {
-            if (item == null) continue;
-            JSONObject o = new JSONObject();
-            try {
-                o.put("id", item.getId());
-                o.put("visible", item.isVisible());
-                arr.put(o);
-            } catch (Exception ignore) { }
-        }
-        JSONObject body = new JSONObject();
-        try {
-            body.put("modules", arr);
-        } catch (Exception ignore) { }
+    private View manageCardRow(@NonNull BottomSheetDialog dialog, @NonNull FinancialAccount account, @NonNull Map<String, Double> balances) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(10), dp(10), dp(10), dp(10));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(color(R.color.md_theme_surface));
+        bg.setCornerRadius(dp(14));
+        bg.setStroke(dp(1), color(account.isVisibleInHome() ? R.color.chartBalance : R.color.md_theme_outlineVariant));
+        row.setBackground(bg);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowParams.topMargin = dp(10);
+        row.setLayoutParams(rowParams);
 
-        SettingsService.saveDashboard(requireContext(), body, new SettingsService.SaveCb() {
+        LinearLayout includeBox = new LinearLayout(requireContext());
+        includeBox.setGravity(android.view.Gravity.CENTER);
+        includeBox.setOrientation(LinearLayout.VERTICAL);
+        ImageView check = new ImageView(requireContext());
+        check.setImageResource(R.drawable.ic_check_circle);
+        check.setColorFilter(color(account.isIncludedInTotal() ? R.color.income : R.color.md_theme_onSurfaceVariant));
+        includeBox.addView(check, new LinearLayout.LayoutParams(dp(30), dp(30)));
+        TextView includeText = smallLabel(account.isIncludedInTotal() ? "Incluida" : "Fuera", account.isIncludedInTotal() ? color(R.color.income) : color(R.color.md_theme_onSurfaceVariant));
+        includeBox.addView(includeText);
+        includeBox.setOnClickListener(v -> {
+            SettingsService.setCardIncludedInTotal(requireContext(), account.getId(), !account.isIncludedInTotal());
+            refreshCards(dialog);
+        });
+        row.addView(includeBox, new LinearLayout.LayoutParams(dp(54), ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(R.drawable.ic_card);
+        icon.setColorFilter(color(R.color.chartBalance));
+        GradientDrawable iconBg = new GradientDrawable();
+        iconBg.setShape(GradientDrawable.OVAL);
+        iconBg.setColor(ColorUtils.setAlphaComponent(color(R.color.chartBalance), 45));
+        icon.setBackground(iconBg);
+        icon.setPadding(dp(8), dp(8), dp(8), dp(8));
+        row.addView(icon, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+        LinearLayout text = new LinearLayout(requireContext());
+        text.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(requireContext());
+        name.setText(compactName(account));
+        name.setTextColor(color(R.color.md_theme_onSurface));
+        name.setTextSize(14f);
+        name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        name.setSingleLine(true);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        text.addView(name);
+        TextView last4 = new TextView(requireContext());
+        String last4Text = maskedLast4(account);
+        last4.setText(last4Text);
+        last4.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        last4.setTextSize(12f);
+        last4.setVisibility(TextUtils.isEmpty(last4Text) ? View.GONE : View.VISIBLE);
+        text.addView(last4);
+        TextView amount = new TextView(requireContext());
+        amount.setText(Format.money(balanceFor(account, balances), currencyCode));
+        amount.setTextColor(color(R.color.chartBalance));
+        amount.setTextSize(16f);
+        amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        amount.setSingleLine(true);
+        amount.setEllipsize(TextUtils.TruncateAt.END);
+        text.addView(amount);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.leftMargin = dp(10);
+        row.addView(text, textParams);
+
+        LinearLayout actions = new LinearLayout(requireContext());
+        actions.setGravity(android.view.Gravity.CENTER);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        if (account.isVisibleInHome()) {
+            View visible = plainIconButton(R.drawable.ic_visibility, color(R.color.chartBalance), dp(30));
+            actions.addView(visible);
+        } else {
+            View principal = circularIconButton(R.drawable.ic_swap_horiz, color(R.color.chart_pie_4), color(R.color.black), dp(34));
+            principal.setOnClickListener(v -> {
+                SettingsService.setVisibleCardAccount(requireContext(), account.getId());
+                refreshCards(dialog);
+            });
+            actions.addView(principal);
+        }
+        View edit = plainIconButton(R.drawable.ic_edit, color(R.color.md_theme_onSurfaceVariant), dp(30));
+        edit.setOnClickListener(v -> {
+            dialog.dismiss();
+            showEditCardSheet(account);
+        });
+        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(30), dp(30));
+        editParams.leftMargin = dp(4);
+        actions.addView(edit, editParams);
+        if (account.isUserAdded()) {
+            View delete = plainIconButton(R.drawable.ic_delete, color(R.color.expense), dp(30));
+            delete.setOnClickListener(v -> {
+                SettingsService.deleteFinancialAccount(requireContext(), account.getId());
+                refreshCards(dialog);
+            });
+            LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(30), dp(30));
+            deleteParams.leftMargin = dp(4);
+            actions.addView(delete, deleteParams);
+        }
+        row.addView(actions, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return row;
+    }
+
+    private void refreshCards(@NonNull BottomSheetDialog dialog) {
+        dialog.dismiss();
+        viewModel.clearCache();
+        loadSummary(true);
+        cardCard.postDelayed(this::showManageCardsSheet, 120);
+    }
+
+    private void showEditCardSheet(@NonNull FinancialAccount account) {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(18), dp(20), dp(22));
+        root.setBackgroundColor(color(R.color.dialog_surface));
+
+        TextView title = new TextView(requireContext());
+        title.setText("Editar tarjeta");
+        title.setTextColor(color(R.color.md_theme_onSurface));
+        title.setTextSize(20f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(title);
+
+        TextInputLayout tilName = new TextInputLayout(requireContext());
+        tilName.setHint("Nombre (m\u00e1x. 7 letras)");
+        TextInputEditText etName = new TextInputEditText(requireContext());
+        etName.setSingleLine(true);
+        etName.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
+        etName.setText(account.getName() == null || account.getName().contains("predeterminada") ? "" : compactName(account));
+        tilName.addView(etName, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        nameParams.topMargin = dp(16);
+        root.addView(tilName, nameParams);
+
+        TextInputLayout tilLast4 = new TextInputLayout(requireContext());
+        tilLast4.setHint("\u00daltimos 4 d\u00edgitos (opcional)");
+        TextInputEditText etLast4 = new TextInputEditText(requireContext());
+        etLast4.setSingleLine(true);
+        etLast4.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        etLast4.setFilters(new InputFilter[] { new InputFilter.LengthFilter(4) });
+        etLast4.setText(account.getLast4());
+        tilLast4.addView(etLast4, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams last4Params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        last4Params.topMargin = dp(12);
+        root.addView(tilLast4, last4Params);
+
+        MaterialButton save = new MaterialButton(requireContext());
+        save.setText(R.string.btn_guardar);
+        save.setAllCaps(false);
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
+        saveParams.topMargin = dp(18);
+        root.addView(save, saveParams);
+
+        MaterialButton cancel = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        cancel.setText("Cancelar");
+        cancel.setAllCaps(false);
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        cancelParams.topMargin = dp(8);
+        root.addView(cancel, cancelParams);
+
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        save.setOnClickListener(v -> {
+            String name = etName.getText() == null ? "" : etName.getText().toString().trim();
+            String last4 = etLast4.getText() == null ? "" : etLast4.getText().toString().trim();
+            if (account.isUserAdded() && name.isEmpty()) {
+                tilName.setError("Ingresa un nombre");
+                return;
+            }
+            SettingsService.updateCardDetails(requireContext(), account.getId(), name, last4);
+            dialog.dismiss();
+            viewModel.clearCache();
+            loadSummary(true);
+            cardCard.postDelayed(this::showManageCardsSheet, 120);
+        });
+
+        dialog.setContentView(root);
+        dialog.show();
+    }
+
+    private void showCreateAccountDialog() {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(18), dp(20), dp(20));
+        root.setBackgroundColor(color(R.color.dialog_surface));
+
+        TextView title = new TextView(requireContext());
+        title.setText("Agregar nueva tarjeta");
+        title.setTextColor(color(R.color.md_theme_onSurface));
+        title.setTextSize(20f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(title);
+
+        TextView subtitle = new TextView(requireContext());
+        subtitle.setText("Se agregar\u00e1 como origen del dinero y tendr\u00e1 su propio saldo.");
+        subtitle.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        subtitle.setTextSize(14f);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = dp(6);
+        root.addView(subtitle, subtitleParams);
+
+        TextInputLayout tilName = new TextInputLayout(requireContext());
+        tilName.setHint("Nombre (m\u00e1x. 7 letras)");
+        TextInputEditText etName = new TextInputEditText(requireContext());
+        etName.setSingleLine(true);
+        etName.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
+        tilName.addView(etName, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        nameParams.topMargin = dp(16);
+        root.addView(tilName, nameParams);
+
+        TextInputLayout tilLast4 = new TextInputLayout(requireContext());
+        tilLast4.setHint("\u00daltimos 4 d\u00edgitos (opcional)");
+        TextInputEditText etLast4 = new TextInputEditText(requireContext());
+        etLast4.setSingleLine(true);
+        etLast4.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        etLast4.setFilters(new InputFilter[] { new InputFilter.LengthFilter(4) });
+        tilLast4.addView(etLast4, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams last4Params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        last4Params.topMargin = dp(12);
+        root.addView(tilLast4, last4Params);
+
+        TextInputLayout tilBalance = new TextInputLayout(requireContext());
+        tilBalance.setHintEnabled(false);
+        TextInputEditText etBalance = new TextInputEditText(requireContext());
+        etBalance.setHint("Saldo inicial");
+        etBalance.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        tilBalance.addView(etBalance, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams balanceParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        balanceParams.topMargin = dp(12);
+        root.addView(tilBalance, balanceParams);
+
+        TextInputLayout tilCurrency = new TextInputLayout(requireContext());
+        tilCurrency.setHint("Moneda");
+        MaterialAutoCompleteTextView actCurrency = new MaterialAutoCompleteTextView(requireContext());
+        actCurrency.setInputType(0);
+        actCurrency.setText(currencyCode, false);
+        actCurrency.setAdapter(new ArrayAdapter<>(requireContext(), R.layout.item_dropdown, com.example.finanzas.util.CurrencyConverter.supportedCurrencies()));
+        actCurrency.setOnClickListener(v -> actCurrency.showDropDown());
+        tilCurrency.addView(actCurrency, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams currencyParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        currencyParams.topMargin = dp(12);
+        root.addView(tilCurrency, currencyParams);
+
+        com.google.android.material.button.MaterialButton save = new com.google.android.material.button.MaterialButton(requireContext());
+        save.setText(R.string.btn_guardar);
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52));
+        saveParams.topMargin = dp(18);
+        root.addView(save, saveParams);
+
+        com.google.android.material.button.MaterialButton cancel = new com.google.android.material.button.MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        cancel.setText("Cancelar");
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        cancelParams.topMargin = dp(8);
+        root.addView(cancel, cancelParams);
+
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        save.setOnClickListener(v -> {
+            String name = etName.getText() == null ? "" : etName.getText().toString().trim();
+            String last4 = etLast4.getText() == null ? "" : etLast4.getText().toString().trim();
+            double initial = parseAmount(etBalance.getText() == null ? "" : etBalance.getText().toString());
+            String currency = com.example.finanzas.util.CurrencyConverter.normalize(actCurrency.getText() == null ? currencyCode : actCurrency.getText().toString());
+            if (name.isEmpty()) {
+                etName.setError("Ingresa un nombre");
+                return;
+            }
+            save.setEnabled(false);
+            AccountService.create(requireContext(), name, initial, currency, last4, new AccountService.CreateCb() {
+                @Override
+                public void onOk(@NonNull FinancialAccount account) {
+                    if (!isAdded()) return;
+                    dialog.dismiss();
+                    CategoryStore.clearCache();
+                    viewModel.clearCache();
+                    loadSummary(true);
+                    UiFormUtils.showMessage(requireView(), "Tarjeta agregada");
+                }
+
+                @Override
+                public void onError(@Nullable String message) {
+                    if (!isAdded()) return;
+                    save.setEnabled(true);
+                    UiFormUtils.showMessage(requireView(), TextUtils.isEmpty(message) ? "No se pudo crear la cuenta" : message);
+                }
+            });
+        });
+        dialog.setContentView(root);
+        dialog.show();
+    }
+
+    private void maybeShowInitialCurrencyDialog() {
+        if (!isAdded() || SettingsService.hasCurrencyConfigured(requireContext())) {
+            maybeShowTesterThanksDialog();
+            return;
+        }
+        final boolean[] saved = { false };
+        final String[] codes = new String[] { "PEN", "USD", "EUR", "CLP" };
+        final String[] labels = new String[] {
+                "PEN - Sol peruano - S/",
+                "USD - Dolar estadounidense - $",
+                "EUR - Euro",
+                "CLP - Peso chileno - CLP$"
+        };
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.initial_currency_title)
+                .setItems(labels, (d, which) -> {
+                    saved[0] = true;
+                    saveInitialCurrencyChoice(codes[Math.max(0, Math.min(which, codes.length - 1))]);
+                })
+                .setNegativeButton(R.string.initial_currency_default, (d, which) -> {
+                    saved[0] = true;
+                    saveInitialCurrencyChoice("PEN");
+                })
+                .create();
+        dialog.setOnCancelListener(d -> {
+            if (!saved[0]) {
+                saved[0] = true;
+                saveInitialCurrencyChoice("PEN");
+            }
+        });
+        dialog.show();
+    }
+
+    private void saveInitialCurrencyChoice(@NonNull String code) {
+        SettingsService.saveCurrency(requireContext(), code, 0.0, new SettingsService.SaveCb() {
             @Override
             public void onSuccess() {
-                if (lastSummary != null) {
-                    lastSummary.getDashboardPreferencias().clear();
-                    for (DashboardModuleAdapter.ModuleItem item : modules) {
-                        if (item == null) continue;
-                        lastSummary.getDashboardPreferencias().add(new DashboardModulePref(item.getId(), item.isVisible()));
-                    }
-                }
-                applyModulePreferences(lastSummary);
-                Toast.makeText(requireContext(), R.string.dashboard_customize_saved, Toast.LENGTH_SHORT).show();
+                if (!isAdded()) return;
+                currencyCode = SettingsService.getCurrencyCode(requireContext());
+                viewModel.clearCache();
+                loadSummary(true);
+                maybeShowTesterThanksDialog();
             }
 
             @Override
             public void onFail() {
-                Toast.makeText(requireContext(), R.string.dashboard_customize_error, Toast.LENGTH_SHORT).show();
+                maybeShowTesterThanksDialog();
             }
         });
     }
 
-    private void showTravelDialog() {
-        if (!isAdded()) return;
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_travel_settings, null, false);
-        SwitchMaterial swEnabled = content.findViewById(R.id.swTravelEnabled);
-        EditText etBase = content.findViewById(R.id.etTravelBase);
-        EditText etSecondary = content.findViewById(R.id.etTravelSecondary);
-        EditText etRate = content.findViewById(R.id.etTravelRate);
-
-        if (lastSummary != null && lastSummary.getTravelPreference() != null) {
-            TravelPreference pref = lastSummary.getTravelPreference();
-            swEnabled.setChecked(pref.isEnabled());
-            if (pref.getBase() != null) etBase.setText(pref.getBase());
-            if (pref.getCurrency() != null) etSecondary.setText(pref.getCurrency());
-            if (pref.getRate() > 0) etRate.setText(String.valueOf(pref.getRate()));
-        }
-
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setTitle(R.string.travel_settings_title)
+    private void maybeShowTesterThanksDialog() {
+        if (!isAdded() || testerThanksDialogShowing || Prefs.hasSeenTesterThanks(requireContext())) return;
+        testerThanksDialogShowing = true;
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_tester_thanks, null, false);
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setView(content)
-                .setPositiveButton(R.string.travel_settings_save, null)
-                .setNegativeButton(android.R.string.cancel, null)
                 .create();
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            boolean enabled = swEnabled.isChecked();
-            String base = etBase.getText() == null ? "" : etBase.getText().toString().trim().toUpperCase();
-            String currency = etSecondary.getText() == null ? "" : etSecondary.getText().toString().trim().toUpperCase();
-            String rateRaw = etRate.getText() == null ? "" : etRate.getText().toString().trim();
-            double rate = 0;
-            if (!rateRaw.isEmpty()) {
-                rate = parseMontoSeguro(rateRaw);
-                if (rate <= 0) {
-                    Toast.makeText(requireContext(), R.string.travel_settings_error, Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
-
-            JSONObject body = new JSONObject();
-            try {
-                body.put("enabled", enabled);
-                if (!TextUtils.isEmpty(base)) body.put("base", base);
-                if (!TextUtils.isEmpty(currency)) body.put("currency", currency);
-                if (rate > 0) body.put("rate", rate);
-            } catch (Exception ignore) { }
-
-            SettingsService.saveTravel(requireContext(), body, new SettingsService.SaveCb() {
-                @Override
-                public void onSuccess() {
-                    Toast.makeText(requireContext(), R.string.travel_settings_saved, Toast.LENGTH_SHORT).show();
-                    dialog.dismiss();
-                    cargarResumen();
-                }
-
-                @Override
-                public void onFail() {
-                    Toast.makeText(requireContext(), R.string.travel_settings_error, Toast.LENGTH_SHORT).show();
-                }
-            });
-        }));
+        View close = content.findViewById(R.id.btnTesterThanksClose);
+        View accept = content.findViewById(R.id.btnTesterThanksOk);
+        View.OnClickListener dismissAndRemember = v -> {
+            if (isAdded()) Prefs.markTesterThanksSeen(requireContext());
+            dialog.dismiss();
+        };
+        if (close != null) close.setOnClickListener(dismissAndRemember);
+        if (accept != null) accept.setOnClickListener(dismissAndRemember);
+        dialog.setOnCancelListener(d -> {
+            if (isAdded()) Prefs.markTesterThanksSeen(requireContext());
+        });
+        dialog.setOnDismissListener(d -> testerThanksDialogShowing = false);
         dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
     }
 
-    private double parseMontoSeguro(EditText input) {
-        if (input == null) return 0;
-        CharSequence text = input.getText();
-        return parseMontoSeguro(text == null ? "" : text.toString());
-    }
-
-    private double parseMontoSeguro(String raw) {
-        if (raw == null) return 0;
-        String limpio = raw.trim();
-        if (limpio.isEmpty()) return 0;
-        limpio = limpio.replaceAll("[^0-9,.-]", "");
-        if (limpio.isEmpty()) return 0;
-
-        int lastComma = limpio.lastIndexOf(',');
-        int lastDot = limpio.lastIndexOf('.');
+    private double parseAmount(@Nullable String raw) {
+        if (raw == null) return 0.0;
+        String clean = raw.trim().replaceAll("[^0-9,.-]", "");
+        if (clean.isEmpty()) return 0.0;
+        int lastComma = clean.lastIndexOf(',');
+        int lastDot = clean.lastIndexOf('.');
         if (lastComma >= 0 && lastDot >= 0) {
-            if (lastComma > lastDot) {
-                limpio = limpio.replace(".", "");
-                limpio = limpio.replace(',', '.');
-            } else {
-                limpio = limpio.replace(",", "");
-            }
+            clean = lastComma > lastDot ? clean.replace(".", "").replace(',', '.') : clean.replace(",", "");
         } else if (lastComma >= 0) {
-            limpio = limpio.replace(',', '.');
+            clean = clean.replace(',', '.');
         }
-
-        if ("-".equals(limpio) || ".".equals(limpio) || "-.".equals(limpio) || ",".equals(limpio)) {
-            return 0;
-        }
-
         try {
-            return Double.parseDouble(limpio);
+            return Math.max(0.0, Double.parseDouble(clean));
         } catch (NumberFormatException e) {
-            return 0;
+            return 0.0;
         }
+    }
+
+    private String formatTime(@Nullable Date date) {
+        if (date == null) return "";
+        return new SimpleDateFormat("HH:mm", Locale.US).format(date);
+    }
+
+    private String nonEmpty(@Nullable String value, @NonNull String fallback) {
+        String clean = value == null ? "" : value.trim();
+        return clean.isEmpty() ? fallback : clean;
+    }
+
+    private int color(int resId) {
+        return ContextCompat.getColor(requireContext(), resId);
+    }
+
+    private View circularIconButton(@DrawableRes int iconRes, @ColorInt int background, @ColorInt int iconColor, int size) {
+        FrameLayout frame = new FrameLayout(requireContext());
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(background);
+        frame.setBackground(bg);
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(iconRes);
+        icon.setColorFilter(iconColor);
+        frame.addView(icon, new FrameLayout.LayoutParams(Math.max(dp(22), size / 2), Math.max(dp(22), size / 2), android.view.Gravity.CENTER));
+        frame.setClickable(true);
+        frame.setFocusable(true);
+        frame.setLayoutParams(new LinearLayout.LayoutParams(size, size));
+        return frame;
+    }
+
+    private View plainIconButton(@DrawableRes int iconRes, @ColorInt int iconColor, int size) {
+        FrameLayout frame = new FrameLayout(requireContext());
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(ColorUtils.setAlphaComponent(iconColor, 32));
+        frame.setBackground(bg);
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(iconRes);
+        icon.setColorFilter(iconColor);
+        frame.addView(icon, new FrameLayout.LayoutParams(Math.max(dp(20), size / 2), Math.max(dp(20), size / 2), android.view.Gravity.CENTER));
+        frame.setClickable(true);
+        frame.setFocusable(true);
+        frame.setLayoutParams(new LinearLayout.LayoutParams(size, size));
+        return frame;
+    }
+
+    private TextView smallLabel(@NonNull String value, @ColorInt int textColor) {
+        TextView text = new TextView(requireContext());
+        text.setText(value);
+        text.setTextColor(textColor);
+        text.setTextSize(11f);
+        text.setGravity(android.view.Gravity.CENTER);
+        text.setMaxLines(1);
+        return text;
+    }
+
+    private LinearLayout iconTextAction(@DrawableRes int iconRes, @NonNull String label, @ColorInt int accent) {
+        LinearLayout box = new LinearLayout(requireContext());
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(android.view.Gravity.CENTER);
+        box.setPadding(dp(3), dp(4), dp(3), dp(4));
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(iconRes);
+        icon.setColorFilter(accent);
+        box.addView(icon, new LinearLayout.LayoutParams(dp(26), dp(26)));
+        TextView text = smallLabel(label, accent);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        textParams.topMargin = dp(2);
+        box.addView(text, textParams);
+        box.setClickable(true);
+        box.setFocusable(true);
+        return box;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
+
+
+
