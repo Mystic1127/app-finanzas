@@ -7,17 +7,17 @@
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="@dimen/screen_header_height"
         android:layout_marginStart="22dp"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="@dimen/screen_header_top"
         android:layout_marginEnd="22dp">
 
         <ImageView
             android:id="@+id/btnImportsBack"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="@dimen/screen_header_icon"
+            android:layout_height="@dimen/screen_header_icon"
             android:layout_gravity="start|center_vertical"
-            android:padding="10dp"
+            android:padding="@dimen/screen_header_icon_padding"
             android:src="@drawable/ic_arrow_back"
             app:tint="@color/md_theme_onSurface" />
 
@@ -28,7 +28,7 @@
             android:includeFontPadding="false"
             android:text="@string/nav_imports_title"
             android:textColor="@color/md_theme_onSurface"
-            android:textSize="22sp"
+            android:textSize="@dimen/screen_header_title"
             android:textStyle="bold" />
     </FrameLayout>
 

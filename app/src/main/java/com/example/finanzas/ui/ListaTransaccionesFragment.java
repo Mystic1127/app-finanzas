@@ -135,6 +135,10 @@ public class ListaTransaccionesFragment extends Fragment {
         cardVisibleTotal = v.findViewById(R.id.cardVisibleTotal);
         viewModel = new ViewModelProvider(requireActivity()).get(TransactionsViewModel.class);
         viewModel.clearCacheIfUserChanged();
+        View btnBack = v.findViewById(R.id.btnTransactionsBack);
+        if (btnBack != null) {
+            btnBack.setOnClickListener(back -> Navigation.findNavController(back).popBackStack());
+        }
         adapter = new TransaccionAdapter(requireContext(), new TransaccionAdapter.Listener() {
             @Override
             public void onClick(@NonNull Transaccion t) {

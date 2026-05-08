@@ -11,4 +11,9 @@
     <dimen name="text_body">14sp</dimen>
     <dimen name="radius_16">16dp</dimen>
     <dimen name="radius_20">20dp</dimen>
+    <dimen name="screen_header_top">24dp</dimen>
+    <dimen name="screen_header_height">44dp</dimen>
+    <dimen name="screen_header_title">22sp</dimen>
+    <dimen name="screen_header_icon">44dp</dimen>
+    <dimen name="screen_header_icon_padding">10dp</dimen>
 </resources>

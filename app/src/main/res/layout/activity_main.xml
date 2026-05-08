@@ -38,7 +38,7 @@
         <LinearLayout
             android:id="@+id/bottom_nav_container"
             android:layout_width="match_parent"
-            android:layout_height="86dp"
+            android:layout_height="90dp"
             android:layout_gravity="bottom"
             android:layout_marginStart="10dp"
             android:layout_marginEnd="10dp"
@@ -69,8 +69,8 @@
 
                 <ImageView
                     android:id="@+id/bottomIconHome"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="27dp"
+                    android:layout_height="27dp"
                     android:src="@drawable/ic_home"
                     app:tint="@color/md_theme_onSurfaceVariant" />
 
@@ -81,7 +81,7 @@
                     android:layout_marginTop="3dp"
                     android:maxLines="1"
                     android:text="@string/nav_home_title"
-                    android:textSize="10sp" />
+                    android:textSize="11sp" />
 
                 <View
                     android:id="@+id/bottomDotHome"
@@ -104,8 +104,8 @@
 
                 <ImageView
                     android:id="@+id/bottomIconAnalysis"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="27dp"
+                    android:layout_height="27dp"
                     android:src="@drawable/ic_analytics"
                     app:tint="@color/md_theme_onSurfaceVariant" />
 
@@ -116,7 +116,7 @@
                     android:layout_marginTop="3dp"
                     android:maxLines="1"
                     android:text="@string/nav_analysis_title"
-                    android:textSize="10sp" />
+                    android:textSize="11sp" />
 
                 <View
                     android:id="@+id/bottomDotAnalysis"
@@ -139,8 +139,8 @@
 
                 <FrameLayout
                     android:id="@+id/bottomAddCircle"
-                    android:layout_width="58dp"
-                    android:layout_height="58dp"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
                     android:background="@drawable/bg_bottom_nav_add"
                     android:clickable="true"
                     android:elevation="14dp"
@@ -149,8 +149,8 @@
 
                     <ImageView
                         android:id="@+id/bottomIconNew"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
                         android:layout_gravity="center"
                         android:src="@drawable/ic_add"
                         app:tint="@color/md_theme_onPrimary" />
@@ -177,8 +177,8 @@
 
                 <ImageView
                     android:id="@+id/bottomIconBudget"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="27dp"
+                    android:layout_height="27dp"
                     android:src="@drawable/ic_wallet"
                     app:tint="@color/md_theme_onSurfaceVariant" />
 
@@ -189,7 +189,7 @@
                     android:layout_marginTop="3dp"
                     android:maxLines="1"
                     android:text="@string/nav_budget_title"
-                    android:textSize="10sp" />
+                    android:textSize="11sp" />
 
                 <View
                     android:id="@+id/bottomDotBudget"
@@ -212,8 +212,8 @@
 
                 <ImageView
                     android:id="@+id/bottomIconPlanning"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="27dp"
+                    android:layout_height="27dp"
                     android:src="@drawable/ic_goal"
                     app:tint="@color/md_theme_onSurfaceVariant" />
 
@@ -224,7 +224,7 @@
                     android:layout_marginTop="3dp"
                     android:maxLines="1"
                     android:text="@string/nav_planning_title"
-                    android:textSize="9sp" />
+                    android:textSize="10sp" />
 
                 <View
                     android:id="@+id/bottomDotPlanning"

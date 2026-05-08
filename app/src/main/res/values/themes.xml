@@ -271,12 +271,12 @@
 
     <style name="Widget.Finanzas.VicoIncomeColumn" parent="">
         <item name="android:color">@color/income</item>
-        <item name="thickness">12dp</item>
+        <item name="thickness">8dp</item>
     </style>
 
     <style name="Widget.Finanzas.VicoExpenseColumn" parent="">
         <item name="android:color">@color/expense</item>
-        <item name="thickness">12dp</item>
+        <item name="thickness">8dp</item>
     </style>
 
     <style name="Widget.Finanzas.VicoPrimaryColumn" parent="">

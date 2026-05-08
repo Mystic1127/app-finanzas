@@ -3,6 +3,7 @@ package com.example.finanzas.ui;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -29,6 +30,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
@@ -43,6 +46,7 @@ import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.data.local.room.RecurringTransactionEntity;
 import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
+import com.example.finanzas.ui.view.LockableScrollView;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.CategoryPrefs;
 import com.example.finanzas.util.CurrencyConverter;
@@ -116,6 +120,9 @@ public class NuevaTransaccionFragment extends Fragment {
     private boolean savedSuccessfully = false;
     private boolean editingTransferLocked = false;
     private boolean editingStandardLocked = false;
+    private boolean keyboardVisible = false;
+    private boolean transactionCurrencyManuallySelected = false;
+    private int transactionScrollBasePaddingBottom = -1;
     private int lastAnimatedTransactionTypeId = View.NO_ID;
     private int lastAnimatedAccountTypeId = View.NO_ID;
     private int lastAnimatedDestinationTypeId = View.NO_ID;
@@ -143,7 +150,10 @@ public class NuevaTransaccionFragment extends Fragment {
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
         v.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
-        transactionScroll = v instanceof ScrollView ? (ScrollView) v : null;
+        transactionScroll = v.findViewById(R.id.transactionScroll);
+        if (transactionScroll == null && v instanceof ScrollView) {
+            transactionScroll = (ScrollView) v;
+        }
 
         etMonto       = v.findViewById(R.id.etMonto);
         tvMontoCurrency = v.findViewById(R.id.tvMontoCurrency);
@@ -179,6 +189,7 @@ public class NuevaTransaccionFragment extends Fragment {
         btnClearRecurrence = v.findViewById(R.id.btnClearRecurrence);
         btnGuardar    = v.findViewById(R.id.btnGuardar);
         layoutMoreOptions = v.findViewById(R.id.layoutMoreOptions);
+        configureTransactionScrollBehavior();
 
         setupTransactionTypeSelector();
         setupCurrencySelector();
@@ -260,6 +271,7 @@ public class NuevaTransaccionFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        syncDefaultCurrencyIfNeeded();
         updateCurrencyPrefix();
         populateAccountTypeButtons(selectedAccountType, false);
         populateDestinationAccountButtons(selectedDestinationAccountType);
@@ -274,6 +286,17 @@ public class NuevaTransaccionFragment extends Fragment {
         if (tvMontoCurrency != null && getContext() != null) {
             String symbol = SettingsService.getCurrencySymbol(resolveSelectedCurrency());
             tvMontoCurrency.setText(TextUtils.isEmpty(symbol) ? "" : symbol.trim());
+        }
+    }
+
+    private void syncDefaultCurrencyIfNeeded() {
+        if (actMoneda == null || !isAdded() || isEditingTransaction() || transactionCurrencyManuallySelected) {
+            return;
+        }
+        String currentDefault = SettingsService.getCurrencyCode(requireContext());
+        String selected = resolveSelectedCurrency();
+        if (!TextUtils.equals(CurrencyConverter.normalize(currentDefault), selected)) {
+            actMoneda.setText(CurrencyConverter.normalize(currentDefault), false);
         }
     }
 
@@ -325,10 +348,115 @@ public class NuevaTransaccionFragment extends Fragment {
         });
     }
 
+    private void configureTransactionScrollBehavior() {
+        if (transactionScroll == null) return;
+        transactionScrollBasePaddingBottom = transactionScroll.getPaddingBottom();
+        updateTransactionScrollAvailability();
+        bindKeyboardAwareFocus(etMonto);
+        bindKeyboardAwareFocus(etNota);
+
+        ViewCompat.setOnApplyWindowInsetsListener(transactionScroll, (view, insets) -> {
+            boolean nextKeyboardVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
+            keyboardVisible = nextKeyboardVisible;
+            int imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            int baseBottom = transactionScrollBasePaddingBottom < 0 ? 0 : transactionScrollBasePaddingBottom;
+            int keyboardPadding = nextKeyboardVisible ? Math.min(imeBottom, dp(180)) : 0;
+            view.setPadding(
+                    view.getPaddingLeft(),
+                    view.getPaddingTop(),
+                    view.getPaddingRight(),
+                    baseBottom + keyboardPadding
+            );
+            updateTransactionScrollAvailability();
+            if (nextKeyboardVisible) {
+                ensureFocusedAreaVisible();
+            } else if (!moreOptionsExpanded) {
+                resetTransactionScrollAfterKeyboard();
+            }
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(transactionScroll);
+    }
+
+    private void bindKeyboardAwareFocus(@Nullable View field) {
+        if (field == null) return;
+        field.setOnFocusChangeListener((focusedView, hasFocus) -> {
+            if (hasFocus) {
+                focusedView.postDelayed(this::ensureFocusedAreaVisible, 220L);
+            } else if (!keyboardVisible) {
+                resetTransactionScrollAfterKeyboard();
+            }
+        });
+    }
+
+    private void updateTransactionScrollAvailability() {
+        boolean enabled = moreOptionsExpanded || keyboardVisible;
+        if (transactionScroll instanceof LockableScrollView) {
+            ((LockableScrollView) transactionScroll).setScrollEnabled(enabled);
+        }
+        if (transactionScroll != null) {
+            transactionScroll.setVerticalScrollBarEnabled(enabled);
+        }
+    }
+
+    private void ensureFocusedAreaVisible() {
+        if (transactionScroll == null) return;
+        View root = getView();
+        if (root == null) return;
+        View focused = root.findFocus();
+        View target = focused == null ? btnGuardar : focused;
+        scrollToShowTargetAndSave(target);
+    }
+
+    private void scrollToShowTargetAndSave(@NonNull View target) {
+        if (transactionScroll == null || btnGuardar == null) return;
+        transactionScroll.post(() -> {
+            if (transactionScroll == null || btnGuardar == null) return;
+            Rect targetRect = new Rect();
+            target.getDrawingRect(targetRect);
+            transactionScroll.offsetDescendantRectToMyCoords(target, targetRect);
+
+            Rect saveRect = new Rect();
+            btnGuardar.getDrawingRect(saveRect);
+            transactionScroll.offsetDescendantRectToMyCoords(btnGuardar, saveRect);
+
+            int viewportTopPadding = dp(8);
+            int viewportBottomPadding = transactionScroll.getPaddingBottom() + dp(14);
+            int viewportTop = transactionScroll.getScrollY() + viewportTopPadding;
+            int viewportBottom = transactionScroll.getScrollY() + transactionScroll.getHeight() - viewportBottomPadding;
+            int availableHeight = Math.max(dp(80), viewportBottom - viewportTop);
+            int nextScroll = transactionScroll.getScrollY();
+
+            if (targetRect.bottom > viewportBottom) {
+                nextScroll += targetRect.bottom - viewportBottom;
+            }
+            if (targetRect.top < nextScroll + viewportTopPadding) {
+                nextScroll = targetRect.top - viewportTopPadding;
+            }
+
+            int desiredTop = Math.min(targetRect.top, saveRect.top);
+            int desiredBottom = Math.max(targetRect.bottom, saveRect.bottom);
+            if (desiredBottom - desiredTop <= availableHeight) {
+                int adjustedBottom = nextScroll + transactionScroll.getHeight() - viewportBottomPadding;
+                if (saveRect.bottom > adjustedBottom) {
+                    nextScroll += saveRect.bottom - adjustedBottom;
+                }
+                if (desiredTop < nextScroll + viewportTopPadding) {
+                    nextScroll = desiredTop - viewportTopPadding;
+                }
+            }
+
+            nextScroll = Math.max(0, nextScroll);
+            if (Math.abs(nextScroll - transactionScroll.getScrollY()) > dp(2)) {
+                transactionScroll.smoothScrollTo(0, nextScroll);
+            }
+        });
+    }
+
     private void resetTransactionScrollAfterKeyboard() {
         if (transactionScroll == null || moreOptionsExpanded) return;
         transactionScroll.postDelayed(() -> {
-            if (transactionScroll != null && !moreOptionsExpanded) {
+            if (transactionScroll != null && !moreOptionsExpanded && !keyboardVisible) {
                 transactionScroll.smoothScrollTo(0, 0);
             }
         }, 180L);
@@ -352,7 +480,10 @@ public class NuevaTransaccionFragment extends Fragment {
         actMoneda.setText(SettingsService.getCurrencyCode(requireContext()), false);
         actMoneda.setOnFocusChangeListener((view, hasFocus) -> { if (hasFocus) actMoneda.showDropDown(); });
         actMoneda.setOnClickListener(view -> actMoneda.showDropDown());
-        actMoneda.setOnItemClickListener((parent, view, position, id) -> updateCurrencyPrefix());
+        actMoneda.setOnItemClickListener((parent, view, position, id) -> {
+            transactionCurrencyManuallySelected = true;
+            updateCurrencyPrefix();
+        });
     }
 
     private void setupTransactionTypeSelector() {
@@ -1143,8 +1274,11 @@ public class NuevaTransaccionFragment extends Fragment {
         if (layoutMoreOptions != null) {
             layoutMoreOptions.setVisibility(expanded ? View.VISIBLE : View.GONE);
         }
-        if (!expanded && transactionScroll != null) {
+        updateTransactionScrollAvailability();
+        if (!expanded && transactionScroll != null && !keyboardVisible) {
             transactionScroll.postDelayed(() -> transactionScroll.smoothScrollTo(0, 0), 80L);
+        } else if (expanded && layoutMoreOptions != null) {
+            scrollToShowTargetAndSave(btnGuardar);
         }
     }
 

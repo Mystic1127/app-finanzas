@@ -17,7 +17,7 @@
             android:layout_height="match_parent"
             android:clipToPadding="false"
             android:paddingStart="16dp"
-            android:paddingTop="24dp"
+            android:paddingTop="@dimen/screen_header_top"
             android:paddingEnd="16dp">
 
             <LinearLayout
@@ -29,7 +29,7 @@
 
                 <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="44dp">
+                    android:layout_height="@dimen/screen_header_height">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -38,13 +38,13 @@
                         android:includeFontPadding="false"
                         android:text="@string/nav_home_title"
                         android:textColor="@color/md_theme_onSurface"
-                        android:textSize="22sp"
+                        android:textSize="@dimen/screen_header_title"
                         android:textStyle="bold" />
 
                     <FrameLayout
                         android:id="@+id/btnHomeSettings"
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
+                        android:layout_width="@dimen/screen_header_icon"
+                        android:layout_height="@dimen/screen_header_icon"
                         android:layout_gravity="end|center_vertical"
                         android:background="@drawable/bg_circle_button"
                         android:clickable="true"

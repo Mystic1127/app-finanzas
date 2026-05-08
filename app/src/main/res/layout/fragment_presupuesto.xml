@@ -13,7 +13,7 @@
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:paddingStart="20dp"
-        android:paddingTop="22dp"
+        android:paddingTop="@dimen/screen_header_top"
         android:paddingEnd="20dp"
         android:paddingBottom="112dp">
 
@@ -29,7 +29,7 @@
                 android:includeFontPadding="false"
                 android:text="@string/nav_budget_title"
                 android:textColor="@color/md_theme_onSurface"
-                android:textSize="22sp"
+                android:textSize="@dimen/screen_header_title"
                 android:textStyle="bold" />
 
             <TextView

@@ -5,9 +5,9 @@
     android:layout_height="match_parent"
     android:background="@color/md_theme_background"
     android:clipToPadding="false"
-    android:paddingStart="20dp"
-    android:paddingTop="24dp"
-    android:paddingEnd="20dp"
+    android:paddingStart="22dp"
+    android:paddingTop="@dimen/screen_header_top"
+    android:paddingEnd="22dp"
     android:paddingBottom="24dp">
 
     <LinearLayout
@@ -17,20 +17,20 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="72dp">
+            android:layout_height="@dimen/screen_header_height">
 
             <FrameLayout
                 android:id="@+id/btnSettingsBack"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
+                android:layout_width="@dimen/screen_header_icon"
+                android:layout_height="@dimen/screen_header_icon"
                 android:layout_gravity="start|center_vertical"
                 android:background="@drawable/bg_circle_button"
                 android:clickable="true"
                 android:focusable="true">
 
                 <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_arrow_back"
                     app:tint="@color/md_theme_onSurface" />
@@ -42,7 +42,7 @@
                 android:layout_gravity="center"
                 android:text="Ajustes"
                 android:textColor="@color/md_theme_onSurface"
-                android:textSize="26sp"
+                android:textSize="@dimen/screen_header_title"
                 android:textStyle="bold" />
         </FrameLayout>
 

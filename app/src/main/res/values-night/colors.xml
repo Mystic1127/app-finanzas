@@ -42,15 +42,15 @@
     <color name="md_theme_errorContainer">#5A121D</color>
     <color name="md_theme_onErrorContainer">#FFDDE2</color>
 
-    <color name="income">#18B77D</color>
+    <color name="income">#3F7A53</color>
     <color name="expense">#FF6577</color>
     <color name="chartBudget">#3F7A53</color>
     <color name="chartBalance">#58C7D6</color>
     <color name="chartAccent">#7C9CFF</color>
-    <color name="chart_line_income">#12C779</color>
+    <color name="chart_line_income">#3F7A53</color>
     <color name="chart_line_expense">#FF5368</color>
     <color name="chart_line_balance">#4EC7D9</color>
-    <color name="chart_pie_1">#12C779</color>
+    <color name="chart_pie_1">#3F7A53</color>
     <color name="chart_pie_2">#FF5368</color>
     <color name="chart_pie_3">#5D8CFF</color>
     <color name="chart_pie_4">#F2B545</color>

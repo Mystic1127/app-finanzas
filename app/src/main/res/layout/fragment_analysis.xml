@@ -11,7 +11,7 @@
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:paddingStart="20dp"
-        android:paddingTop="28dp"
+        android:paddingTop="@dimen/screen_header_top"
         android:paddingEnd="20dp"
         android:paddingBottom="24dp">
 
@@ -28,7 +28,7 @@
                 android:includeFontPadding="false"
                 android:text="@string/nav_analysis_title"
                 android:textColor="@color/md_theme_onSurface"
-                android:textSize="22sp"
+                android:textSize="@dimen/screen_header_title"
                 android:textStyle="bold" />
 
             <TextView
@@ -100,8 +100,9 @@
 
                     <com.patrykandpatrick.vico.views.cartesian.CartesianChartView
                         android:id="@+id/chartAnalysisIncomeExpense"
-                        android:layout_width="match_parent"
-                        android:layout_height="150dp"
+                        android:layout_width="240dp"
+                        android:layout_height="132dp"
+                        android:layout_gravity="center_horizontal"
                         android:layout_marginTop="8dp"
                         app:chartStyle="@style/Widget.Finanzas.VicoIncomeExpenseChart"
                         app:scrollEnabled="false"

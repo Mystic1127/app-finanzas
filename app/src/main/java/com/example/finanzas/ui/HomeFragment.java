@@ -299,7 +299,7 @@ public class HomeFragment extends Fragment {
         card.setRadius(dp(8));
 
         FrameLayout body = new FrameLayout(requireContext());
-        body.setPadding(dp(16), dp(14), dp(1), dp(14));
+        body.setPadding(dp(16), dp(14), dp(6), dp(14));
         card.addView(body, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         ImageView icon = new ImageView(requireContext());
@@ -368,12 +368,12 @@ public class HomeFragment extends Fragment {
         actions.setGravity(android.view.Gravity.CENTER);
         FrameLayout.LayoutParams actionsParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         actionsParams.gravity = android.view.Gravity.END | android.view.Gravity.TOP;
-        actionsParams.topMargin = -dp(7);
-        actionsParams.rightMargin = -dp(5);
+        actionsParams.topMargin = dp(1);
+        actionsParams.rightMargin = dp(2);
         body.addView(actions, actionsParams);
 
         if (cards.size() <= 1) {
-            View add = circularIconButton(R.drawable.ic_add, color(R.color.planning_dialog_button), color(R.color.md_theme_onPrimary), dp(22));
+            View add = insetCircularIconButton(R.drawable.ic_add, color(R.color.planning_dialog_button), color(R.color.md_theme_onPrimary), dp(32), dp(20));
             add.setOnClickListener(v -> showManageCardsSheet());
             actions.addView(add);
         } else if (summaryMode) {
@@ -1213,6 +1213,27 @@ public class HomeFragment extends Fragment {
         frame.setFocusable(true);
         frame.setLayoutParams(new LinearLayout.LayoutParams(size, size));
         return frame;
+    }
+
+    private View insetCircularIconButton(@DrawableRes int iconRes, @ColorInt int background, @ColorInt int iconColor, int touchSize, int circleSize) {
+        FrameLayout touchTarget = new FrameLayout(requireContext());
+        touchTarget.setClickable(true);
+        touchTarget.setFocusable(true);
+        touchTarget.setLayoutParams(new LinearLayout.LayoutParams(touchSize, touchSize));
+
+        FrameLayout circle = new FrameLayout(requireContext());
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(background);
+        circle.setBackground(bg);
+
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(iconRes);
+        icon.setColorFilter(iconColor);
+        int iconSize = Math.max(dp(14), Math.round(circleSize * 0.56f));
+        circle.addView(icon, new FrameLayout.LayoutParams(iconSize, iconSize, android.view.Gravity.CENTER));
+        touchTarget.addView(circle, new FrameLayout.LayoutParams(circleSize, circleSize, android.view.Gravity.CENTER));
+        return touchTarget;
     }
 
     private View plainIconButton(@DrawableRes int iconRes, @ColorInt int iconColor, int size) {
