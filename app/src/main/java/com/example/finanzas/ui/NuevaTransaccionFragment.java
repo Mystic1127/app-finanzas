@@ -1,6 +1,8 @@
 package com.example.finanzas.ui;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -13,6 +15,8 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.GridLayout;
@@ -38,6 +42,7 @@ import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.data.local.room.RecurringTransactionEntity;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.CategoryPrefs;
 import com.example.finanzas.util.CurrencyConverter;
@@ -97,6 +102,7 @@ public class NuevaTransaccionFragment extends Fragment {
     private MaterialButton btnClearRecurrence;
     private MaterialButton btnGuardar;
     private View layoutMoreOptions;
+    private ScrollView transactionScroll;
     private TextView tvMontoCurrency, tvMontoError;
     private boolean moreOptionsExpanded = false;
     private boolean saveButtonExpandTouch = false;
@@ -123,6 +129,8 @@ public class NuevaTransaccionFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        v.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
+        transactionScroll = v instanceof ScrollView ? (ScrollView) v : null;
 
         etMonto       = v.findViewById(R.id.etMonto);
         tvMontoCurrency = v.findViewById(R.id.tvMontoCurrency);
@@ -167,6 +175,7 @@ public class NuevaTransaccionFragment extends Fragment {
 
         if (etFecha != null) UiFormUtils.bindDatePicker(requireContext(), etFecha);
         if (etHora != null) UiFormUtils.bindTimePicker(requireContext(), etHora);
+        configureNoteDoneAction();
         bindMontoErrorCleaner();
         UiFormUtils.clearErrorOnTextChange(etFecha, etHora, actCategoria);
 
@@ -229,6 +238,32 @@ public class NuevaTransaccionFragment extends Fragment {
             }
             @Override public void afterTextChanged(Editable s) { }
         });
+    }
+
+    private void configureNoteDoneAction() {
+        if (etNota == null) return;
+        etNota.setSingleLine(true);
+        etNota.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        etNota.setOnEditorActionListener((textView, actionId, event) -> {
+            if (actionId != EditorInfo.IME_ACTION_DONE) return false;
+            textView.clearFocus();
+            InputMethodManager imm = (InputMethodManager) textView.getContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.hideSoftInputFromWindow(textView.getWindowToken(), 0);
+            }
+            resetTransactionScrollAfterKeyboard();
+            return true;
+        });
+    }
+
+    private void resetTransactionScrollAfterKeyboard() {
+        if (transactionScroll == null || moreOptionsExpanded) return;
+        transactionScroll.postDelayed(() -> {
+            if (transactionScroll != null && !moreOptionsExpanded) {
+                transactionScroll.smoothScrollTo(0, 0);
+            }
+        }, 180L);
     }
 
     private void setMontoError(@Nullable String message) {
@@ -927,6 +962,9 @@ public class NuevaTransaccionFragment extends Fragment {
         if (layoutMoreOptions != null) {
             layoutMoreOptions.setVisibility(expanded ? View.VISIBLE : View.GONE);
         }
+        if (!expanded && transactionScroll != null) {
+            transactionScroll.postDelayed(() -> transactionScroll.smoothScrollTo(0, 0), 80L);
+        }
     }
 
     private void cargarCategoriasYRefrescar() {
@@ -1339,63 +1377,49 @@ public class NuevaTransaccionFragment extends Fragment {
                     if (which == 0) {
                         showCreateLabelDialog(this::showManageLabelsDialog);
                     } else {
-                        showEditLabelDialog(transactionLabels.get(which - 1));
+                        showLabelActionsDialog(transactionLabels.get(which - 1));
+                    }
+                })
+                .show();
+    }
+
+    private void showLabelActionsDialog(@NonNull TransactionLabelStore.Label label) {
+        String[] options = new String[]{
+                getString(R.string.transaction_label_edit),
+                getString(R.string.transaction_label_delete)
+        };
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(label.name)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        showEditLabelDialog(label);
+                    } else {
+                        TransactionLabelStore.deleteLabel(requireContext(), label.id);
+                        if (label.id.equals(selectedLabelId)) {
+                            selectedLabelId = null;
+                            updateSelectedLabelText();
+                        }
+                        loadLabels();
                     }
                 })
                 .show();
     }
 
     private void showEditLabelDialog(@NonNull TransactionLabelStore.Label label) {
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
-        TextInputEditText input = content.findViewById(R.id.etSimple);
-        input.setHint(R.string.transaction_label_name);
-        input.setText(label.name);
-
-        LinearLayout root = new LinearLayout(requireContext());
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(8), dp(20), dp(8));
-        root.addView(content);
-
-        TextInputEditText hex = new TextInputEditText(requireContext());
-        hex.setHint(R.string.transaction_label_hex);
-        hex.setSingleLine(true);
-        hex.setText(label.colorHex);
-        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        hexParams.topMargin = dp(10);
-        root.addView(hex, hexParams);
-        root.addView(buildColorPalette(hex));
-
-        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.transaction_label_manage)
-                .setView(root)
-                .setNeutralButton(R.string.btn_eliminar, null)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.btn_guardar, null)
-                .create();
-        dialog.setOnShowListener(d -> {
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
-                TransactionLabelStore.deleteLabel(requireContext(), label.id);
-                if (label.id.equals(selectedLabelId)) selectedLabelId = null;
-                dialog.dismiss();
-                loadLabels();
-            });
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                String name = input.getText() == null ? "" : input.getText().toString().trim();
-                String color = hex.getText() == null ? "" : hex.getText().toString().trim();
-                if (name.isEmpty()) {
-                    input.setError(getString(R.string.transaction_label_name_error));
-                    return;
+        getChildFragmentManager().setFragmentResultListener(
+                LabelColorDialogFragment.REQUEST_KEY,
+                getViewLifecycleOwner(),
+                (requestKey, result) -> {
+                    String name = result.getString(LabelColorDialogFragment.RESULT_LABEL_NAME, "");
+                    String color = result.getString(LabelColorDialogFragment.RESULT_COLOR_HEX, "");
+                    TransactionLabelStore.updateLabel(requireContext(), label.id, name, color);
+                    loadLabels();
+                    updateSelectedLabelText();
                 }
-                if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
-                    hex.setError(getString(R.string.transaction_label_hex_error));
-                    return;
-                }
-                TransactionLabelStore.updateLabel(requireContext(), label.id, name, color);
-                dialog.dismiss();
-                loadLabels();
-            });
-        });
-        dialog.show();
+        );
+        LabelColorDialogFragment
+                .newInstance(label.id, label.name, label.colorHex)
+                .show(getChildFragmentManager(), "edit_label_color");
     }
 
     private void styleLabelOption(@NonNull MaterialButton button, @Nullable TransactionLabelStore.Label label, boolean selected) {
@@ -1415,107 +1439,22 @@ public class NuevaTransaccionFragment extends Fragment {
     }
 
     private void showCreateLabelDialog(@Nullable Runnable onSaved) {
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
-        TextInputEditText input = content.findViewById(R.id.etSimple);
-        input.setHint(R.string.transaction_label_name);
-
-        LinearLayout root = new LinearLayout(requireContext());
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(8), dp(20), dp(8));
-        root.addView(content);
-
-        TextInputEditText hex = new TextInputEditText(requireContext());
-        hex.setHint(R.string.transaction_label_hex);
-        hex.setSingleLine(true);
-        hex.setText("#4FA37A");
-        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        hexParams.topMargin = dp(10);
-        root.addView(hex, hexParams);
-
-        root.addView(buildColorPalette(hex));
-
-        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.transaction_label_create)
-                .setView(root)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.btn_guardar, null)
-                .create();
-        dialog.setOnShowListener(d -> dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String name = input.getText() == null ? "" : input.getText().toString().trim();
-            String color = hex.getText() == null ? "" : hex.getText().toString().trim();
-            if (name.isEmpty()) {
-                input.setError(getString(R.string.transaction_label_name_error));
-                return;
-            }
-            if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
-                hex.setError(getString(R.string.transaction_label_hex_error));
-                return;
-            }
-            TransactionLabelStore.Label label = TransactionLabelStore.createLabel(requireContext(), name, color);
-            selectedLabelId = label.id;
-            dialog.dismiss();
-            loadLabels();
-            if (onSaved != null) onSaved.run();
-        }));
-        dialog.show();
-    }
-
-    private View buildColorPalette(@NonNull TextInputEditText hex) {
-        LinearLayout wrapper = new LinearLayout(requireContext());
-        wrapper.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams wrapperParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        wrapperParams.topMargin = dp(12);
-        wrapper.setLayoutParams(wrapperParams);
-
-        TextView label = new TextView(requireContext());
-        label.setText("Paleta de colores");
-        label.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        label.setTextSize(13f);
-        label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        wrapper.addView(label);
-
-        GridLayout palette = new GridLayout(requireContext());
-        palette.setColumnCount(6);
-        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        gridParams.topMargin = dp(8);
-        wrapper.addView(palette, gridParams);
-
-        String selectedHex = TransactionLabelStore.normalizeHex(hex.getText() == null ? "#4FA37A" : hex.getText().toString());
-        for (String colorHex : TransactionLabelStore.paletteColors()) {
-            int color = android.graphics.Color.parseColor(colorHex);
-            View swatch = new View(requireContext());
-            swatch.setTag(colorHex);
-            applyColorSwatchBackground(swatch, color, colorHex.equals(selectedHex));
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = dp(34);
-            params.height = dp(34);
-            params.setMargins(0, 0, dp(12), dp(12));
-            palette.addView(swatch, params);
-            swatch.setOnClickListener(v -> {
-                hex.setText(colorHex);
-                for (int i = 0; i < palette.getChildCount(); i++) {
-                    View child = palette.getChildAt(i);
-                    String childHex = child.getTag() == null ? "" : child.getTag().toString();
-                    applyColorSwatchBackground(child, android.graphics.Color.parseColor(childHex), colorHex.equals(childHex));
+        getChildFragmentManager().setFragmentResultListener(
+                LabelColorDialogFragment.REQUEST_KEY,
+                getViewLifecycleOwner(),
+                (requestKey, result) -> {
+                    String name = result.getString(LabelColorDialogFragment.RESULT_LABEL_NAME, "");
+                    String color = result.getString(LabelColorDialogFragment.RESULT_COLOR_HEX, "");
+                    TransactionLabelStore.Label label = TransactionLabelStore.createLabel(requireContext(), name, color);
+                    selectedLabelId = label.id;
+                    loadLabels();
+                    updateSelectedLabelText();
+                    if (onSaved != null) onSaved.run();
                 }
-            });
-        }
-        return wrapper;
-    }
-
-    private void applyColorSwatchBackground(@NonNull View view, int color, boolean selected) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setColor(color);
-        bg.setCornerRadius(dp(9));
-        bg.setStroke(dp(selected ? 3 : 1), ContextCompat.getColor(requireContext(), selected ? R.color.md_theme_onSurface : R.color.md_theme_outline));
-        view.setBackground(bg);
+        );
+        LabelColorDialogFragment
+                .newInstance(null, "", "#4FA37A")
+                .show(getChildFragmentManager(), "create_label_color");
     }
 
     private void onGuardar(View view) {

@@ -49,7 +49,7 @@ abstract class AppRoomDatabase : RoomDatabase() {
                         val pass = it.getString(1) ?: continue
                         if (PasswordSecurity.looksLikeHashed(pass)) continue
                         val hashed = PasswordSecurity.hashPassword(pass)
-                        db.execSQL("UPDATE users SET password=? WHERE id=?", arrayOf(hashed, id))
+                        db.execSQL("UPDATE users SET password=? WHERE id=?", arrayOf<Any>(hashed, id))
                     }
                 }
             }

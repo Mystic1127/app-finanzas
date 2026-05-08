@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -41,6 +40,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
 import com.example.finanzas.ui.compose.HighlightedSentence
 import com.example.finanzas.ui.compose.SpendlyAuthBackground
+import com.example.finanzas.ui.compose.SpendlyBrandTitle
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyLogoMark
 import com.example.finanzas.ui.compose.SpendlyOutlinedButton
@@ -88,44 +88,26 @@ private fun WelcomeScreen(
                 .fillMaxSize()
                 .systemBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(84.dp))
 
-            SpendlyLogoMark(markSize = 74.dp)
+            SpendlyLogoMark(markSize = 72.dp)
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            Text(
-                text = stringResource(R.string.app_name_spendly),
-                color = colors.text,
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.sp,
-                textAlign = TextAlign.Center
-            )
+            SpendlyBrandTitle(fontSize = 38)
 
             HighlightedSentence(
                 before = "Controla ",
                 highlighted = "tu dinero",
                 after = " con claridad.",
-                modifier = Modifier.padding(top = 2.dp),
-                fontSize = 18
+                modifier = Modifier.padding(top = 4.dp),
+                fontSize = 16
             )
 
-            Text(
-                text = stringResource(R.string.welcome_description),
-                color = colors.muted,
-                fontSize = 14.sp,
-                lineHeight = 22.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .padding(top = 16.dp)
-                    .fillMaxWidth(0.92f)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -139,7 +121,7 @@ private fun WelcomeScreen(
                     modifier = Modifier.weight(1f)
                 )
                 WelcomeInfoCard(
-                    iconRes = R.drawable.ic_credit_card,
+                    iconRes = R.drawable.ic_creditcard,
                     title = stringResource(R.string.welcome_card_cards_title),
                     description = "Gestiona",
                     tint = colors.cyan,
@@ -172,7 +154,7 @@ private fun WelcomeScreen(
 
             Text(
                 text = stringResource(R.string.welcome_beta_version),
-                color = if (colors.dark) colors.muted else Color(0xFF98A2B3),
+                color = colors.muted,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
@@ -193,10 +175,9 @@ private fun WelcomeInfoCard(
     Column(
         modifier = modifier
             .height(154.dp)
-            .then(if (colors.dark) Modifier.shadow(6.dp, RoundedCornerShape(24.dp), clip = false) else Modifier)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(17.dp))
             .background(colors.surface)
-            .border(1.dp, colors.border.copy(alpha = if (colors.dark) 1f else 1f), RoundedCornerShape(24.dp))
+            .border(1.dp, colors.border.copy(alpha = 0.80f), RoundedCornerShape(17.dp))
             .padding(horizontal = 8.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -205,17 +186,11 @@ private fun WelcomeInfoCard(
                 .size(60.dp)
                 .clip(CircleShape)
                 .background(
-                    if (colors.dark) {
-                        Brush.radialGradient(
-                            colors = listOf(colors.bg, colors.bg)
-                        )
-                    } else {
-                        Brush.radialGradient(
-                            colors = listOf(Color(0xFFF8FAF8), Color(0xFFF8FAF8))
-                        )
-                    }
+                    Brush.radialGradient(
+                        colors = listOf(tint.copy(alpha = 0.24f), tint.copy(alpha = 0.07f), Color.Transparent)
+                    )
                 )
-                .border(1.dp, if (colors.dark) colors.border else colors.border, CircleShape)
+                .border(1.dp, tint.copy(alpha = 0.10f), CircleShape)
                 .padding(1.dp),
             contentAlignment = Alignment.Center
         ) {

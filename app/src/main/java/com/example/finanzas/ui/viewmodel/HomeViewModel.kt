@@ -7,12 +7,16 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.LocalRepository
+import com.example.finanzas.data.model.AnalysisChartState
 import com.example.finanzas.data.model.DashboardModulePref
 import com.example.finanzas.data.model.HomeSummary
 import com.example.finanzas.data.model.TravelPreference
 import com.example.finanzas.di.AppGraph
 import com.example.finanzas.util.PerfLogger
 import com.example.finanzas.util.Prefs
+import com.patrykandpatrick.vico.views.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.views.cartesian.data.columnSeries
+import com.patrykandpatrick.vico.views.cartesian.data.lineSeries
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +46,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currencyCode = MutableLiveData(SettingsService.getCurrencyCode(application))
     val currencyCode: LiveData<String> = _currencyCode
+
+    val incomeExpenseChartProducer = CartesianChartModelProducer()
+    val expenseTrendChartProducer = CartesianChartModelProducer()
+    val balanceChartProducer = CartesianChartModelProducer()
+    val savingsChartProducer = CartesianChartModelProducer()
+
+    private val _analysisCharts = MutableLiveData<AnalysisChartState?>()
+    val analysisCharts: LiveData<AnalysisChartState?> = _analysisCharts
 
     private var loadedYear = 0
     private var loadedMonth = 0
@@ -142,6 +154,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 val trendDeferred = async { graph.dashboardRepository.buildMonthlyTrend(anio, mes) }
+                val analysisChartsDeferred = async { graph.dashboardRepository.buildAnalysisChartState(anio, mes) }
 
                 val fullSummary = hydrateUiPreferences(fullSummaryDeferred.await())
                 if (!isCurrentLoad(generation)) return@launch
@@ -155,6 +168,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val trend = trendDeferred.await()
                 val previousSummary = previousSummaryDeferred.await()
                 val previousPreviousTx = prevPrevTxDeferred.await()
+                val analysisCharts = analysisChartsDeferred.await()
                 val enriched = withContext(Dispatchers.Default) {
                     graph.financialDashboardEngine.enrichDashboard(fullSummary, currentTx, previousTx, trend)
                     graph.financialDashboardEngine.applyScoreTrend(fullSummary, previousSummary, previousTx, previousPreviousTx)
@@ -173,6 +187,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     retryStaleLoad(generation, anio, mes, force, version, loadStart)
                     return@launch
                 }
+                updateAnalysisChartModels(analysisCharts)
+                _analysisCharts.value = analysisCharts
                 publishSummary(enriched.first, userId, anio, mes, version, clearDerived = false)
                 _smartAlert.value = enriched.second
                 _insights.value = enriched.third
@@ -208,6 +224,39 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _insights.value = emptyList()
         }
         _summary.value = summary
+    }
+
+    private suspend fun updateAnalysisChartModels(state: AnalysisChartState) {
+        val xValues = state.months.indices.map { it.toDouble() }
+        incomeExpenseChartProducer.runTransaction {
+            if (state.hasIncomeExpense()) {
+                columnSeries {
+                    series(xValues, state.months.map { it.ingresos })
+                    series(xValues, state.months.map { it.gastos })
+                }
+            }
+        }
+        expenseTrendChartProducer.runTransaction {
+            if (state.hasExpenseTrend()) {
+                lineSeries {
+                    series(xValues, state.months.map { it.gastos })
+                }
+            }
+        }
+        balanceChartProducer.runTransaction {
+            if (state.hasBalance()) {
+                lineSeries {
+                    series(xValues, state.months.map { it.balance })
+                }
+            }
+        }
+        savingsChartProducer.runTransaction {
+            if (state.hasSavings()) {
+                columnSeries {
+                    series(xValues, state.months.map { it.ahorro })
+                }
+            }
+        }
     }
 
     private fun isCurrentLoad(generation: Long): Boolean = generation == loadGeneration
@@ -247,6 +296,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         loadedVersion = -1L
         graph.dashboardRepository.clearCache()
         _summary.value = null
+        _analysisCharts.value = null
         _smartAlert.value = null
         _insights.value = emptyList()
         _loading.value = false

@@ -23,9 +23,12 @@ public final class TransactionLabelStore {
     private static final String KEY_LABELS_PREFIX = "transaction_labels_user_";
     private static final String KEY_ASSIGNMENTS_PREFIX = "transaction_label_assignments_user_";
     private static final String[] PALETTE = new String[]{
-            "#4FA37A", "#1E88E5", "#6C63FF", "#8E24AA",
-            "#D81B60", "#E53935", "#F4511E", "#F9A825",
-            "#43A047", "#00897B", "#00ACC1", "#5E6C84"
+            "#4FA37A", "#43A047", "#00ACC1", "#1E88E5", "#3949AB", "#7B1FA2",
+            "#D81B60", "#E91E63", "#E53935", "#F4511E", "#FB8C00", "#F9A825",
+            "#FBC02D", "#8CBF26", "#66A61E", "#2E7D32", "#00897B", "#0097A7",
+            "#1E88E5", "#303F9F", "#673AB7", "#7E3FF2", "#AD2A9C", "#6A4C75",
+            "#D69E3D", "#9C6B3E", "#A63A2B", "#6D4C41", "#5D4037", "#A1887F",
+            "#B0B7BC", "#747C82", "#455A64", "#303A40", "#1F1F1F", "#121212"
     };
 
     private TransactionLabelStore() { }
@@ -82,7 +85,7 @@ public final class TransactionLabelStore {
     public static Label createLabel(@NonNull Context context, @NonNull String name, @NonNull String colorHex) {
         String cleanName = name.trim();
         String cleanColor = normalizeHex(colorHex);
-        if (cleanName.isEmpty() || !isValidHex(cleanColor)) {
+        if (cleanName.isEmpty() || !isValidHex(colorHex)) {
             throw new IllegalArgumentException("Invalid label");
         }
         List<Label> labels = listLabels(context);
@@ -120,7 +123,7 @@ public final class TransactionLabelStore {
     public static void updateLabel(@NonNull Context context, @NonNull String labelId, @NonNull String name, @NonNull String colorHex) {
         String cleanName = name.trim();
         String cleanColor = normalizeHex(colorHex);
-        if (TextUtils.isEmpty(labelId) || cleanName.isEmpty() || !isValidHex(cleanColor)) {
+        if (TextUtils.isEmpty(labelId) || cleanName.isEmpty() || !isValidHex(colorHex)) {
             throw new IllegalArgumentException("Invalid label");
         }
         List<Label> labels = listLabels(context);
@@ -180,7 +183,7 @@ public final class TransactionLabelStore {
     }
 
     public static boolean isValidHex(@Nullable String raw) {
-        return raw != null && raw.trim().matches("#[0-9a-fA-F]{6}");
+        return raw != null && raw.trim().matches("^#[0-9A-Fa-f]{6}$");
     }
 
     @NonNull
@@ -191,7 +194,6 @@ public final class TransactionLabelStore {
     @NonNull
     public static String normalizeHex(@Nullable String raw) {
         String clean = raw == null ? "" : raw.trim();
-        if (!clean.startsWith("#")) clean = "#" + clean;
         return clean.toUpperCase(Locale.ROOT);
     }
 

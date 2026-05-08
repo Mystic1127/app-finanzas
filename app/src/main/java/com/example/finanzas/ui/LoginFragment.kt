@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -162,6 +163,7 @@ private fun LoginScreen(
             text = "Bienvenido a tu espacio financiero",
             color = colors.muted,
             fontSize = 16.sp,
+            lineHeight = 24.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp)
         )
@@ -186,7 +188,9 @@ private fun LoginScreen(
                 label = stringResource(R.string.auth_password),
                 visible = passwordVisible,
                 onToggleVisible = { passwordVisible = !passwordVisible },
-                enabled = !loading
+                enabled = !loading,
+                imeAction = ImeAction.Done,
+                onImeAction = { onLogin(email, password) { loading = it } }
             )
 
             Text(
@@ -213,7 +217,7 @@ private fun LoginScreen(
 
             Text(
                 text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = colors.muted)) {
+                    withStyle(SpanStyle(color = colors.accent.copy(alpha = 0.78f))) {
                         append("¿No tienes cuenta? ")
                     }
                     withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.Bold)) {

@@ -3,6 +3,7 @@ package com.example.finanzas.ui;
 import android.os.Bundle;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
@@ -12,9 +13,6 @@ import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
-import android.widget.GridLayout;
-import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.text.TextUtils;
@@ -30,6 +28,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.finanzas.R;
@@ -110,7 +110,7 @@ public class ListaTransaccionesFragment extends Fragment {
         perfStartMs = PerfLogger.now();
         firstRenderLogged = false;
 
-        ListView listView = v.findViewById(R.id.listView);
+        RecyclerView listView = v.findViewById(R.id.listView);
         tvPeriodo = v.findViewById(R.id.tvPeriodo);
         tvEmpty = v.findViewById(R.id.tvTransactionsEmpty);
         progress = v.findViewById(R.id.progressLista);
@@ -126,59 +126,35 @@ public class ListaTransaccionesFragment extends Fragment {
         cardVisibleTotal = v.findViewById(R.id.cardVisibleTotal);
         viewModel = new ViewModelProvider(requireActivity()).get(TransactionsViewModel.class);
         viewModel.clearCacheIfUserChanged();
-        adapter = new TransaccionAdapter(requireContext(), new ArrayList<>());
-        listView.setAdapter(adapter);
-
-        listView.setOnItemClickListener((parent, view, position, id) -> {
-            Transaccion t = adapter.getItem(position);
-            if (t == null) return;
-            if (t.isInitialBalance()) {
-                UiFormUtils.showMessage(requireView(), R.string.perfil_initial_balances_locked_help);
-                return;
+        adapter = new TransaccionAdapter(requireContext(), new TransaccionAdapter.Listener() {
+            @Override
+            public void onClick(@NonNull Transaccion t) {
+                openTransaction(t);
             }
 
-            Bundle args = new Bundle();
-            args.putInt(NuevaTransaccionFragment.EXTRA_ID, t.getId());
-            args.putInt(NuevaTransaccionFragment.EXTRA_CAT_ID, t.getCategoriaId());
-            args.putString(NuevaTransaccionFragment.EXTRA_CAT_NOMBRE, t.getCategoriaNombre());
-            args.putBoolean(NuevaTransaccionFragment.EXTRA_ES_INGRESO, t.isEsIngreso());
-            args.putBoolean(NuevaTransaccionFragment.EXTRA_IS_TRANSFER, t.isTransfer());
-            args.putDouble(NuevaTransaccionFragment.EXTRA_MONTO, t.getMonto());
-            args.putString(NuevaTransaccionFragment.EXTRA_NOTA,
-                    t.getDisplayNote() == null ? "" : t.getDisplayNote());
-            args.putString(NuevaTransaccionFragment.EXTRA_MONEDA,
-                    t.getMoneda() == null ? "PEN" : t.getMoneda());
-            args.putString(NuevaTransaccionFragment.EXTRA_ACCOUNT_TYPE, t.getAccountType());
-            if (t.isTransfer()) {
-                args.putString(
-                        NuevaTransaccionFragment.EXTRA_DESTINATION_ACCOUNT_TYPE,
-                        t.getTransferDestinationAccountType()
-                );
-            }
-            if (t.getFecha() != null) {
-                args.putLong(NuevaTransaccionFragment.EXTRA_FECHA, t.getFecha().getTime());
-            }
-
-            viewModel.clearTransientEvents();
-            Navigation.findNavController(view).navigate(R.id.nav_new, args);
-        });
-
-        listView.setOnItemLongClickListener((p, view, pos, id) -> {
-            Transaccion t = adapter.getItem(pos);
-            if (t == null) return true;
-            if (t.isInitialBalance()) {
-                UiFormUtils.showMessage(requireView(), R.string.perfil_initial_balances_locked_help);
+            @Override
+            public boolean onLongClick(@NonNull Transaccion t) {
+                confirmDeleteTransaction(t);
                 return true;
             }
-
-            new MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.btn_eliminar)
-                    .setMessage(R.string.pres_confirm_delete)
-                    .setPositiveButton(R.string.btn_eliminar, (d, w) -> eliminarRemotoYRefrescar(t.getId()))
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show();
-            return true;
         });
+        listView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        listView.setHasFixedSize(false);
+        listView.addItemDecoration(new RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(
+                    @NonNull Rect outRect,
+                    @NonNull View view,
+                    @NonNull RecyclerView parent,
+                    @NonNull RecyclerView.State state
+            ) {
+                int position = parent.getChildAdapterPosition(view);
+                if (position != RecyclerView.NO_POSITION && position < adapter.getItemCount() - 1) {
+                    outRect.bottom = dp(8);
+                }
+            }
+        });
+        listView.setAdapter(adapter);
 
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) ->
@@ -286,11 +262,56 @@ public class ListaTransaccionesFragment extends Fragment {
         viewModel.delete(id);
     }
 
+    private void openTransaction(@NonNull Transaccion t) {
+        if (t.isInitialBalance()) {
+            UiFormUtils.showMessage(requireView(), R.string.perfil_initial_balances_locked_help);
+            return;
+        }
+
+        Bundle args = new Bundle();
+        args.putInt(NuevaTransaccionFragment.EXTRA_ID, t.getId());
+        args.putInt(NuevaTransaccionFragment.EXTRA_CAT_ID, t.getCategoriaId());
+        args.putString(NuevaTransaccionFragment.EXTRA_CAT_NOMBRE, t.getCategoriaNombre());
+        args.putBoolean(NuevaTransaccionFragment.EXTRA_ES_INGRESO, t.isEsIngreso());
+        args.putBoolean(NuevaTransaccionFragment.EXTRA_IS_TRANSFER, t.isTransfer());
+        args.putDouble(NuevaTransaccionFragment.EXTRA_MONTO, t.getMonto());
+        args.putString(NuevaTransaccionFragment.EXTRA_NOTA,
+                t.getDisplayNote() == null ? "" : t.getDisplayNote());
+        args.putString(NuevaTransaccionFragment.EXTRA_MONEDA,
+                t.getMoneda() == null ? "PEN" : t.getMoneda());
+        args.putString(NuevaTransaccionFragment.EXTRA_ACCOUNT_TYPE, t.getAccountType());
+        if (t.isTransfer()) {
+            args.putString(
+                    NuevaTransaccionFragment.EXTRA_DESTINATION_ACCOUNT_TYPE,
+                    t.getTransferDestinationAccountType()
+            );
+        }
+        if (t.getFecha() != null) {
+            args.putLong(NuevaTransaccionFragment.EXTRA_FECHA, t.getFecha().getTime());
+        }
+
+        viewModel.clearTransientEvents();
+        Navigation.findNavController(requireView()).navigate(R.id.nav_new, args);
+    }
+
+    private void confirmDeleteTransaction(@NonNull Transaccion t) {
+        if (t.isInitialBalance()) {
+            UiFormUtils.showMessage(requireView(), R.string.perfil_initial_balances_locked_help);
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.btn_eliminar)
+                .setMessage(R.string.pres_confirm_delete)
+                .setPositiveButton(R.string.btn_eliminar, (d, w) -> eliminarRemotoYRefrescar(t.getId()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     private void loadTransactionLabels() {
         if (!isAdded()) return;
         transactionLabels = TransactionLabelStore.listLabels(requireContext());
         labelAssignments = TransactionLabelStore.listAssignments(requireContext());
-        adapter.setLabels(TransactionLabelStore.assignedLabelDetails(requireContext()));
         if (selectedLabelId != null) {
             boolean selectedStillExists = false;
             for (TransactionLabelStore.Label label : transactionLabels) {
@@ -381,11 +402,24 @@ public class ListaTransaccionesFragment extends Fragment {
                 visible.add(tx);
             }
         }
-        adapter.clear();
-        adapter.addAll(visible);
-        adapter.notifyDataSetChanged();
+        adapter.submitTransactions(visible, visibleLabelDetails());
         if (tvEmpty != null) tvEmpty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
         updateVisibleTotal(visible);
+    }
+
+    @NonNull
+    private Map<Integer, TransactionLabelStore.Label> visibleLabelDetails() {
+        Map<String, TransactionLabelStore.Label> labelsById = new HashMap<>();
+        for (TransactionLabelStore.Label label : transactionLabels) {
+            if (label != null) labelsById.put(label.id, label);
+        }
+
+        Map<Integer, TransactionLabelStore.Label> details = new HashMap<>();
+        for (Map.Entry<Integer, String> entry : labelAssignments.entrySet()) {
+            TransactionLabelStore.Label label = labelsById.get(entry.getValue());
+            if (label != null) details.put(entry.getKey(), label);
+        }
+        return details;
     }
 
     private boolean matchesQuickType(@NonNull Transaccion tx) {
@@ -522,168 +556,62 @@ public class ListaTransaccionesFragment extends Fragment {
                     if (which == 0) {
                         showCreateLabelDialog(this::showManageLabelsDialog);
                     } else {
-                        showEditLabelDialog(transactionLabels.get(which - 1));
+                        showLabelActionsDialog(transactionLabels.get(which - 1));
+                    }
+                })
+                .show();
+    }
+
+    private void showLabelActionsDialog(@NonNull TransactionLabelStore.Label label) {
+        String[] options = new String[]{
+                getString(R.string.transaction_label_edit),
+                getString(R.string.transaction_label_delete)
+        };
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(label.name)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        showEditLabelDialog(label);
+                    } else {
+                        TransactionLabelStore.deleteLabel(requireContext(), label.id);
+                        if (label.id.equals(selectedLabelId)) selectedLabelId = null;
+                        loadTransactionLabels();
                     }
                 })
                 .show();
     }
 
     private void showEditLabelDialog(@NonNull TransactionLabelStore.Label label) {
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
-        TextInputEditText input = content.findViewById(R.id.etSimple);
-        input.setHint(R.string.transaction_label_name);
-        input.setText(label.name);
-
-        LinearLayout root = new LinearLayout(requireContext());
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(8), dp(20), dp(8));
-        root.addView(content);
-
-        TextInputEditText hex = new TextInputEditText(requireContext());
-        hex.setHint(R.string.transaction_label_hex);
-        hex.setSingleLine(true);
-        hex.setText(label.colorHex);
-        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        hexParams.topMargin = dp(10);
-        root.addView(hex, hexParams);
-        root.addView(buildColorPalette(hex));
-
-        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.transaction_label_manage)
-                .setView(root)
-                .setNeutralButton(R.string.btn_eliminar, null)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.btn_guardar, null)
-                .create();
-        dialog.setOnShowListener(d -> {
-            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
-                TransactionLabelStore.deleteLabel(requireContext(), label.id);
-                dialog.dismiss();
-                loadTransactionLabels();
-            });
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                String name = input.getText() == null ? "" : input.getText().toString().trim();
-                String color = hex.getText() == null ? "" : hex.getText().toString().trim();
-                if (name.isEmpty()) {
-                    input.setError(getString(R.string.transaction_label_name_error));
-                    return;
+        getChildFragmentManager().setFragmentResultListener(
+                LabelColorDialogFragment.REQUEST_KEY,
+                getViewLifecycleOwner(),
+                (requestKey, result) -> {
+                    String name = result.getString(LabelColorDialogFragment.RESULT_LABEL_NAME, "");
+                    String color = result.getString(LabelColorDialogFragment.RESULT_COLOR_HEX, "");
+                    TransactionLabelStore.updateLabel(requireContext(), label.id, name, color);
+                    loadTransactionLabels();
                 }
-                if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
-                    hex.setError(getString(R.string.transaction_label_hex_error));
-                    return;
-                }
-                TransactionLabelStore.updateLabel(requireContext(), label.id, name, color);
-                dialog.dismiss();
-                loadTransactionLabels();
-            });
-        });
-        dialog.show();
+        );
+        LabelColorDialogFragment
+                .newInstance(label.id, label.name, label.colorHex)
+                .show(getChildFragmentManager(), "edit_label_color");
     }
 
     private void showCreateLabelDialog(@Nullable Runnable onSaved) {
-        View content = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_simple_text, null, false);
-        TextInputEditText input = content.findViewById(R.id.etSimple);
-        input.setHint(R.string.transaction_label_name);
-
-        LinearLayout root = new LinearLayout(requireContext());
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(8), dp(20), dp(8));
-        root.addView(content);
-
-        TextInputEditText hex = new TextInputEditText(requireContext());
-        hex.setHint(R.string.transaction_label_hex);
-        hex.setSingleLine(true);
-        hex.setText("#4FA37A");
-        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        hexParams.topMargin = dp(10);
-        root.addView(hex, hexParams);
-
-        root.addView(buildColorPalette(hex));
-
-        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.transaction_label_create)
-                .setView(root)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.btn_guardar, null)
-                .create();
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String name = input.getText() == null ? "" : input.getText().toString().trim();
-            String color = hex.getText() == null ? "" : hex.getText().toString().trim();
-            if (name.isEmpty()) {
-                input.setError(getString(R.string.transaction_label_name_error));
-                return;
-            }
-            if (!TransactionLabelStore.isValidHex(TransactionLabelStore.normalizeHex(color))) {
-                hex.setError(getString(R.string.transaction_label_hex_error));
-                return;
-            }
-            TransactionLabelStore.createLabel(requireContext(), name, color);
-            dialog.dismiss();
-            loadTransactionLabels();
-            if (onSaved != null) onSaved.run();
-        }));
-        dialog.show();
-    }
-
-    private View buildColorPalette(@NonNull TextInputEditText hex) {
-        LinearLayout wrapper = new LinearLayout(requireContext());
-        wrapper.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams wrapperParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        wrapperParams.topMargin = dp(12);
-        wrapper.setLayoutParams(wrapperParams);
-
-        TextView label = new TextView(requireContext());
-        label.setText("Paleta de colores");
-        label.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
-        label.setTextSize(13f);
-        label.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
-        wrapper.addView(label);
-
-        GridLayout palette = new GridLayout(requireContext());
-        palette.setColumnCount(6);
-        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        gridParams.topMargin = dp(8);
-        wrapper.addView(palette, gridParams);
-
-        String selectedHex = TransactionLabelStore.normalizeHex(hex.getText() == null ? "#4FA37A" : hex.getText().toString());
-        for (String colorHex : TransactionLabelStore.paletteColors()) {
-            int color = android.graphics.Color.parseColor(colorHex);
-            View swatch = new View(requireContext());
-            swatch.setTag(colorHex);
-            applyColorSwatchBackground(swatch, color, colorHex.equals(selectedHex));
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = dp(34);
-            params.height = dp(34);
-            params.setMargins(0, 0, dp(12), dp(12));
-            palette.addView(swatch, params);
-            swatch.setOnClickListener(v -> {
-                hex.setText(colorHex);
-                for (int i = 0; i < palette.getChildCount(); i++) {
-                    View child = palette.getChildAt(i);
-                    String childHex = child.getTag() == null ? "" : child.getTag().toString();
-                    applyColorSwatchBackground(child, android.graphics.Color.parseColor(childHex), colorHex.equals(childHex));
+        getChildFragmentManager().setFragmentResultListener(
+                LabelColorDialogFragment.REQUEST_KEY,
+                getViewLifecycleOwner(),
+                (requestKey, result) -> {
+                    String name = result.getString(LabelColorDialogFragment.RESULT_LABEL_NAME, "");
+                    String color = result.getString(LabelColorDialogFragment.RESULT_COLOR_HEX, "");
+                    TransactionLabelStore.createLabel(requireContext(), name, color);
+                    loadTransactionLabels();
+                    if (onSaved != null) onSaved.run();
                 }
-            });
-        }
-        return wrapper;
-    }
-
-    private void applyColorSwatchBackground(@NonNull View view, int color, boolean selected) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setColor(color);
-        bg.setCornerRadius(dp(9));
-        bg.setStroke(dp(selected ? 3 : 1), ContextCompat.getColor(requireContext(), selected ? R.color.md_theme_onSurface : R.color.md_theme_outline));
-        view.setBackground(bg);
+        );
+        LabelColorDialogFragment
+                .newInstance(null, "", "#4FA37A")
+                .show(getChildFragmentManager(), "create_label_color");
     }
 
     private void showTransactionSelectionDialog(@NonNull TransactionLabelStore.Label label) {
@@ -1003,7 +931,7 @@ public class ListaTransaccionesFragment extends Fragment {
     private void observeViewModel() {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             boolean active = Boolean.TRUE.equals(loading);
-            showLoading(active && adapter.getCount() == 0);
+            showLoading(active && adapter.getItemCount() == 0);
             if (swipeRefreshLayout != null) swipeRefreshLayout.setRefreshing(active && manualRefresh);
             if (!active) {
                 PerfLogger.logSince("ListaTransaccionesFragment", "loadComplete", loadStartMs);

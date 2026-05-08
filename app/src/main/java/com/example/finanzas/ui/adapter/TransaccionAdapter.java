@@ -6,13 +6,15 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ListAdapter;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
@@ -23,74 +25,150 @@ import com.example.finanzas.util.LabelColorUtils;
 import com.example.finanzas.util.TransactionLabelStore;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
-public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
-    private Map<Integer, TransactionLabelStore.Label> labels = new HashMap<>();
-
-    public TransaccionAdapter(@NonNull Context ctx, @NonNull List<Transaccion> data) {
-        super(ctx, 0, data);
+public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.TransactionRow, TransaccionAdapter.VH> {
+    public interface Listener {
+        void onClick(@NonNull Transaccion transaction);
+        boolean onLongClick(@NonNull Transaccion transaction);
     }
 
-    public void setLabels(@Nullable Map<Integer, TransactionLabelStore.Label> labels) {
-        this.labels = labels == null ? new HashMap<>() : new HashMap<>(labels);
-        notifyDataSetChanged();
+    private final Context context;
+    private final LayoutInflater inflater;
+    private final Listener listener;
+    private final float density;
+    private final SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm", Locale.US);
+    private final Map<String, String> accountNameCache = new HashMap<>();
+
+    public TransaccionAdapter(@NonNull Context ctx, @NonNull Listener listener) {
+        super(DIFF_CALLBACK);
+        this.context = ctx;
+        this.inflater = LayoutInflater.from(ctx);
+        this.listener = listener;
+        this.density = ctx.getResources().getDisplayMetrics().density;
+        setHasStableIds(true);
+    }
+
+    public void submitTransactions(
+            @NonNull List<Transaccion> transactions,
+            @Nullable Map<Integer, TransactionLabelStore.Label> labels
+    ) {
+        Map<Integer, TransactionLabelStore.Label> safeLabels = labels == null ? new HashMap<>() : labels;
+        List<TransactionRow> rows = new ArrayList<>(transactions.size());
+        for (Transaccion transaction : transactions) {
+            if (transaction != null) {
+                rows.add(new TransactionRow(transaction, safeLabels.get(transaction.getId())));
+            }
+        }
+        submitList(rows);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        Transaccion transaction = getItem(position).transaction;
+        return transaction == null ? RecyclerView.NO_ID : transaction.getId();
     }
 
     @NonNull
     @Override
-    public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-        View v = convertView;
-        if (v == null) {
-            v = LayoutInflater.from(getContext()).inflate(R.layout.item_transaccion, parent, false);
+    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        return new VH(inflater.inflate(R.layout.item_transaccion, parent, false));
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull VH holder, int position) {
+        TransactionRow row = getItem(position);
+        holder.bind(row.transaction, row.label);
+    }
+
+    private void bindClickHandlers(@NonNull VH holder, @NonNull Transaccion transaction) {
+        holder.itemView.setOnClickListener(v -> listener.onClick(transaction));
+        holder.itemView.setOnLongClickListener(v -> listener.onLongClick(transaction));
+    }
+
+    private String accountNameFor(@Nullable String accountType) {
+        String key = accountType == null ? "CARD" : accountType;
+        String cached = accountNameCache.get(key);
+        if (cached != null) return cached;
+        String name = SettingsService.getFinancialAccountName(context, key);
+        accountNameCache.put(key, name);
+        return name;
+    }
+
+    private String formatTime(@NonNull Transaccion tx) {
+        Date fecha = tx.getFecha();
+        return fecha == null ? "" : timeFormatter.format(fecha);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * density);
+    }
+
+    public class VH extends RecyclerView.ViewHolder {
+        private final TextView tvTitulo;
+        private final TextView tvSub;
+        private final TextView tvMonto;
+        private final TextView tvLabel;
+        private final View labelColor;
+        private final ImageView ivTipo;
+
+        VH(@NonNull View itemView) {
+            super(itemView);
+            tvTitulo = itemView.findViewById(R.id.tvTitulo);
+            tvSub = itemView.findViewById(R.id.tvSub);
+            tvMonto = itemView.findViewById(R.id.tvMonto);
+            tvLabel = itemView.findViewById(R.id.tvTransactionLabel);
+            labelColor = itemView.findViewById(R.id.viewTransactionLabelColor);
+            ivTipo = itemView.findViewById(R.id.ivTipo);
         }
 
-        Transaccion t = getItem(position);
-        if (t == null) return v;
+        void bind(@NonNull Transaccion t, @Nullable TransactionLabelStore.Label label) {
+            bindClickHandlers(this, t);
 
-        TextView tvTitulo = v.findViewById(R.id.tvTitulo);
-        TextView tvSub = v.findViewById(R.id.tvSub);
-        TextView tvMonto = v.findViewById(R.id.tvMonto);
-        TextView tvLabel = v.findViewById(R.id.tvTransactionLabel);
-        View labelColor = v.findViewById(R.id.viewTransactionLabelColor);
-        ImageView ivTipo = v.findViewById(R.id.ivTipo);
+            String cat = t.isTransfer() ? "Transferencia" : (t.getCategoriaNombre() == null ? "-" : t.getCategoriaNombre());
+            String displayNote = t.getDisplayNote();
+            String nota = (displayNote == null || displayNote.isEmpty()) ? "" : " - " + displayNote;
+            tvTitulo.setText(cat + nota);
 
-        String cat = t.isTransfer() ? "Transferencia" : (t.getCategoriaNombre() == null ? "-" : t.getCategoriaNombre());
-        String displayNote = t.getDisplayNote();
-        String nota = (displayNote == null || displayNote.isEmpty()) ? "" : " - " + displayNote;
-        tvTitulo.setText(cat + nota);
+            String account = accountNameFor(t.getAccountType());
+            if (t.isTransfer()) {
+                String destination = accountNameFor(t.getTransferDestinationAccountType());
+                tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account + " -> " + destination);
+            } else {
+                tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account);
+            }
 
-        String account = SettingsService.getFinancialAccountName(getContext(), t.getAccountType());
-        if (t.isTransfer()) {
-            String destination = SettingsService.getFinancialAccountName(getContext(), t.getTransferDestinationAccountType());
-            tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account + " -> " + destination);
-        } else {
-            tvSub.setText(Format.date(t.getFecha()) + " " + formatTime(t) + " - " + account);
+            double mostrado = t.isTransfer() ? t.getMonto() : (t.isEsIngreso() ? t.getMonto() : -t.getMonto());
+            tvMonto.setText(Format.money(mostrado, t.getMoneda()));
+            tvMonto.setSingleLine(true);
+            tvMonto.setEllipsize(TextUtils.TruncateAt.END);
+            tvMonto.setMaxWidth(dp(132));
+
+            int typeColor = t.isTransfer()
+                    ? ContextCompat.getColor(context, R.color.chartAccent)
+                    : CategoryVisuals.colorFor(context, t.getCategoriaNombre(), t.isEsIngreso());
+            tvMonto.setTextColor(ContextCompat.getColor(context,
+                    t.isTransfer() ? R.color.chartAccent : (t.isEsIngreso() ? R.color.income : R.color.expense)));
+            tvTitulo.setTextColor(ContextCompat.getColor(context, R.color.md_theme_onSurface));
+            tvSub.setTextColor(ContextCompat.getColor(context, R.color.md_theme_onSurfaceVariant));
+
+            applyRowBackground(itemView, label);
+            if (label != null) {
+                bindLabelState(t, label);
+            } else {
+                bindDefaultState(t, typeColor);
+            }
         }
 
-        double mostrado = t.isTransfer() ? t.getMonto() : (t.isEsIngreso() ? t.getMonto() : -t.getMonto());
-        tvMonto.setText(Format.money(mostrado, t.getMoneda()));
-        tvMonto.setSingleLine(true);
-        tvMonto.setEllipsize(TextUtils.TruncateAt.END);
-        tvMonto.setMaxWidth(dp(132));
-
-        int typeColor = t.isTransfer()
-                ? ContextCompat.getColor(getContext(), R.color.chartAccent)
-                : CategoryVisuals.colorFor(getContext(), t.getCategoriaNombre(), t.isEsIngreso());
-        tvMonto.setTextColor(ContextCompat.getColor(getContext(),
-                t.isTransfer() ? R.color.chartAccent : (t.isEsIngreso() ? R.color.income : R.color.expense)));
-        tvTitulo.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurface));
-        tvSub.setTextColor(ContextCompat.getColor(getContext(), R.color.md_theme_onSurfaceVariant));
-
-        TransactionLabelStore.Label label = labels.get(t.getId());
-        applyRowBackground(v, label);
-
-        if (label != null) {
+        private void bindLabelState(@NonNull Transaccion t, @NonNull TransactionLabelStore.Label label) {
             int labelInt = label.colorInt();
-            int accent = LabelColorUtils.accentOnSurface(getContext(), labelInt);
+            int accent = LabelColorUtils.accentOnSurface(context, labelInt);
             if (labelColor != null) {
                 GradientDrawable bar = new GradientDrawable();
                 bar.setColor(accent);
@@ -103,18 +181,18 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
                 ivTipo.setColorFilter(accent);
                 GradientDrawable iconBg = new GradientDrawable();
                 iconBg.setShape(GradientDrawable.OVAL);
-                iconBg.setColor(LabelColorUtils.iconBackground(getContext(), labelInt));
+                iconBg.setColor(LabelColorUtils.iconBackground(context, labelInt));
                 ivTipo.setBackground(iconBg);
                 ivTipo.setPadding(dp(5), dp(5), dp(5), dp(5));
             }
             if (tvLabel != null) {
-                int chipBackground = LabelColorUtils.chipBackground(getContext(), labelInt, false);
+                int chipBackground = LabelColorUtils.chipBackground(context, labelInt, false);
                 tvLabel.setText(label.name);
-                tvLabel.setTextColor(LabelColorUtils.textOnTint(getContext(), labelInt, chipBackground));
+                tvLabel.setTextColor(LabelColorUtils.textOnTint(context, labelInt, chipBackground));
 
                 GradientDrawable chip = new GradientDrawable();
                 chip.setColor(chipBackground);
-                chip.setStroke(dp(1), LabelColorUtils.cardStroke(getContext(), labelInt));
+                chip.setStroke(dp(1), LabelColorUtils.cardStroke(context, labelInt));
                 chip.setCornerRadius(dp(10));
                 tvLabel.setBackground(chip);
 
@@ -127,14 +205,16 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
                 tvLabel.setCompoundDrawablePadding(dp(6));
                 tvLabel.setVisibility(View.VISIBLE);
             }
-        } else {
+        }
+
+        private void bindDefaultState(@NonNull Transaccion t, int typeColor) {
             if (labelColor != null) labelColor.setVisibility(View.GONE);
             if (ivTipo != null) {
                 ivTipo.setImageResource(t.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
                 ivTipo.setColorFilter(typeColor);
                 GradientDrawable iconBg = new GradientDrawable();
                 iconBg.setShape(GradientDrawable.OVAL);
-                iconBg.setColor(LabelColorUtils.iconBackground(getContext(), typeColor));
+                iconBg.setColor(LabelColorUtils.iconBackground(context, typeColor));
                 ivTipo.setBackground(iconBg);
                 ivTipo.setPadding(dp(5), dp(5), dp(5), dp(5));
             }
@@ -144,30 +224,66 @@ public class TransaccionAdapter extends ArrayAdapter<Transaccion> {
                 tvLabel.setCompoundDrawables(null, null, null, null);
             }
         }
-
-        return v;
     }
 
     private void applyRowBackground(@NonNull View row, @Nullable TransactionLabelStore.Label label) {
         GradientDrawable background = new GradientDrawable();
         background.setCornerRadius(dp(18));
         if (label == null) {
-            background.setColor(ContextCompat.getColor(getContext(), R.color.md_theme_surface));
-            background.setStroke(dp(1), ContextCompat.getColor(getContext(), R.color.md_theme_outlineVariant));
+            background.setColor(ContextCompat.getColor(context, R.color.md_theme_surface));
+            background.setStroke(dp(1), ContextCompat.getColor(context, R.color.md_theme_outlineVariant));
         } else {
             int labelColor = label.colorInt();
-            background.setColor(LabelColorUtils.cardBackground(getContext(), labelColor));
-            background.setStroke(dp(1), LabelColorUtils.cardStroke(getContext(), labelColor));
+            background.setColor(LabelColorUtils.cardBackground(context, labelColor));
+            background.setStroke(dp(1), LabelColorUtils.cardStroke(context, labelColor));
         }
         row.setBackground(background);
     }
 
-    private String formatTime(@NonNull Transaccion tx) {
-        if (tx.getFecha() == null) return "";
-        return new SimpleDateFormat("HH:mm", Locale.US).format(tx.getFecha());
+    public static final class TransactionRow {
+        final Transaccion transaction;
+        @Nullable final TransactionLabelStore.Label label;
+
+        TransactionRow(@NonNull Transaccion transaction, @Nullable TransactionLabelStore.Label label) {
+            this.transaction = transaction;
+            this.label = label;
+        }
     }
 
-    private int dp(int value) {
-        return Math.round(value * getContext().getResources().getDisplayMetrics().density);
+    private static final DiffUtil.ItemCallback<TransactionRow> DIFF_CALLBACK = new DiffUtil.ItemCallback<TransactionRow>() {
+        @Override
+        public boolean areItemsTheSame(@NonNull TransactionRow oldItem, @NonNull TransactionRow newItem) {
+            return oldItem.transaction.getId() == newItem.transaction.getId();
+        }
+
+        @Override
+        public boolean areContentsTheSame(@NonNull TransactionRow oldItem, @NonNull TransactionRow newItem) {
+            Transaccion oldTx = oldItem.transaction;
+            Transaccion newTx = newItem.transaction;
+            return oldTx.getCategoriaId() == newTx.getCategoriaId()
+                    && oldTx.isEsIngreso() == newTx.isEsIngreso()
+                    && Double.compare(oldTx.getMonto(), newTx.getMonto()) == 0
+                    && Objects.equals(oldTx.getCategoriaNombre(), newTx.getCategoriaNombre())
+                    && Objects.equals(oldTx.getMoneda(), newTx.getMoneda())
+                    && Objects.equals(timeMillis(oldTx.getFecha()), timeMillis(newTx.getFecha()))
+                    && Objects.equals(oldTx.getAccountType(), newTx.getAccountType())
+                    && Objects.equals(oldTx.getNota(), newTx.getNota())
+                    && sameLabel(oldItem.label, newItem.label);
+        }
+    };
+
+    @Nullable
+    private static Long timeMillis(@Nullable Date date) {
+        return date == null ? null : date.getTime();
+    }
+
+    private static boolean sameLabel(
+            @Nullable TransactionLabelStore.Label oldLabel,
+            @Nullable TransactionLabelStore.Label newLabel
+    ) {
+        if (oldLabel == null || newLabel == null) return oldLabel == newLabel;
+        return Objects.equals(oldLabel.id, newLabel.id)
+                && Objects.equals(oldLabel.name, newLabel.name)
+                && Objects.equals(oldLabel.colorHex, newLabel.colorHex);
     }
 }

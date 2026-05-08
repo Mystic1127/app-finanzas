@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.example.finanzas.R;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 
@@ -28,6 +29,7 @@ public class PlanningFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        view.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         MaterialButtonToggleGroup toggle = view.findViewById(R.id.togglePlanning);
         btnGoals = view.findViewById(R.id.btnPlanningGoals);
         btnReminders = view.findViewById(R.id.btnPlanningReminders);

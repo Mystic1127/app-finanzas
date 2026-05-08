@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -38,6 +39,7 @@ import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.compose.SpendlySecondaryTextButton
 import com.example.finanzas.ui.compose.SpendlyVisibilityToggle
+import com.example.finanzas.ui.compose.spendlyBringFocusedFieldIntoView
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.PinSession
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -108,6 +110,7 @@ private fun PinLockScreen(
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var pinVisible by rememberSaveable { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
     SpendlyAuthScreenContainer {
         SpendlyAuthCard {
@@ -125,14 +128,22 @@ private fun PinLockScreen(
                     pin = value.filter(Char::isDigit).take(4)
                     error = null
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .spendlyBringFocusedFieldIntoView(),
                 singleLine = true,
                 label = { Text(stringResource(R.string.pin_lock_hint)) },
                 isError = error != null,
                 supportingText = error?.let { { Text(it) } },
                 textStyle = androidx.compose.ui.text.TextStyle(textAlign = TextAlign.Center),
                 visualTransformation = if (pinVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onDone = {
+                        error = onUnlock(pin)
+                        if (error == null) focusManager.clearFocus()
+                    }
+                ),
                 trailingIcon = {
                     SpendlyVisibilityToggle(
                         visible = pinVisible,

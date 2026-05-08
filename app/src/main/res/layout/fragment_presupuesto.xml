@@ -11,7 +11,6 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/md_theme_background"
         android:clipToPadding="false"
         android:paddingStart="20dp"
         android:paddingTop="22dp"
@@ -24,28 +23,32 @@
             android:orientation="vertical">
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/pres_titulo"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="@string/nav_budget_title"
                 android:textColor="@color/md_theme_onSurface"
-                android:textSize="20sp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:includeFontPadding="false"
                 android:lineSpacingExtra="2dp"
                 android:text="@string/pres_subtitulo"
                 android:textColor="@color/md_theme_onSurfaceVariant"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilPresupuesto"
                 style="@style/Widget.Finanzas.TextInputLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="22dp"
                 android:hint="@string/pres_hint"
                 app:hintEnabled="true">
 

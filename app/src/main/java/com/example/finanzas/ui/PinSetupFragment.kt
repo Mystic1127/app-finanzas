@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -37,6 +38,7 @@ import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.compose.SpendlyVisibilityToggle
+import com.example.finanzas.ui.compose.spendlyBringFocusedFieldIntoView
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.PinSession
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -136,7 +138,13 @@ private fun PinSetupScreen(
                 label = stringResource(R.string.pin_setup_confirm_hint),
                 visible = confirmVisible,
                 onToggleVisible = { confirmVisible = !confirmVisible },
-                error = confirmError
+                error = confirmError,
+                imeAction = ImeAction.Done,
+                onImeAction = {
+                    val errors = onSave(pin, confirm)
+                    pinError = errors.first
+                    confirmError = errors.second
+                }
             )
 
             SpendlyPrimaryButton(
@@ -171,19 +179,28 @@ private fun PinTextField(
     label: String,
     visible: Boolean,
     onToggleVisible: () -> Unit,
-    error: String?
+    error: String?,
+    imeAction: ImeAction = ImeAction.Next,
+    onImeAction: (() -> Unit)? = null
 ) {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     OutlinedTextField(
         value = value,
         onValueChange = { onValueChange(it.filter(Char::isDigit).take(4)) },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .spendlyBringFocusedFieldIntoView(),
         singleLine = true,
         label = { Text(label) },
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
         textStyle = androidx.compose.ui.text.TextStyle(textAlign = TextAlign.Center),
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = imeAction),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+            onNext = { onImeAction?.invoke() ?: focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Next) },
+            onDone = { onImeAction?.invoke() ?: focusManager.clearFocus() }
+        ),
         trailingIcon = {
             SpendlyVisibilityToggle(
                 visible = visible,

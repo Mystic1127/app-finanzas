@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Finanzas"
 include(":app")
+include(":macrobenchmark")

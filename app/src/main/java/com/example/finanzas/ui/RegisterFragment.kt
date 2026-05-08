@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -156,20 +157,21 @@ private fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        SpendlyLogoMark(markSize = 62.dp)
+        SpendlyLogoMark(markSize = 72.dp)
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        SpendlyBrandTitle(fontSize = 36)
+        SpendlyBrandTitle(fontSize = 38)
         HighlightedSentence(
             before = "Crea tu cuenta y ",
             highlighted = "controla tus metas",
             after = "",
-            fontSize = 14,
+            modifier = Modifier.padding(top = 4.dp),
+            fontSize = 16,
             centered = true
         )
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         SpendlyAuthCard {
             SpendlyAuthField(
@@ -211,7 +213,9 @@ private fun RegisterScreen(
                 label = stringResource(R.string.auth_confirm_password),
                 visible = confirmVisible,
                 onToggleVisible = { confirmVisible = !confirmVisible },
-                enabled = !loading
+                enabled = !loading,
+                imeAction = ImeAction.Done,
+                onImeAction = { onRegister(nombre, email, password, confirmPassword) { loading = it } }
             )
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -225,7 +229,7 @@ private fun RegisterScreen(
 
             Text(
                 text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = colors.muted)) {
+                    withStyle(SpanStyle(color = colors.accent.copy(alpha = 0.78f))) {
                         append("¿Ya tienes cuenta? ")
                     }
                     withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.Bold)) {

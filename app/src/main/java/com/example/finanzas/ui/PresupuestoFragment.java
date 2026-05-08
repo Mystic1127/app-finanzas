@@ -30,6 +30,7 @@ import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.CategoryBudgetInput;
 import com.example.finanzas.ui.adapter.CategoryBudgetEditAdapter;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.PerfLogger;
@@ -82,6 +83,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        v.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         perfStartMs = PerfLogger.now();
         firstRenderLogged = false;
 
@@ -178,6 +180,7 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         next.add(input);
         next.sort((a, b) -> String.valueOf(a.getCategoriaNombre()).compareToIgnoreCase(String.valueOf(b.getCategoriaNombre())));
         categoryAdapter.setItems(next);
+        availableCategories.removeIf(existing -> existing != null && existing.id == categoria.id);
         updateEmptyState(next);
         viewModel.setLocalCategoryBudgets(next);
         viewModel.saveCategoryBudgetsQuiet(anio, mes, next);
@@ -280,12 +283,27 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         root.addView(handle, handleParams);
         bindDragHandle(dialog, handle, root);
 
+        LinearLayout titleRow = new LinearLayout(requireContext());
+        titleRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        root.addView(titleRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
         TextView title = new TextView(requireContext());
         title.setText(R.string.pres_select_category_title);
         title.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
         title.setTextSize(18f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        root.addView(title);
+        titleRow.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        ImageView close = new ImageView(requireContext());
+        close.setImageResource(R.drawable.ic_close);
+        close.setColorFilter(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        close.setPadding(dp(10), dp(10), dp(10), dp(10));
+        close.setOnClickListener(v -> dialog.dismiss());
+        titleRow.addView(close, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         TextInputLayout searchLayout = new TextInputLayout(requireContext());
         searchLayout.setHint(getString(R.string.pres_search_category));
@@ -333,10 +351,11 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
             View bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (bottomSheet == null) return;
             BottomSheetBehavior<View> behavior = BottomSheetBehavior.from(bottomSheet);
+            behavior.setHideable(true);
             behavior.setSkipCollapsed(true);
             behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
             behavior.setPeekHeight(peekHeight, true);
-            behavior.setDraggable(false);
+            behavior.setDraggable(true);
         });
     }
 

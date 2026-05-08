@@ -38,6 +38,7 @@ import com.example.finanzas.data.model.AccountBalance;
 import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.HomeSummary;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
@@ -89,6 +90,8 @@ public class HomeFragment extends Fragment {
     private boolean hasDynamicAccounts;
     private boolean testerThanksDialogShowing;
     private Double lastRenderedBalance = null;
+    private ValueAnimator balanceAnimator;
+    private Double balanceAnimationTarget = null;
 
     @Nullable
     @Override
@@ -99,6 +102,7 @@ public class HomeFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        view.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         swipe = view.findViewById(R.id.swipeHome);
         progress = view.findViewById(R.id.progressHome);
         tvPeriod = view.findViewById(R.id.tvHomePeriod);
@@ -131,6 +135,16 @@ public class HomeFragment extends Fragment {
         super.onResume();
         currencyCode = SettingsService.getCurrencyCode(requireContext());
         loadSummary(false);
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (balanceAnimator != null) {
+            balanceAnimator.cancel();
+            balanceAnimator = null;
+        }
+        balanceAnimationTarget = null;
+        super.onDestroyView();
     }
 
     private void setupNavigation(@NonNull View root) {
@@ -347,30 +361,53 @@ public class HomeFragment extends Fragment {
 
     private void renderAnimatedBalance(double newBalance) {
         if (tvBalanceTotal == null) return;
+
+        if (balanceAnimator != null && balanceAnimator.isRunning() && balanceAnimationTarget != null
+                && Math.abs(balanceAnimationTarget - newBalance) < 0.005) {
+            return;
+        }
+
         if (lastRenderedBalance == null || Math.abs(lastRenderedBalance - newBalance) < 0.005) {
+            if (balanceAnimator != null) balanceAnimator.cancel();
+            balanceAnimationTarget = null;
             tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
+            tvBalanceTotal.setTextColor(color(R.color.md_theme_onSurface));
             lastRenderedBalance = newBalance;
             return;
         }
+
+        if (balanceAnimator != null) balanceAnimator.cancel();
         double from = lastRenderedBalance;
         int defaultColor = color(R.color.md_theme_onSurface);
         int pulseColor = newBalance > from ? color(R.color.income) : color(R.color.expense);
-        ValueAnimator animator = ValueAnimator.ofFloat((float) from, (float) newBalance);
-        animator.setDuration(650L);
-        animator.addUpdateListener(animation -> {
+        balanceAnimationTarget = newBalance;
+        balanceAnimator = ValueAnimator.ofFloat((float) from, (float) newBalance);
+        balanceAnimator.setDuration(650L);
+        balanceAnimator.addUpdateListener(animation -> {
             double value = ((Float) animation.getAnimatedValue()).doubleValue();
             tvBalanceTotal.setText(Format.money(value, currencyCode));
             tvBalanceTotal.setTextColor(pulseColor);
+            lastRenderedBalance = value;
         });
-        animator.addListener(new android.animation.AnimatorListenerAdapter() {
+        balanceAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean cancelled;
+
+            @Override
+            public void onAnimationCancel(android.animation.Animator animation) {
+                cancelled = true;
+            }
+
             @Override
             public void onAnimationEnd(android.animation.Animator animation) {
+                if (cancelled) return;
                 tvBalanceTotal.setText(Format.money(newBalance, currencyCode));
                 tvBalanceTotal.setTextColor(defaultColor);
                 lastRenderedBalance = newBalance;
+                balanceAnimationTarget = null;
+                balanceAnimator = null;
             }
         });
-        animator.start();
+        balanceAnimator.start();
     }
 
     private void renderBudget(@NonNull HomeSummary summary) {

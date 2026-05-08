@@ -237,6 +237,117 @@
         <item name="cardUseCompatPadding">false</item>
     </style>
 
+    <style name="Widget.Finanzas.VicoAxisLabel" parent="">
+        <item name="android:color">@color/md_theme_onSurfaceVariant</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoAxisLine" parent="">
+        <item name="android:color">@color/md_theme_outlineVariant</item>
+        <item name="thickness">1dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoGuideline" parent="">
+        <item name="android:color">@color/md_theme_outlineVariant</item>
+        <item name="thickness">0.6dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoAxis" parent="">
+        <item name="labelStyle">@style/Widget.Finanzas.VicoAxisLabel</item>
+        <item name="lineStyle">@style/Widget.Finanzas.VicoAxisLine</item>
+        <item name="guidelineStyle">@style/Widget.Finanzas.VicoGuideline</item>
+        <item name="showTicks">false</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoIncomeColumn" parent="">
+        <item name="android:color">@color/income</item>
+        <item name="thickness">12dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoExpenseColumn" parent="">
+        <item name="android:color">@color/expense</item>
+        <item name="thickness">12dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoPrimaryColumn" parent="">
+        <item name="android:color">@color/md_theme_primary</item>
+        <item name="thickness">12dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoIncomeExpenseLayer" parent="">
+        <item name="mergeMode">grouped</item>
+        <item name="column1Style">@style/Widget.Finanzas.VicoIncomeColumn</item>
+        <item name="column2Style">@style/Widget.Finanzas.VicoExpenseColumn</item>
+        <item name="groupedColumnSpacing">4dp</item>
+        <item name="columnCollectionSpacing">18dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoSavingsLayer" parent="">
+        <item name="mergeMode">grouped</item>
+        <item name="column1Style">@style/Widget.Finanzas.VicoPrimaryColumn</item>
+        <item name="columnCollectionSpacing">18dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoExpenseLine" parent="">
+        <item name="android:color">@color/expense</item>
+        <item name="thickness">2.6dp</item>
+        <item name="pointSize">6dp</item>
+        <item name="curvature">45%</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoBalanceLine" parent="">
+        <item name="android:color">@color/md_theme_primary</item>
+        <item name="thickness">2.6dp</item>
+        <item name="pointSize">6dp</item>
+        <item name="curvature">45%</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoExpenseLineLayer" parent="">
+        <item name="line1Style">@style/Widget.Finanzas.VicoExpenseLine</item>
+        <item name="pointSpacing">32dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoBalanceLineLayer" parent="">
+        <item name="line1Style">@style/Widget.Finanzas.VicoBalanceLine</item>
+        <item name="pointSpacing">32dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoIncomeExpenseChart" parent="">
+        <item name="layers">column</item>
+        <item name="columnLayerStyle">@style/Widget.Finanzas.VicoIncomeExpenseLayer</item>
+        <item name="axisStyle">@style/Widget.Finanzas.VicoAxis</item>
+        <item name="showStartAxis">true</item>
+        <item name="showBottomAxis">true</item>
+        <item name="scalableStartLayerPadding">4dp</item>
+        <item name="scalableEndLayerPadding">4dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoSavingsChart" parent="">
+        <item name="layers">column</item>
+        <item name="columnLayerStyle">@style/Widget.Finanzas.VicoSavingsLayer</item>
+        <item name="axisStyle">@style/Widget.Finanzas.VicoAxis</item>
+        <item name="showStartAxis">true</item>
+        <item name="showBottomAxis">true</item>
+        <item name="scalableStartLayerPadding">4dp</item>
+        <item name="scalableEndLayerPadding">4dp</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoExpenseLineChart" parent="">
+        <item name="layers">line</item>
+        <item name="lineLayerStyle">@style/Widget.Finanzas.VicoExpenseLineLayer</item>
+        <item name="axisStyle">@style/Widget.Finanzas.VicoAxis</item>
+        <item name="showStartAxis">true</item>
+        <item name="showBottomAxis">true</item>
+    </style>
+
+    <style name="Widget.Finanzas.VicoBalanceLineChart" parent="">
+        <item name="layers">line</item>
+        <item name="lineLayerStyle">@style/Widget.Finanzas.VicoBalanceLineLayer</item>
+        <item name="axisStyle">@style/Widget.Finanzas.VicoAxis</item>
+        <item name="showStartAxis">true</item>
+        <item name="showBottomAxis">true</item>
+    </style>
+
     <style name="ThemeOverlay.Finanzas.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurface">@color/dialog_surface</item>
         <item name="colorOnSurface">@color/md_theme_onSurface</item>

@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
@@ -135,7 +136,9 @@ private fun ChangePasswordScreen(
                 label = "Confirmar nueva contraseña",
                 visible = confirmVisible,
                 onToggleVisible = { confirmVisible = !confirmVisible },
-                enabled = true
+                enabled = true,
+                imeAction = ImeAction.Done,
+                onImeAction = { onSave(oldPassword, newPassword, confirm) }
             )
 
             SpendlyPrimaryButton(

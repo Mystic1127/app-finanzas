@@ -1,7 +1,11 @@
 package com.example.finanzas.data.repository
 
 import android.content.Context
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.LocalRepository
+import com.example.finanzas.data.model.AnalysisCategoryPoint
+import com.example.finanzas.data.model.AnalysisChartState
+import com.example.finanzas.data.model.AnalysisMonthlyPoint
 import com.example.finanzas.data.model.HomeSummary
 import com.example.finanzas.data.model.MonthlyTrendPoint
 import com.example.finanzas.data.model.Transaccion
@@ -81,5 +85,42 @@ class DashboardRepository(context: Context) {
                     saldo = ingresos - gastos
                 }
             }
+        }
+
+    suspend fun buildAnalysisChartState(anio: Int, mes: Int, months: Int = 6): AnalysisChartState =
+        withContext(Dispatchers.IO) {
+            val trend = buildMonthlyTrend(anio, mes, months)
+            var runningBalance = 0.0
+            val monthly = trend.map { point ->
+                runningBalance += point.saldo
+                AnalysisMonthlyPoint(
+                    anio = point.anio,
+                    mes = point.mes,
+                    label = point.etiqueta?.takeIf { it.isNotBlank() } ?: "${point.mes}/${point.anio}",
+                    ingresos = point.ingresos,
+                    gastos = point.gastos,
+                    ahorro = point.saldo,
+                    balance = runningBalance,
+                )
+            }
+            val categories = local.listTransaccionesEnMonedaBase(anio, mes)
+                .asSequence()
+                .filter { !it.isEsIngreso && !it.isTransfer }
+                .groupBy { tx ->
+                    tx.categoriaNombre
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                        ?: "Sin categoría"
+                }
+                .map { (name, txs) -> AnalysisCategoryPoint(name, txs.sumOf { it.monto }) }
+                .filter { it.amount > 0.0 }
+                .sortedByDescending { it.amount }
+                .take(8)
+
+            AnalysisChartState(
+                currencyCode = SettingsService.getCurrencyCode(appContext),
+                months = monthly,
+                categories = categories,
+            )
         }
 }

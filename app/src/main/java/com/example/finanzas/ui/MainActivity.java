@@ -30,6 +30,7 @@ import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.example.finanzas.BuildConfig;
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.local.LocalRepository;
@@ -64,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         SettingsService.applyThemeMode(this);
         super.onCreate(savedInstanceState);
+        seedBenchmarkSessionIfBenchmarkBuild();
         setContentView(R.layout.activity_main);
 
         PinSession.lock();
@@ -110,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.nav_home,
                 R.id.nav_analysis,
+                R.id.nav_new,
                 R.id.nav_budget,
                 R.id.nav_planning,
                 R.id.nav_welcome,
@@ -140,6 +143,7 @@ public class MainActivity extends AppCompatActivity {
             }
             boolean hasLocalHeader = destId == R.id.nav_home
                     || destId == R.id.nav_analysis
+                    || destId == R.id.nav_new
                     || destId == R.id.nav_budget
                     || destId == R.id.nav_settings
                     || destId == R.id.nav_categories
@@ -147,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
             toolbar.setVisibility((isImmersiveAuthScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
             setContentTopMargin((isImmersiveAuthScreen || hasLocalHeader) ? 0 : contentTopMargin);
             boolean bottomVisible = isBottomDestination(destId);
-            setContentBottomMargin(bottomVisible ? dp(86) : contentBottomMargin);
+            setContentBottomMargin(bottomVisible ? dp(98) : contentBottomMargin);
             if (bottomNavContainer != null) {
                 bottomNavContainer.setVisibility(bottomVisible ? View.VISIBLE : View.GONE);
             }
@@ -281,6 +285,29 @@ public class MainActivity extends AppCompatActivity {
         View item = findViewById(viewId);
         if (item == null) return;
         item.setOnClickListener(v -> navigateFromBottom(destinationId));
+        if (viewId == R.id.bottomNavNew) {
+            View circle = findViewById(R.id.bottomAddCircle);
+            if (circle != null) {
+                circle.setOnClickListener(v -> navigateFromBottom(destinationId));
+            }
+            View icon = findViewById(R.id.bottomIconNew);
+            if (icon != null) {
+                icon.setOnClickListener(v -> navigateFromBottom(destinationId));
+            }
+        }
+    }
+
+    private void seedBenchmarkSessionIfBenchmarkBuild() {
+        String buildType = BuildConfig.BUILD_TYPE;
+        boolean benchmarkBuild = "nonMinifiedRelease".equals(buildType)
+                || "benchmarkRelease".equals(buildType)
+                || "benchmark".equals(buildType);
+        if (!benchmarkBuild) return;
+
+        Prefs.setToken(this, "macrobenchmark-token");
+        Prefs.setUserSession(this, 1L, "macrobenchmark@spendly.test", "Macrobenchmark");
+        Prefs.clearPin(this);
+        Prefs.markTesterThanksSeen(this);
     }
 
     private void navigateFromBottom(int destinationId) {
@@ -380,7 +407,7 @@ public class MainActivity extends AppCompatActivity {
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
 
-        int systemBarColor = ContextCompat.getColor(this, R.color.md_theme_background);
+        int systemBarColor = night ? Color.rgb(2, 8, 18) : Color.rgb(253, 254, 254);
 
         getWindow().clearFlags(
                 WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS

@@ -22,28 +22,30 @@
             android:paddingBottom="16dp">
 
             <TextView
-                android:id="@+id/tvAnalysisPeriod"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:textColor="@color/md_theme_onSurfaceVariant"
-                android:textSize="14sp" />
+                android:includeFontPadding="false"
+                android:text="@string/nav_analysis_title"
+                android:textColor="@color/md_theme_onSurface"
+                android:textSize="22sp"
+                android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvAnalysisPeriod"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:gravity="center"
-                android:text="Análisis"
-                android:textColor="@color/md_theme_onSurface"
-                android:textSize="28sp"
-                android:textStyle="bold" />
+                android:includeFontPadding="false"
+                android:textColor="@color/md_theme_onSurfaceVariant"
+                android:textSize="14sp" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.Finanzas.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp">
+                android:layout_marginTop="14dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -54,30 +56,65 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/home_expense_category_title"
+                        android:text="@string/analysis_income_expense_title"
                         android:textColor="@color/md_theme_onSurface"
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
-                    <com.example.finanzas.ui.view.CategorySpendingChartView
-                        android:id="@+id/chartAnalysisCategories"
-                        android:layout_width="match_parent"
-                        android:layout_height="230dp"
-                        android:layout_marginTop="10dp" />
-
-                    <LinearLayout
-                        android:id="@+id/listAnalysisCategories"
+                    <TextView
+                        android:id="@+id/tvAnalysisIncomeExpenseSummary"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical" />
+                        android:layout_marginTop="6dp"
+                        android:text="@string/analysis_income_expense_subtitle"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:drawablePadding="6dp"
+                            android:text="@string/chart_label_income_short"
+                            android:textColor="@color/income"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:drawableStartCompat="@drawable/ic_trending_up" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:drawablePadding="6dp"
+                            android:text="@string/chart_label_expense_short"
+                            android:textColor="@color/expense"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:drawableStartCompat="@drawable/ic_expense" />
+                    </LinearLayout>
+
+                    <com.patrykandpatrick.vico.views.cartesian.CartesianChartView
+                        android:id="@+id/chartAnalysisIncomeExpense"
+                        android:layout_width="match_parent"
+                        android:layout_height="220dp"
+                        android:layout_marginTop="8dp"
+                        app:chartStyle="@style/Widget.Finanzas.VicoIncomeExpenseChart"
+                        app:scrollEnabled="false"
+                        app:zoomEnabled="false" />
 
                     <TextView
-                        android:id="@+id/tvAnalysisCategoryEmpty"
+                        android:id="@+id/tvAnalysisIncomeExpenseEmpty"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center"
                         android:padding="18dp"
-                        android:text="@string/home_empty_category_chart"
+                        android:text="@string/analysis_empty_income_expense"
                         android:textColor="@color/md_theme_onSurfaceVariant"
                         android:visibility="gone" />
                 </LinearLayout>
@@ -98,24 +135,184 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/home_chart_trend_title"
+                        android:text="@string/home_expense_category_title"
                         android:textColor="@color/md_theme_onSurface"
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
-                    <com.example.finanzas.ui.view.TrendOverviewView
-                        android:id="@+id/chartAnalysisTrend"
+                    <TextView
+                        android:id="@+id/tvAnalysisCategoryBarsSummary"
                         android:layout_width="match_parent"
-                        android:layout_height="270dp"
-                        android:layout_marginTop="10dp" />
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/analysis_categories_subtitle"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:id="@+id/listAnalysisCategoryBars"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical" />
 
                     <TextView
-                        android:id="@+id/tvAnalysisTrendEmpty"
+                        android:id="@+id/tvAnalysisCategoryBarsEmpty"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center"
                         android:padding="18dp"
-                        android:text="@string/chart_no_data"
+                        android:text="@string/analysis_empty_categories"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Finanzas.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/analysis_expense_trend_title"
+                        android:textColor="@color/md_theme_onSurface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvAnalysisExpenseTrendSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/analysis_expense_trend_subtitle"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:textSize="13sp" />
+
+                    <com.patrykandpatrick.vico.views.cartesian.CartesianChartView
+                        android:id="@+id/chartAnalysisExpenseTrend"
+                        android:layout_width="match_parent"
+                        android:layout_height="220dp"
+                        android:layout_marginTop="10dp"
+                        app:chartStyle="@style/Widget.Finanzas.VicoExpenseLineChart"
+                        app:scrollEnabled="false"
+                        app:zoomEnabled="false" />
+
+                    <TextView
+                        android:id="@+id/tvAnalysisExpenseTrendEmpty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:padding="18dp"
+                        android:text="@string/analysis_empty_expense_trend"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Finanzas.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/analysis_balance_title"
+                        android:textColor="@color/md_theme_onSurface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvAnalysisBalanceSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/analysis_balance_subtitle"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:textSize="13sp" />
+
+                    <com.patrykandpatrick.vico.views.cartesian.CartesianChartView
+                        android:id="@+id/chartAnalysisBalance"
+                        android:layout_width="match_parent"
+                        android:layout_height="220dp"
+                        android:layout_marginTop="10dp"
+                        app:chartStyle="@style/Widget.Finanzas.VicoBalanceLineChart"
+                        app:scrollEnabled="false"
+                        app:zoomEnabled="false" />
+
+                    <TextView
+                        android:id="@+id/tvAnalysisBalanceEmpty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:padding="18dp"
+                        android:text="@string/analysis_empty_balance"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Finanzas.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/analysis_savings_title"
+                        android:textColor="@color/md_theme_onSurface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvAnalysisSavingsSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/analysis_savings_subtitle"
+                        android:textColor="@color/md_theme_onSurfaceVariant"
+                        android:textSize="13sp" />
+
+                    <com.patrykandpatrick.vico.views.cartesian.CartesianChartView
+                        android:id="@+id/chartAnalysisSavings"
+                        android:layout_width="match_parent"
+                        android:layout_height="220dp"
+                        android:layout_marginTop="10dp"
+                        app:chartStyle="@style/Widget.Finanzas.VicoSavingsChart"
+                        app:scrollEnabled="false"
+                        app:zoomEnabled="false" />
+
+                    <TextView
+                        android:id="@+id/tvAnalysisSavingsEmpty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:padding="18dp"
+                        android:text="@string/analysis_empty_savings"
                         android:textColor="@color/md_theme_onSurfaceVariant"
                         android:visibility="gone" />
                 </LinearLayout>
