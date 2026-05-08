@@ -459,26 +459,6 @@
     <string name="goal_milestone_mark_done">Marcar como cumplido</string>
     <string name="goal_milestone_mark_pending">Volver a pendiente</string>
     <string name="goal_milestone_delete_confirm">¿Eliminar este hito?</string>
-    <string name="dashboard_module_drag">Arrastra para reordenar</string>
-    <string name="dashboard_customize_hint">Activa o desactiva tarjetas y ordénalas como prefieras.</string>
-    <string name="dashboard_customize_title">Personalizar dashboard</string>
-    <string name="dashboard_customize_save">Guardar disposición</string>
-    <string name="dashboard_customize_saved">Preferencias de dashboard guardadas.</string>
-    <string name="dashboard_customize_error">No se pudieron guardar las preferencias.</string>
-    <string name="dashboard_module_balance">Saldo y totales</string>
-    <string name="dashboard_module_forecast">Pronóstico</string>
-    <string name="dashboard_module_simulation">Escenario "¿qué pasaría si...?"</string>
-    <string name="dashboard_module_automation">Automatización</string>
-    <string name="dashboard_module_quick">Acciones rápidas</string>
-    <string name="dashboard_module_gamification">Retos y consejos</string>
-    <string name="dashboard_module_alerts">Avisos importantes</string>
-    <string name="dashboard_module_budgets">Presupuestos</string>
-    <string name="dashboard_module_goals">Metas</string>
-    <string name="dashboard_module_reminders">Recordatorios</string>
-    <string name="dashboard_module_chart_balance">Gráfico ingresos vs gastos</string>
-    <string name="dashboard_module_chart_goals">Gráfico progreso de metas</string>
-    <string name="dashboard_module_chart_budget">Gastos por categor&#237;a</string>
-    <string name="dashboard_module_chart_trend">Tendencia de los &#250;ltimos meses</string>
     <string name="home_simulation_title">¿Qué pasaría si...?</string>
     <string name="home_simulation_hint">Ingresa ajustes provisionales para estimar el impacto en tu saldo.</string>
     <string name="home_simulation_income">Ajuste de ingresos (+)</string>
@@ -560,17 +540,6 @@
     <string name="import_refresh">Refrescar todo</string>
     <string name="import_empty">Aún no hay importaciones</string>
 
-    <string name="email_process_title">Compartir por correo</string>
-    <string name="email_process_error">No se encontró una aplicación de correo</string>
-    <string name="email_subject_transaction_created">Nueva transacción registrada</string>
-    <string name="email_subject_transaction_updated">Transacción actualizada</string>
-    <string name="email_body_transaction">Se guardó una transacción por %1$s en la categoría %2$s.</string>
-    <string name="email_subject_budget_saved">Presupuesto mensual guardado</string>
-    <string name="email_body_budget">Tu presupuesto del mes se actualizó a %1$s.</string>
-    <string name="email_subject_categories_saved">Límites por categoría guardados</string>
-    <string name="email_body_categories">Los límites de gasto por categoría fueron sincronizados.</string>
-    <string name="email_subject_reminder_saved">Nuevo recordatorio programado</string>
-    <string name="email_body_reminder">Se creó el recordatorio "%1$s" por %2$s con vencimiento el %3$s.</string>
 
     <string name="import_type_excel">Excel</string>
 

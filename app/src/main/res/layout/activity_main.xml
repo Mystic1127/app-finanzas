@@ -72,7 +72,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_home"
-                    android:tint="@color/md_theme_onSurfaceVariant" />
+                    app:tint="@color/md_theme_onSurfaceVariant" />
 
                 <TextView
                     android:id="@+id/bottomLabelHome"
@@ -107,7 +107,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_analytics"
-                    android:tint="@color/md_theme_onSurfaceVariant" />
+                    app:tint="@color/md_theme_onSurfaceVariant" />
 
                 <TextView
                     android:id="@+id/bottomLabelAnalysis"
@@ -153,7 +153,7 @@
                         android:layout_height="32dp"
                         android:layout_gravity="center"
                         android:src="@drawable/ic_add"
-                        android:tint="@color/md_theme_onPrimary" />
+                        app:tint="@color/md_theme_onPrimary" />
                 </FrameLayout>
 
                 <View
@@ -180,7 +180,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_wallet"
-                    android:tint="@color/md_theme_onSurfaceVariant" />
+                    app:tint="@color/md_theme_onSurfaceVariant" />
 
                 <TextView
                     android:id="@+id/bottomLabelBudget"
@@ -215,7 +215,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_goal"
-                    android:tint="@color/md_theme_onSurfaceVariant" />
+                    app:tint="@color/md_theme_onSurfaceVariant" />
 
                 <TextView
                     android:id="@+id/bottomLabelPlanning"

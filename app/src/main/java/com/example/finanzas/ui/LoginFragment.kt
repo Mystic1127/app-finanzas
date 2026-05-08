@@ -124,7 +124,7 @@ class LoginFragment : Fragment() {
                 setLoading(false)
                 Toast.makeText(
                     requireContext(),
-                    "Credenciales inválidas o servidor no disponible",
+                    "Credenciales inválidas",
                     Toast.LENGTH_SHORT
                 ).show()
             }

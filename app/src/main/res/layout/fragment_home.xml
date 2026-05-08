@@ -55,7 +55,7 @@
                             android:layout_height="24dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_settings"
-                            android:tint="@color/md_theme_onSurfaceVariant" />
+                            app:tint="@color/md_theme_onSurfaceVariant" />
                     </FrameLayout>
                 </FrameLayout>
 
@@ -239,7 +239,7 @@
                         android:padding="8dp"
                         android:scaleType="center"
                         android:src="@drawable/ic_eye"
-                        android:tint="@color/md_theme_primary" />
+                        app:tint="@color/md_theme_primary" />
                 </LinearLayout>
 
                 <LinearLayout
