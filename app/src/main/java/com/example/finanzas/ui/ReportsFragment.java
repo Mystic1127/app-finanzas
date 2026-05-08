@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.finanzas.R;
@@ -21,6 +22,7 @@ import com.example.finanzas.data.model.CategoryChartSlice;
 import com.example.finanzas.data.model.FinancialReport;
 import com.example.finanzas.data.model.MonthlyTrendPoint;
 import com.example.finanzas.data.model.Transaccion;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.ReportsViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.PerfLogger;
@@ -64,6 +66,7 @@ public class ReportsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        view.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         perfStartMs = PerfLogger.now();
         firstRenderLogged = false;
         swipe = view.findViewById(R.id.swipeReports);
@@ -83,6 +86,8 @@ public class ReportsFragment extends Fragment {
         detailsContainer = view.findViewById(R.id.reportDetailsContainer);
         btnToggleDetails = view.findViewById(R.id.btnReportToggleDetails);
         MaterialButton btnExport = view.findViewById(R.id.btnExportReportPdf);
+        view.findViewById(R.id.btnReportsBack).setOnClickListener(v ->
+                NavHostFragment.findNavController(this).popBackStack());
 
         lastRenderedReport = null;
         viewModel = new ViewModelProvider(requireActivity()).get(ReportsViewModel.class);

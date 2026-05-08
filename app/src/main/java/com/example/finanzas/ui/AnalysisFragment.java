@@ -12,6 +12,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -31,6 +32,7 @@ import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.util.Format;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.patrykandpatrick.vico.views.cartesian.CartesianChartView;
 
 import java.util.Calendar;
@@ -50,6 +52,14 @@ public class AnalysisFragment extends Fragment {
     private TextView tvExpenseTrendSummary;
     private TextView tvBalanceSummary;
     private TextView tvSavingsSummary;
+    private TextView tvIncomeExpenseBalance;
+    private TextView tvExpenseTrendSingle;
+    private TextView tvBalanceCurrent;
+    private TextView tvBalanceDelta;
+    private TextView tvSavingsPercent;
+    private TextView tvSavingsHero;
+    private TextView tvSavingsDetail;
+    private TextView tvSavingsMessage;
     private TextView tvScore;
     private TextView tvInsight;
     private TextView tvSavingStatus;
@@ -59,8 +69,13 @@ public class AnalysisFragment extends Fragment {
     private CartesianChartView chartIncomeExpense;
     private CartesianChartView chartExpenseTrend;
     private CartesianChartView chartBalance;
-    private CartesianChartView chartSavings;
+    private View cardExpenseTrendSingle;
+    private View chartSavings;
+    private CircularProgressIndicator progressSavings;
     private LinearLayout listCategoryBars;
+    private LinearLayout listIncomeExpenseAmounts;
+    private LinearLayout listExpenseTrendMonths;
+    private LinearLayout listBalanceMonths;
     private HomeViewModel viewModel;
     private String currencyCode = "PEN";
     private HomeSummary lastSummary;
@@ -90,6 +105,14 @@ public class AnalysisFragment extends Fragment {
         tvExpenseTrendSummary = view.findViewById(R.id.tvAnalysisExpenseTrendSummary);
         tvBalanceSummary = view.findViewById(R.id.tvAnalysisBalanceSummary);
         tvSavingsSummary = view.findViewById(R.id.tvAnalysisSavingsSummary);
+        tvIncomeExpenseBalance = view.findViewById(R.id.tvAnalysisIncomeExpenseBalance);
+        tvExpenseTrendSingle = view.findViewById(R.id.tvAnalysisExpenseTrendSingle);
+        tvBalanceCurrent = view.findViewById(R.id.tvAnalysisBalanceCurrent);
+        tvBalanceDelta = view.findViewById(R.id.tvAnalysisBalanceDelta);
+        tvSavingsPercent = view.findViewById(R.id.tvAnalysisSavingsPercent);
+        tvSavingsHero = view.findViewById(R.id.tvAnalysisSavingsHero);
+        tvSavingsDetail = view.findViewById(R.id.tvAnalysisSavingsDetail);
+        tvSavingsMessage = view.findViewById(R.id.tvAnalysisSavingsMessage);
         tvScore = view.findViewById(R.id.tvAnalysisScore);
         tvInsight = view.findViewById(R.id.tvAnalysisInsight);
         tvSavingStatus = view.findViewById(R.id.tvAnalysisSavingStatus);
@@ -102,16 +125,21 @@ public class AnalysisFragment extends Fragment {
         chartExpenseTrend = view.findViewById(R.id.chartAnalysisExpenseTrend);
         chartBalance = view.findViewById(R.id.chartAnalysisBalance);
         chartSavings = view.findViewById(R.id.chartAnalysisSavings);
+        cardExpenseTrendSingle = view.findViewById(R.id.cardAnalysisExpenseTrendSingle);
+        progressSavings = view.findViewById(R.id.progressAnalysisSavings);
         listCategoryBars = view.findViewById(R.id.listAnalysisCategoryBars);
+        listIncomeExpenseAmounts = view.findViewById(R.id.listAnalysisIncomeExpenseAmounts);
+        listExpenseTrendMonths = view.findViewById(R.id.listAnalysisExpenseTrendMonths);
+        listBalanceMonths = view.findViewById(R.id.listAnalysisBalanceMonths);
         viewModel = new ViewModelProvider(requireActivity()).get(HomeViewModel.class);
         resetRenderCache();
         chartIncomeExpense.setModelProducer(viewModel.getIncomeExpenseChartProducer());
         chartExpenseTrend.setModelProducer(viewModel.getExpenseTrendChartProducer());
         chartBalance.setModelProducer(viewModel.getBalanceChartProducer());
-        chartSavings.setModelProducer(viewModel.getSavingsChartProducer());
         currencyCode = SettingsService.getCurrencyCode(requireContext());
 
         swipe.setOnRefreshListener(() -> load(true));
+        chartExpenseTrend.setOnClickListener(v -> showLatestExpensePoint());
         btnFinancialDetail.setOnClickListener(v -> showFinancialDetail());
         btnSavingDetail.setOnClickListener(v -> showSavingDetail());
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading ->
@@ -195,12 +223,17 @@ public class AnalysisFragment extends Fragment {
         if (state.equals(lastRenderedChartState)) return;
         lastRenderedChartState = state;
         currencyCode = nonEmpty(state.getCurrencyCode(), currencyCode);
-        setChartState(chartIncomeExpense, tvIncomeExpenseEmpty, state.hasIncomeExpense());
-        setChartState(chartExpenseTrend, tvExpenseTrendEmpty, state.hasExpenseTrend());
+        setChartState(chartIncomeExpense, tvIncomeExpenseEmpty, hasLatestIncomeExpense(state.getMonths()));
+        setExpenseTrendState(state.getMonths());
         setChartState(chartBalance, tvBalanceEmpty, state.hasBalance());
-        setChartState(chartSavings, tvSavingsEmpty, state.hasSavings());
+        tvBalanceCurrent.setVisibility(state.hasBalance() ? View.VISIBLE : View.GONE);
+        tvBalanceDelta.setVisibility(state.hasBalance() ? View.VISIBLE : View.GONE);
+        setSavingsState(state.getMonths());
         renderChartSummaries(state.getMonths());
         renderCategoryBars(state.getCategories());
+        renderIncomeExpenseAmounts(state.getMonths());
+        renderMonthLabels(listExpenseTrendMonths, state.getMonths(), countExpenseDataMonths(state.getMonths()) >= 2);
+        renderMonthLabels(listBalanceMonths, state.getMonths(), state.hasBalance());
     }
 
     private String analysisSummaryRenderKey(@NonNull HomeSummary summary) {
@@ -218,42 +251,265 @@ public class AnalysisFragment extends Fragment {
 
     private void renderChartSummaries(@NonNull List<AnalysisMonthlyPoint> months) {
         if (months.isEmpty()) {
-            tvIncomeExpenseSummary.setText(R.string.analysis_income_expense_subtitle);
+            tvIncomeExpenseSummary.setText(getString(
+                    R.string.analysis_income_expense_subtitle,
+                    Format.money(0.0, currencyCode),
+                    Format.money(0.0, currencyCode)
+            ));
             tvExpenseTrendSummary.setText(R.string.analysis_expense_trend_subtitle);
             tvBalanceSummary.setText(R.string.analysis_balance_subtitle);
-            tvSavingsSummary.setText(R.string.analysis_savings_subtitle);
+            tvSavingsSummary.setText(getString(R.string.analysis_savings_subtitle, Format.money(0.0, currencyCode)));
             tvSavingsSummary.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
             return;
         }
         AnalysisMonthlyPoint latest = months.get(months.size() - 1);
-        tvIncomeExpenseSummary.setText(
-                "Último mes: ingresos " + Format.money(latest.getIngresos(), currencyCode)
-                        + " · gastos " + Format.money(latest.getGastos(), currencyCode)
-        );
+        tvIncomeExpenseSummary.setText(getString(
+                R.string.analysis_income_expense_subtitle,
+                Format.money(latest.getIngresos(), currencyCode),
+                Format.money(latest.getGastos(), currencyCode)
+        ));
+        tvIncomeExpenseBalance.setText(incomeExpenseBalanceText(latest));
+        tvIncomeExpenseBalance.setTextColor(ContextCompat.getColor(
+                requireContext(),
+                latest.getAhorro() < 0 ? R.color.expense : R.color.md_theme_onSurface
+        ));
         tvExpenseTrendSummary.setText(expenseTrendSummary(months));
-        tvBalanceSummary.setText("Balance acumulado: " + Format.money(latest.getBalance(), currencyCode));
-        tvSavingsSummary.setText("Ahorro del mes: " + Format.money(latest.getAhorro(), currencyCode));
+        tvBalanceSummary.setText(R.string.analysis_balance_subtitle);
+        tvBalanceCurrent.setText("Saldo actual: " + Format.money(latest.getBalance(), currencyCode));
+        double previousBalance = months.size() >= 2 ? months.get(months.size() - 2).getBalance() : 0.0;
+        double balanceDelta = latest.getBalance() - previousBalance;
+        tvBalanceDelta.setText(balanceDeltaText(balanceDelta));
+        tvBalanceDelta.setTextColor(ContextCompat.getColor(
+                requireContext(),
+                balanceDelta < -0.005 ? R.color.expense : R.color.income
+        ));
+        tvSavingsSummary.setText(getString(R.string.analysis_savings_subtitle, Format.money(latest.getAhorro(), currencyCode)));
         tvSavingsSummary.setTextColor(ContextCompat.getColor(
                 requireContext(),
                 latest.getAhorro() < 0 ? R.color.expense : R.color.md_theme_onSurfaceVariant
         ));
+        renderSavingsSummary(latest);
     }
 
     private String expenseTrendSummary(@NonNull List<AnalysisMonthlyPoint> months) {
-        AnalysisMonthlyPoint first = months.get(0);
-        AnalysisMonthlyPoint latest = months.get(months.size() - 1);
-        double delta = latest.getGastos() - first.getGastos();
+        AnalysisMonthlyPoint latest = latestExpensePoint(months);
+        AnalysisMonthlyPoint previous = previousExpensePoint(months);
+        if (latest == null) return getString(R.string.analysis_expense_trend_subtitle);
+        if (previous == null) return "Agrega más transacciones para ver tu tendencia";
+        double delta = latest.getGastos() - previous.getGastos();
         if (Math.abs(delta) < 0.005) {
-            return "Gasto estable: " + Format.money(latest.getGastos(), currencyCode);
+            return "Tus gastos se mantuvieron estables";
         }
-        String direction = delta > 0 ? "subió" : "bajó";
-        return "El gasto " + direction + " " + Format.money(Math.abs(delta), currencyCode)
-                + " vs. el inicio del periodo.";
+        String direction = delta > 0 ? "subieron" : "bajaron";
+        return "Tus gastos " + direction + " " + Format.money(Math.abs(delta), currencyCode)
+                + " respecto al periodo anterior";
     }
 
     private void setChartState(@NonNull CartesianChartView chart, @NonNull TextView empty, boolean hasData) {
         chart.setVisibility(hasData ? View.VISIBLE : View.GONE);
         empty.setVisibility(hasData ? View.GONE : View.VISIBLE);
+    }
+
+    private void setExpenseTrendState(@NonNull List<AnalysisMonthlyPoint> months) {
+        int dataMonths = countExpenseDataMonths(months);
+        boolean hasLine = dataMonths >= 2;
+        chartExpenseTrend.setVisibility(hasLine ? View.VISIBLE : View.GONE);
+        tvExpenseTrendEmpty.setVisibility(dataMonths == 0 ? View.VISIBLE : View.GONE);
+        cardExpenseTrendSingle.setVisibility(dataMonths == 1 ? View.VISIBLE : View.GONE);
+        if (dataMonths == 1) {
+            AnalysisMonthlyPoint point = latestExpensePoint(months);
+            if (point != null) {
+                tvExpenseTrendSingle.setText(
+                        "Gasto actual: " + Format.money(point.getGastos(), currencyCode)
+                                + "\nAgrega más transacciones para ver tu tendencia"
+                );
+            }
+        }
+    }
+
+    private void setSavingsState(@NonNull List<AnalysisMonthlyPoint> months) {
+        AnalysisMonthlyPoint latest = latestPoint(months);
+        boolean hasData = latest != null && (latest.getIngresos() > 0.0 || latest.getGastos() > 0.0);
+        chartSavings.setVisibility(hasData ? View.VISIBLE : View.GONE);
+        tvSavingsDetail.setVisibility(hasData ? View.VISIBLE : View.GONE);
+        tvSavingsMessage.setVisibility(hasData ? View.VISIBLE : View.GONE);
+        tvSavingsEmpty.setVisibility(hasData ? View.GONE : View.VISIBLE);
+    }
+
+    private boolean hasLatestIncomeExpense(@NonNull List<AnalysisMonthlyPoint> months) {
+        AnalysisMonthlyPoint latest = latestPoint(months);
+        return latest != null && (latest.getIngresos() > 0.0 || latest.getGastos() > 0.0);
+    }
+
+    @Nullable
+    private AnalysisMonthlyPoint latestPoint(@NonNull List<AnalysisMonthlyPoint> months) {
+        return months.isEmpty() ? null : months.get(months.size() - 1);
+    }
+
+    @Nullable
+    private AnalysisMonthlyPoint latestExpensePoint(@NonNull List<AnalysisMonthlyPoint> months) {
+        for (int i = months.size() - 1; i >= 0; i--) {
+            AnalysisMonthlyPoint point = months.get(i);
+            if (point.getGastos() > 0.0) return point;
+        }
+        return null;
+    }
+
+    @Nullable
+    private AnalysisMonthlyPoint previousExpensePoint(@NonNull List<AnalysisMonthlyPoint> months) {
+        boolean skippedLatest = false;
+        for (int i = months.size() - 1; i >= 0; i--) {
+            AnalysisMonthlyPoint point = months.get(i);
+            if (point.getGastos() <= 0.0) continue;
+            if (!skippedLatest) {
+                skippedLatest = true;
+                continue;
+            }
+            return point;
+        }
+        return null;
+    }
+
+    private int countExpenseDataMonths(@NonNull List<AnalysisMonthlyPoint> months) {
+        int count = 0;
+        for (AnalysisMonthlyPoint point : months) {
+            if (point.getGastos() > 0.0) count++;
+        }
+        return count;
+    }
+
+    private String incomeExpenseBalanceText(@NonNull AnalysisMonthlyPoint latest) {
+        double diff = latest.getIngresos() - latest.getGastos();
+        if (diff > 0.005) {
+            return "Balance positivo: te quedó " + Format.money(diff, currencyCode);
+        }
+        if (diff < -0.005) {
+            return "Balance negativo: gastaste " + Format.money(Math.abs(diff), currencyCode)
+                    + " más de lo que ingresaste";
+        }
+        return "Ingresos y gastos equilibrados";
+    }
+
+    private String balanceDeltaText(double delta) {
+        if (delta < -0.005) {
+            return "-" + Format.money(Math.abs(delta), currencyCode) + " este periodo";
+        }
+        return "+" + Format.money(Math.max(0.0, delta), currencyCode) + " este periodo";
+    }
+
+    private void renderSavingsSummary(@NonNull AnalysisMonthlyPoint latest) {
+        double saving = latest.getAhorro();
+        double income = latest.getIngresos();
+        int percent = income <= 0.0 ? 0 : (int) Math.round((saving / income) * 100.0);
+        int progress = Math.max(0, Math.min(100, percent));
+        int accent = saving < -0.005 ? R.color.expense : R.color.income;
+        progressSavings.setIndicatorColor(ContextCompat.getColor(requireContext(), accent));
+        progressSavings.setProgressCompat(progress, true);
+        tvSavingsPercent.setText(income <= 0.0 ? "0%" : percent + "%");
+        tvSavingsPercent.setTextColor(ContextCompat.getColor(requireContext(), accent));
+        tvSavingsHero.setText(R.string.analysis_savings_estimated);
+        tvSavingsDetail.setText(Format.money(saving, currencyCode));
+        tvSavingsDetail.setTextColor(ContextCompat.getColor(requireContext(), accent));
+        tvSavingsMessage.setText(savingsMessage(saving, income, percent));
+    }
+
+    private String savingsMessage(double saving, double income, int percent) {
+        String ratio = income > 0.0
+                ? "Equivale al " + percent + "% de tus ingresos. "
+                : "";
+        if (saving > 0.005) {
+            return ratio + "Buen mes, mantuviste un ahorro positivo";
+        }
+        if (Math.abs(saving) <= 0.005) {
+            return ratio + "No generaste ahorro este mes";
+        }
+        return ratio + "Este mes gastaste más de lo que ingresaste";
+    }
+
+    private void renderIncomeExpenseAmounts(@NonNull List<AnalysisMonthlyPoint> months) {
+        listIncomeExpenseAmounts.removeAllViews();
+        AnalysisMonthlyPoint latest = latestPoint(months);
+        boolean hasData = latest != null && (latest.getIngresos() > 0.0 || latest.getGastos() > 0.0);
+        listIncomeExpenseAmounts.setVisibility(hasData ? View.VISIBLE : View.GONE);
+        tvIncomeExpenseBalance.setVisibility(hasData ? View.VISIBLE : View.GONE);
+        if (!hasData) return;
+        listIncomeExpenseAmounts.addView(
+                incomeExpenseAmountPill("Ingresos", Format.money(latest.getIngresos(), currencyCode), R.color.income),
+                weightedPillParams(0)
+        );
+        listIncomeExpenseAmounts.addView(
+                incomeExpenseAmountPill("Gastos", Format.money(latest.getGastos(), currencyCode), R.color.expense),
+                weightedPillParams(10)
+        );
+    }
+
+    private View incomeExpenseAmountPill(@NonNull String label, @NonNull String value, int colorRes) {
+        int accent = ContextCompat.getColor(requireContext(), colorRes);
+        LinearLayout pill = new LinearLayout(requireContext());
+        pill.setOrientation(LinearLayout.VERTICAL);
+        pill.setGravity(android.view.Gravity.CENTER);
+        pill.setPadding(dp(10), dp(9), dp(10), dp(9));
+        pill.setBackground(roundedDrawable(ColorUtils.setAlphaComponent(accent, 26), dp(12)));
+
+        TextView labelView = new TextView(requireContext());
+        labelView.setText(label);
+        labelView.setTextColor(accent);
+        labelView.setTextSize(12f);
+        labelView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        pill.addView(labelView);
+
+        TextView valueView = new TextView(requireContext());
+        valueView.setText(value);
+        valueView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        valueView.setTextSize(14f);
+        valueView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        valueView.setGravity(android.view.Gravity.CENTER);
+        autosize(valueView, 11, 14);
+        pill.addView(valueView, fullWidthParams(4));
+        return pill;
+    }
+
+    private LinearLayout.LayoutParams weightedPillParams(int leftMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        params.leftMargin = dp(leftMargin);
+        return params;
+    }
+
+    private void renderMonthLabels(
+            @NonNull LinearLayout container,
+            @NonNull List<AnalysisMonthlyPoint> months,
+            boolean visible
+    ) {
+        container.removeAllViews();
+        container.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (!visible || months.isEmpty()) return;
+        for (AnalysisMonthlyPoint point : months) {
+            TextView label = new TextView(requireContext());
+            label.setText(shortMonthLabel(point));
+            label.setGravity(android.view.Gravity.CENTER);
+            label.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+            label.setTextSize(11f);
+            label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            container.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        }
+    }
+
+    private String shortMonthLabel(@NonNull AnalysisMonthlyPoint point) {
+        String label = point.getLabel() == null ? "" : point.getLabel().trim();
+        if (label.length() > 3) return label.substring(0, 3);
+        return label.isEmpty() ? String.valueOf(point.getMes()) : label;
+    }
+
+    private void showLatestExpensePoint() {
+        AnalysisChartState state = lastRenderedChartState;
+        if (state == null) return;
+        AnalysisMonthlyPoint point = latestExpensePoint(state.getMonths());
+        if (point == null) return;
+        Toast.makeText(
+                requireContext(),
+                shortMonthLabel(point) + ": " + Format.money(point.getGastos(), currencyCode),
+                Toast.LENGTH_SHORT
+        ).show();
     }
 
     private void renderCategoryBars(@NonNull List<AnalysisCategoryPoint> categories) {
@@ -266,12 +522,11 @@ public class AnalysisFragment extends Fragment {
             return;
         }
         double total = 0.0;
-        double max = categories.get(0).getAmount();
         for (AnalysisCategoryPoint category : categories) total += category.getAmount();
-        tvCategoryBarsSummary.setText("Total categorizado: " + Format.money(total, currencyCode));
+        tvCategoryBarsSummary.setText(R.string.analysis_categories_subtitle);
         for (int i = 0; i < categories.size(); i++) {
             AnalysisCategoryPoint category = categories.get(i);
-            double ratio = max <= 0.0 ? 0.0 : category.getAmount() / max;
+            double ratio = total <= 0.0 ? 0.0 : category.getAmount() / total;
             listCategoryBars.addView(categoryBarRow(category, ratio, categoryColor(i)));
         }
     }
@@ -293,7 +548,8 @@ public class AnalysisFragment extends Fragment {
         labels.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView amount = new TextView(requireContext());
-        amount.setText(Format.money(category.getAmount(), currencyCode));
+        int percent = (int) Math.round(Math.max(0.0, ratio) * 100.0);
+        amount.setText(Format.money(category.getAmount(), currencyCode) + " · " + percent + "%");
         amount.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         amount.setTextSize(13f);
         labels.addView(amount);
@@ -313,7 +569,7 @@ public class AnalysisFragment extends Fragment {
 
         View fill = new View(requireContext());
         fill.setBackground(roundedDrawable(color, dp(4)));
-        float fillWeight = Math.max(0.05f, (float) ratio);
+        float fillWeight = Math.max(0.05f, Math.min(1f, (float) ratio));
         track.addView(fill, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, fillWeight));
         track.addView(new View(requireContext()), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f - fillWeight));
         row.addView(track, trackParams);

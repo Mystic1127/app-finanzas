@@ -103,19 +103,26 @@ class DashboardRepository(context: Context) {
                     balance = runningBalance,
                 )
             }
-            val categories = local.listTransaccionesEnMonedaBase(anio, mes)
+            val categoryRows = local.listTransaccionesEnMonedaBase(anio, mes)
                 .asSequence()
                 .filter { !it.isEsIngreso && !it.isTransfer }
                 .groupBy { tx ->
                     tx.categoriaNombre
                         ?.trim()
                         ?.takeIf { it.isNotEmpty() }
-                        ?: "Sin categoría"
+                        ?: "Sin categor\u00eda"
                 }
                 .map { (name, txs) -> AnalysisCategoryPoint(name, txs.sumOf { it.monto }) }
                 .filter { it.amount > 0.0 }
                 .sortedByDescending { it.amount }
-                .take(8)
+            val categories = if (categoryRows.size <= 5) {
+                categoryRows
+            } else {
+                categoryRows.take(5) + AnalysisCategoryPoint(
+                    name = "Otros",
+                    amount = categoryRows.drop(5).sumOf { it.amount },
+                )
+            }
 
             AnalysisChartState(
                 currencyCode = SettingsService.getCurrencyCode(appContext),

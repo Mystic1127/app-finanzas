@@ -4,8 +4,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +34,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,13 +48,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -60,6 +68,7 @@ import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.api.UserService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable
 import com.example.finanzas.ui.viewmodel.BudgetViewModel
 import com.example.finanzas.ui.viewmodel.HomeViewModel
 import com.example.finanzas.ui.viewmodel.ReportsViewModel
@@ -102,69 +111,83 @@ class PerfilFragment : Fragment() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View = ComposeView(requireContext()).apply {
-        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-        setContent {
-            SpendlyComposeTheme {
-                ProfileScreen(
-                    name = profileName,
-                    email = profileEmail,
-                    currencyOptions = CURRENCY_OPTIONS,
-                    currencyLabel = currencyLabel,
-                    onCurrencyChange = {
-                        currencyLabel = it
-                        currencyError = null
-                    },
-                    manualRateText = manualRateText,
-                    onManualRateChange = {
-                        manualRateText = it
-                        manualRateError = null
-                    },
-                    currencyError = currencyError,
-                    manualRateError = manualRateError,
-                    onSaveCurrency = { saveCurrency() },
-                    initialCurrencyOptions = CurrencyConverter.supportedCurrencies(),
-                    initialCurrency = initialCurrency,
-                    onInitialCurrencyChange = { initialCurrency = CurrencyConverter.normalize(it) },
-                    initialCashText = initialCashText,
-                    onInitialCashChange = {
-                        initialCashText = it
-                        initialCashError = null
-                    },
-                    initialCardText = initialCardText,
-                    onInitialCardChange = {
-                        initialCardText = it
-                        initialCardError = null
-                    },
-                    initialBalancesConfigured = initialBalancesConfigured,
-                    initialCashError = initialCashError,
-                    initialCardError = initialCardError,
-                    onSaveInitialBalances = { saveInitialBalances() },
-                    themeMode = themeMode,
-                    onThemeModeChange = { saveThemeMode(it) },
-                    hasPin = hasPin,
-                    currentUserId = currentUserId,
-                    accounts = accounts,
-                    onSwitchAccount = { switchAccount(it) },
-                    onChangePassword = {
-                        findNavController().navigate(
-                            R.id.nav_change_password,
-                            null,
-                            NavigationAnimations.detailSlide()
-                        )
-                    },
-                    onConfigurePin = {
-                        findNavController().navigate(
-                            R.id.nav_pin_setup,
-                            null,
-                            NavigationAnimations.detailSlide()
-                        )
-                    },
-                    onRemovePin = { confirmRemovePin() },
-                    onDeleteFinancialData = { confirmDeleteFinancialData() }
-                )
+    ): View {
+        val host = FrameLayout(requireContext()).apply {
+            background = SpendlyDecorBackgroundDrawable(requireContext())
+        }
+        val composeView = ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                SpendlyComposeTheme {
+                    ProfileScreen(
+                        name = profileName,
+                        email = profileEmail,
+                        currencyOptions = CURRENCY_OPTIONS,
+                        currencyLabel = currencyLabel,
+                        onCurrencyChange = {
+                            currencyLabel = it
+                            currencyError = null
+                        },
+                        manualRateText = manualRateText,
+                        onManualRateChange = {
+                            manualRateText = it
+                            manualRateError = null
+                        },
+                        currencyError = currencyError,
+                        manualRateError = manualRateError,
+                        onSaveCurrency = { saveCurrency() },
+                        initialCurrencyOptions = CurrencyConverter.supportedCurrencies(),
+                        initialCurrency = initialCurrency,
+                        onInitialCurrencyChange = { initialCurrency = CurrencyConverter.normalize(it) },
+                        initialCashText = initialCashText,
+                        onInitialCashChange = {
+                            initialCashText = it
+                            initialCashError = null
+                        },
+                        initialCardText = initialCardText,
+                        onInitialCardChange = {
+                            initialCardText = it
+                            initialCardError = null
+                        },
+                        initialBalancesConfigured = initialBalancesConfigured,
+                        initialCashError = initialCashError,
+                        initialCardError = initialCardError,
+                        onSaveInitialBalances = { saveInitialBalances() },
+                        themeMode = themeMode,
+                        onThemeModeChange = { saveThemeMode(it) },
+                        hasPin = hasPin,
+                        currentUserId = currentUserId,
+                        accounts = accounts,
+                        onSwitchAccount = { switchAccount(it) },
+                        onBack = { findNavController().popBackStack() },
+                        onChangePassword = {
+                            findNavController().navigate(
+                                R.id.nav_change_password,
+                                null,
+                                NavigationAnimations.detailSlide()
+                            )
+                        },
+                        onConfigurePin = {
+                            findNavController().navigate(
+                                R.id.nav_pin_setup,
+                                null,
+                                NavigationAnimations.detailSlide()
+                            )
+                        },
+                        onRemovePin = { confirmRemovePin() },
+                        onDeleteFinancialData = { confirmDeleteFinancialData() }
+                    )
+                }
             }
         }
+        host.addView(
+            composeView,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        return host
     }
 
     override fun onViewCreated(v: View, savedInstanceState: Bundle?) {
@@ -504,6 +527,7 @@ private fun ProfileScreen(
     currentUserId: Long,
     accounts: List<AccountUi>,
     onSwitchAccount: (AccountUi) -> Unit,
+    onBack: () -> Unit,
     onChangePassword: () -> Unit,
     onConfigurePin: () -> Unit,
     onRemovePin: () -> Unit,
@@ -511,18 +535,19 @@ private fun ProfileScreen(
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = Color.Transparent
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
                 .navigationBarsPadding()
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp),
+                .padding(start = 22.dp, top = 24.dp, end = 22.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            ProfileHeader(onBack = onBack)
+
             ProfileSection(title = "Cuenta") {
                 Text(
                     text = name,
@@ -649,6 +674,38 @@ private fun ProfileScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileHeader(onBack: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(44.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_back),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Text(
+            text = stringResource(R.string.nav_profile_title),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleLarge,
+            fontSize = 22.sp,
+            lineHeight = 26.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Center)
+        )
     }
 }
 

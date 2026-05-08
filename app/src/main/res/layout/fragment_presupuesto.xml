@@ -56,6 +56,7 @@
                     android:id="@+id/etPresupuesto"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:imeOptions="actionDone"
                     android:inputType="numberDecimal"
                     android:textColor="@color/md_theme_onSurface"
                     android:textSize="18sp" />
@@ -82,6 +83,23 @@
                 android:textColor="@color/md_theme_onSurface"
                 android:textSize="16sp"
                 android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAgregarCategoria"
+                style="@style/Widget.Finanzas.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="14dp"
+                android:text="@string/pres_btn_agregar_categoria"
+                android:textAllCaps="false"
+                android:textColor="@color/planning_dialog_button"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                app:icon="@drawable/ic_add"
+                app:iconGravity="textStart"
+                app:iconTint="@color/planning_dialog_button"
+                app:strokeColor="@color/planning_dialog_button"
+                tools:visibility="gone" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardEmptyCategories"
@@ -162,23 +180,6 @@
                 android:nestedScrollingEnabled="false"
                 tools:itemCount="2"
                 tools:listitem="@layout/item_budget_edit" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAgregarCategoria"
-                style="@style/Widget.Finanzas.Button.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="14dp"
-                android:text="@string/pres_btn_agregar_categoria"
-                android:textAllCaps="false"
-                android:textColor="@color/planning_dialog_button"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                app:icon="@drawable/ic_add"
-                app:iconGravity="textStart"
-                app:iconTint="@color/planning_dialog_button"
-                app:strokeColor="@color/planning_dialog_button"
-                tools:visibility="gone" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

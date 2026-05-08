@@ -150,10 +150,17 @@ public class MainActivity extends AppCompatActivity {
                     || destId == R.id.nav_budget
                     || destId == R.id.nav_settings
                     || destId == R.id.nav_categories
-                    || destId == R.id.nav_planning;
+                    || destId == R.id.nav_planning
+                    || destId == R.id.nav_reports
+                    || destId == R.id.nav_imports
+                    || destId == R.id.nav_perfil
+                    || destId == R.id.nav_initial_balance;
             toolbar.setVisibility((isImmersiveAuthScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
             setContentTopMargin((isImmersiveAuthScreen || hasLocalHeader) ? 0 : contentTopMargin);
-            boolean bottomVisible = isBottomDestination(destId);
+            boolean editingTransaction = destId == R.id.nav_new
+                    && args != null
+                    && args.containsKey(NuevaTransaccionFragment.EXTRA_ID);
+            boolean bottomVisible = isBottomDestination(destId) && !editingTransaction;
             setContentBottomMargin(bottomVisible ? dp(98) : contentBottomMargin);
             if (bottomNavContainer != null) {
                 bottomNavContainer.setVisibility(bottomVisible ? View.VISIBLE : View.GONE);

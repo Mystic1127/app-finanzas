@@ -1,12 +1,16 @@
 package com.example.finanzas.ui;
 
 import android.content.res.ColorStateList;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputFilter;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -32,9 +36,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.CategoryStore;
 import com.example.finanzas.data.model.Categoria;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.util.CategoryPrefs;
 import com.example.finanzas.util.CategoryVisuals;
+import com.example.finanzas.util.TransactionLabelStore;
 import com.example.finanzas.util.UiFormUtils;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -80,6 +87,7 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        view.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         recycler = view.findViewById(R.id.rvCategories);
         search = view.findViewById(R.id.etCategorySearch);
         btnAll = view.findViewById(R.id.btnCategoriesAll);
@@ -178,7 +186,7 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
             showCategoryForm(categoria);
         });
         root.addView(edit, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)));
-        MaterialButton delete = sheetAction(R.drawable.ic_delete, getString(R.string.categories_delete), ContextCompat.getColor(requireContext(), R.color.expense));
+        MaterialButton delete = sheetAction(R.drawable.ic_visibilityoff, getString(R.string.categories_hide), ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
         delete.setOnClickListener(v -> {
             dialog.dismiss();
             confirmDelete(categoria);
@@ -218,7 +226,7 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
                 .setTitle(R.string.categories_delete_confirm_title)
                 .setMessage(R.string.categories_delete_confirm_message)
                 .setNegativeButton(R.string.import_sheet_cancel, null)
-                .setPositiveButton(R.string.categories_delete, (d, w) -> {
+                .setPositiveButton(R.string.categories_hide, (d, w) -> {
                     CategoryPrefs.setDeleted(requireContext(), categoria, true);
                     render();
                     Toast.makeText(requireContext(), R.string.categories_deleted_toast, Toast.LENGTH_SHORT).show();
@@ -236,11 +244,12 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(22), dp(18), dp(22), dp(28));
+        root.setPadding(dp(22), dp(12), dp(22), dp(18));
         root.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_surface));
 
         final String[] iconKey = { editing == null ? CategoryPrefs.ICON_GROCERIES : CategoryPrefs.meta(requireContext(), editing).iconKey };
-        final int[] color = { editing == null ? CategoryPrefs.PALETTE[0] : CategoryPrefs.meta(requireContext(), editing).color };
+        final String[] selectedHex = { editing == null ? TransactionLabelStore.paletteColors()[0] : hexFor(CategoryPrefs.meta(requireContext(), editing).color) };
+        final int[] color = { Color.parseColor(selectedHex[0]) };
 
         LinearLayout header = new LinearLayout(requireContext());
         header.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -266,13 +275,13 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         root.addView(header);
 
         FrameLayout iconPreview = new FrameLayout(requireContext());
-        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(106), dp(106));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(78), dp(78));
         previewParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
-        previewParams.topMargin = dp(28);
+        previewParams.topMargin = dp(14);
         root.addView(iconPreview, previewParams);
         ImageView previewIcon = new ImageView(requireContext());
         previewIcon.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white));
-        iconPreview.addView(previewIcon, new FrameLayout.LayoutParams(dp(54), dp(54), android.view.Gravity.CENTER));
+        iconPreview.addView(previewIcon, new FrameLayout.LayoutParams(dp(40), dp(40), android.view.Gravity.CENTER));
         Runnable updatePreview = () -> {
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
@@ -295,7 +304,7 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
             updatePreview.run();
         }));
         LinearLayout.LayoutParams editIconParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        editIconParams.topMargin = dp(10);
+        editIconParams.topMargin = dp(6);
         root.addView(editIcon, editIconParams);
 
         TextInputLayout tilName = new TextInputLayout(requireContext());
@@ -308,7 +317,7 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         etName.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
         tilName.addView(etName);
         LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        nameParams.topMargin = dp(26);
+        nameParams.topMargin = dp(14);
         root.addView(tilName, nameParams);
 
         TextInputLayout tilType = new TextInputLayout(requireContext());
@@ -320,7 +329,7 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         type.setOnClickListener(v -> type.showDropDown());
         tilType.addView(type);
         LinearLayout.LayoutParams typeParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        typeParams.topMargin = dp(14);
+        typeParams.topMargin = dp(8);
         root.addView(tilType, typeParams);
 
         TextView colorTitle = new TextView(requireContext());
@@ -328,38 +337,88 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         colorTitle.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
         colorTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         LinearLayout.LayoutParams colorTitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        colorTitleParams.topMargin = dp(24);
+        colorTitleParams.topMargin = dp(12);
         root.addView(colorTitle, colorTitleParams);
 
+        TextInputLayout tilHex = new TextInputLayout(requireContext());
+        tilHex.setHintEnabled(false);
+        tilHex.setBoxBackgroundColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
+        tilHex.setEndIconMode(TextInputLayout.END_ICON_CUSTOM);
+        tilHex.setEndIconDrawable(R.drawable.ic_edit);
+        tilHex.setEndIconTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant)));
+        TextInputEditText etHex = new TextInputEditText(requireContext());
+        etHex.setSingleLine(true);
+        etHex.setHint(R.string.transaction_label_hex);
+        etHex.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        etHex.setHintTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        etHex.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        etHex.setFilters(new InputFilter[]{ new InputFilter.LengthFilter(7) });
+        etHex.setText(selectedHex[0]);
+        tilHex.addView(etHex);
+        LinearLayout.LayoutParams hexParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hexParams.topMargin = dp(6);
+        root.addView(tilHex, hexParams);
+
         GridLayout colorGrid = new GridLayout(requireContext());
-        colorGrid.setColumnCount(8);
-        LinearLayout.LayoutParams colorGridParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        colorGridParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
-        colorGridParams.topMargin = dp(10);
+        colorGrid.setColumnCount(6);
+        LinearLayout.LayoutParams colorGridParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        colorGridParams.topMargin = dp(8);
         root.addView(colorGrid, colorGridParams);
         Runnable[] renderColors = new Runnable[1];
         renderColors[0] = () -> {
             colorGrid.removeAllViews();
-            for (int value : CategoryPrefs.PALETTE) {
-                View swatch = new View(requireContext());
-                GradientDrawable bg = new GradientDrawable();
-                bg.setShape(GradientDrawable.OVAL);
-                bg.setColor(value);
-                bg.setStroke(dp(value == color[0] ? 3 : 1), ContextCompat.getColor(requireContext(), value == color[0] ? android.R.color.white : R.color.md_theme_outlineVariant));
-                swatch.setBackground(bg);
+            String[] palette = compactCategoryPalette();
+            for (int i = 0; i < palette.length; i++) {
+                String value = palette[i];
+                CategoryColorSwatchView swatch = new CategoryColorSwatchView(requireContext());
+                swatch.setColor(Color.parseColor(value));
+                swatch.setSelectedColor(value.equals(selectedHex[0]));
                 swatch.setOnClickListener(v -> {
-                    color[0] = value;
+                    selectedHex[0] = value;
+                    color[0] = Color.parseColor(value);
+                    etHex.setText(value);
+                    etHex.setSelection(etHex.length());
+                    tilHex.setError(null);
                     updatePreview.run();
                     renderColors[0].run();
                 });
-                GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-                params.width = dp(36);
-                params.height = dp(36);
-                params.setMargins(dp(3), 0, dp(3), dp(10));
+                GridLayout.LayoutParams params = new GridLayout.LayoutParams(
+                        GridLayout.spec(i / 6),
+                        GridLayout.spec(i % 6, 1f)
+                );
+                params.width = 0;
+                params.height = dp(34);
+                params.setMargins(0, 0, i % 6 == 5 ? 0 : dp(8), dp(6));
                 colorGrid.addView(swatch, params);
             }
         };
         renderColors[0].run();
+
+        tilHex.setEndIconOnClickListener(v -> {
+            etHex.requestFocus();
+            etHex.setSelection(etHex.length());
+        });
+        etHex.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+            @Override public void afterTextChanged(Editable s) {
+                String raw = s == null ? "" : s.toString().trim();
+                if (TransactionLabelStore.isValidHex(raw)) {
+                    String normalized = TransactionLabelStore.normalizeHex(raw);
+                    selectedHex[0] = normalized;
+                    color[0] = Color.parseColor(normalized);
+                    tilHex.setError(null);
+                    updatePreview.run();
+                    renderColors[0].run();
+                } else if (!raw.isEmpty()) {
+                    tilHex.setError(getString(R.string.transaction_label_hex_error));
+                    renderColors[0].run();
+                } else {
+                    tilHex.setError(null);
+                    renderColors[0].run();
+                }
+            }
+        });
 
         save.setOnClickListener(v -> {
             String name = etName.getText() == null ? "" : etName.getText().toString().trim();
@@ -367,6 +426,13 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
                 tilName.setError(getString(R.string.category_label_name_error));
                 return;
             }
+            String rawHex = etHex.getText() == null ? "" : etHex.getText().toString().trim();
+            if (!TransactionLabelStore.isValidHex(rawHex)) {
+                tilHex.setError(getString(R.string.transaction_label_hex_error));
+                return;
+            }
+            selectedHex[0] = TransactionLabelStore.normalizeHex(rawHex);
+            color[0] = Color.parseColor(selectedHex[0]);
             boolean income = getString(R.string.tipo_ingreso).contentEquals(type.getText());
             if (editing == null) {
                 CategoryStore.createCategoria(requireContext(), name, income, new CategoryStore.CreateCallback() {
@@ -393,7 +459,23 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         });
 
         dialog.setContentView(root);
+        dialog.setOnShowListener(d -> {
+            View bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet == null) return;
+            BottomSheetBehavior<View> behavior = BottomSheetBehavior.from(bottomSheet);
+            behavior.setSkipCollapsed(true);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        });
         dialog.show();
+    }
+
+    @NonNull
+    private String[] compactCategoryPalette() {
+        String[] source = TransactionLabelStore.paletteColors();
+        int count = Math.min(24, source.length);
+        String[] compact = new String[count];
+        System.arraycopy(source, 0, compact, 0, count);
+        return compact;
     }
 
     private void showIconPickerDialog(@Nullable String selectedIconKey, @NonNull IconPickCallback callback) {
@@ -458,8 +540,79 @@ public class CategoriesFragment extends androidx.fragment.app.Fragment {
         return clean.contains("saldo inicial") || clean.contains("transferencia");
     }
 
+    @NonNull
+    private String hexFor(@ColorInt int value) {
+        return String.format(Locale.US, "#%06X", 0xFFFFFF & value);
+    }
+
     private interface IconPickCallback {
         void onPick(@NonNull String iconKey);
+    }
+
+    private final class CategoryColorSwatchView extends View {
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint check = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint checkShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF rect = new RectF();
+        private boolean selected;
+
+        CategoryColorSwatchView(@NonNull android.content.Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            border.setStyle(Paint.Style.STROKE);
+            check.setColor(Color.WHITE);
+            check.setStyle(Paint.Style.STROKE);
+            check.setStrokeCap(Paint.Cap.ROUND);
+            check.setStrokeJoin(Paint.Join.ROUND);
+            checkShadow.setColor(Color.argb(105, 0, 0, 0));
+            checkShadow.setStyle(Paint.Style.STROKE);
+            checkShadow.setStrokeCap(Paint.Cap.ROUND);
+            checkShadow.setStrokeJoin(Paint.Join.ROUND);
+            setClickable(true);
+            setFocusable(true);
+        }
+
+        void setColor(@ColorInt int value) {
+            fill.setColor(value);
+            invalidate();
+        }
+
+        void setSelectedColor(boolean selected) {
+            this.selected = selected;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float inset = selected ? dp(3) : dp(5);
+            rect.set(inset, inset, getWidth() - inset, getHeight() - inset);
+            canvas.drawRoundRect(rect, dp(10), dp(10), fill);
+
+            border.setStrokeWidth(dp(selected ? 3 : 1));
+            border.setColor(ContextCompat.getColor(
+                    getContext(),
+                    selected ? R.color.md_theme_primary : R.color.md_theme_outlineVariant
+            ));
+            canvas.drawRoundRect(rect, dp(10), dp(10), border);
+
+            if (selected) {
+                float stroke = dp(3);
+                check.setStrokeWidth(stroke);
+                checkShadow.setStrokeWidth(stroke + dp(1));
+                float startX = getWidth() * 0.34f;
+                float startY = getHeight() * 0.53f;
+                float midX = getWidth() * 0.45f;
+                float midY = getHeight() * 0.64f;
+                float endX = getWidth() * 0.68f;
+                float endY = getHeight() * 0.38f;
+                canvas.drawLine(startX, startY, midX, midY, checkShadow);
+                canvas.drawLine(midX, midY, endX, endY, checkShadow);
+                canvas.drawLine(startX, startY, midX, midY, check);
+                canvas.drawLine(midX, midY, endX, endY, check);
+            }
+        }
     }
 
     private int dp(int value) {

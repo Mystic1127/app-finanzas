@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.InputFilter;
 import android.text.TextUtils;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -100,6 +101,12 @@ public class HomeFragment extends Fragment {
     private String lastLatestRenderKey;
     private String lastNotificationRenderKey;
     private Integer lastBudgetProgress = null;
+    private final Runnable showInitialProgressRunnable = () -> {
+        if (progress == null || viewModel == null || lastSummary != null || !isAdded()) return;
+        if (Boolean.TRUE.equals(viewModel.getLoading().getValue())) {
+            progress.setVisibility(View.VISIBLE);
+        }
+    };
 
     @Nullable
     @Override
@@ -152,6 +159,7 @@ public class HomeFragment extends Fragment {
             balanceAnimator.cancel();
             balanceAnimator = null;
         }
+        if (progress != null) progress.removeCallbacks(showInitialProgressRunnable);
         balanceAnimationTarget = null;
         resetViewRenderCache();
         super.onDestroyView();
@@ -173,7 +181,14 @@ public class HomeFragment extends Fragment {
     private void observeViewModel() {
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading -> {
             boolean isLoading = Boolean.TRUE.equals(loading);
-            progress.setVisibility(isLoading && lastSummary == null ? View.VISIBLE : View.GONE);
+            if (isLoading && lastSummary == null) {
+                progress.setVisibility(View.GONE);
+                progress.removeCallbacks(showInitialProgressRunnable);
+                progress.postDelayed(showInitialProgressRunnable, 180L);
+            } else {
+                progress.removeCallbacks(showInitialProgressRunnable);
+                progress.setVisibility(View.GONE);
+            }
             swipe.setRefreshing(isLoading && lastSummary != null);
         });
         viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
@@ -197,6 +212,10 @@ public class HomeFragment extends Fragment {
 
     private void render(@NonNull HomeSummary summary) {
         lastSummary = summary;
+        if (progress != null) {
+            progress.removeCallbacks(showInitialProgressRunnable);
+            progress.setVisibility(View.GONE);
+        }
         tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
         renderAnimatedBalance(summary.getSaldoActualTotal());
         styleMetric(cardIncome, R.string.home_ingresos, Format.money(summary.getIngresos(), currencyCode), R.drawable.ic_income, color(R.color.income));
@@ -280,7 +299,7 @@ public class HomeFragment extends Fragment {
         card.setRadius(dp(8));
 
         FrameLayout body = new FrameLayout(requireContext());
-        body.setPadding(dp(16), dp(14), dp(9), dp(14));
+        body.setPadding(dp(16), dp(14), dp(1), dp(14));
         card.addView(body, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         ImageView icon = new ImageView(requireContext());
@@ -301,8 +320,8 @@ public class HomeFragment extends Fragment {
         text.setMinimumHeight(dp(58));
         FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         textParams.gravity = android.view.Gravity.CENTER_VERTICAL;
-        textParams.leftMargin = dp(56);
-        textParams.rightMargin = dp(4);
+        textParams.leftMargin = dp(54);
+        textParams.rightMargin = dp(2);
         body.addView(text, textParams);
 
         TextView title = new TextView(requireContext());
@@ -329,8 +348,17 @@ public class HomeFragment extends Fragment {
         amount.setTextColor(color(R.color.chartBalance));
         amount.setTextSize(18f);
         amount.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        amount.setSingleLine(true);
-        amount.setEllipsize(TextUtils.TruncateAt.END);
+        amount.setSingleLine(false);
+        amount.setMaxLines(2);
+        amount.setEllipsize(null);
+        amount.setIncludeFontPadding(false);
+        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                amount,
+                12,
+                18,
+                1,
+                TypedValue.COMPLEX_UNIT_SP
+        );
         LinearLayout.LayoutParams amountParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         amountParams.topMargin = TextUtils.isEmpty(subtitleText) ? dp(4) : dp(2);
         text.addView(amount, amountParams);
@@ -340,18 +368,20 @@ public class HomeFragment extends Fragment {
         actions.setGravity(android.view.Gravity.CENTER);
         FrameLayout.LayoutParams actionsParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         actionsParams.gravity = android.view.Gravity.END | android.view.Gravity.TOP;
+        actionsParams.topMargin = -dp(7);
+        actionsParams.rightMargin = -dp(5);
         body.addView(actions, actionsParams);
 
         if (cards.size() <= 1) {
-            View add = circularIconButton(R.drawable.ic_add, color(R.color.planning_dialog_button), color(R.color.md_theme_onPrimary), dp(28));
+            View add = circularIconButton(R.drawable.ic_add, color(R.color.planning_dialog_button), color(R.color.md_theme_onPrimary), dp(22));
             add.setOnClickListener(v -> showManageCardsSheet());
             actions.addView(add);
         } else if (summaryMode) {
-            View tune = plainIconButton(R.drawable.ic_tune, color(R.color.chartBalance), dp(30));
+            View tune = plainIconButton(R.drawable.ic_tune, color(R.color.chartBalance), dp(24));
             tune.setOnClickListener(v -> showManageCardsSheet());
             actions.addView(tune);
         } else {
-            View swap = circularIconButton(R.drawable.ic_swap_horiz, color(R.color.chart_pie_4), color(R.color.black), dp(28));
+            View swap = circularIconButton(R.drawable.ic_swap_horiz, color(R.color.chart_pie_4), color(R.color.black), dp(22));
             swap.setOnClickListener(v -> showManageCardsSheet());
             actions.addView(swap);
         }
@@ -823,10 +853,7 @@ public class HomeFragment extends Fragment {
             actions.addView(visible);
         } else {
             View principal = circularIconButton(R.drawable.ic_swap_horiz, color(R.color.chart_pie_4), color(R.color.black), dp(34));
-            principal.setOnClickListener(v -> {
-                SettingsService.setVisibleCardAccount(requireContext(), account.getId());
-                refreshCards(dialog);
-            });
+            principal.setOnClickListener(v -> confirmVisibleCardChange(dialog, account));
             actions.addView(principal);
         }
         View edit = plainIconButton(R.drawable.ic_edit, color(R.color.md_theme_onSurfaceVariant), dp(30));
@@ -839,16 +866,39 @@ public class HomeFragment extends Fragment {
         actions.addView(edit, editParams);
         if (account.isUserAdded()) {
             View delete = plainIconButton(R.drawable.ic_delete, color(R.color.expense), dp(30));
-            delete.setOnClickListener(v -> {
-                SettingsService.deleteFinancialAccount(requireContext(), account.getId());
-                refreshCards(dialog);
-            });
+            delete.setOnClickListener(v -> confirmDeleteCard(dialog, account));
             LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(30), dp(30));
             deleteParams.leftMargin = dp(4);
             actions.addView(delete, deleteParams);
         }
         row.addView(actions, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return row;
+    }
+
+    private void confirmVisibleCardChange(@NonNull BottomSheetDialog dialog, @NonNull FinancialAccount account) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.card_visible_confirm_title)
+                .setMessage(R.string.card_visible_confirm_message)
+                .setNegativeButton(R.string.import_sheet_cancel, null)
+                .setPositiveButton(R.string.card_visible_confirm_action, (d, w) -> {
+                    SettingsService.setVisibleCardAccount(requireContext(), account.getId());
+                    dialog.dismiss();
+                    viewModel.clearCache();
+                    loadSummary(true);
+                })
+                .show();
+    }
+
+    private void confirmDeleteCard(@NonNull BottomSheetDialog dialog, @NonNull FinancialAccount account) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.card_delete_confirm_title)
+                .setMessage(R.string.card_delete_confirm_message)
+                .setNegativeButton(R.string.import_sheet_cancel, null)
+                .setPositiveButton(R.string.btn_eliminar, (d, w) -> {
+                    SettingsService.deleteFinancialAccount(requireContext(), account.getId());
+                    refreshCards(dialog);
+                })
+                .show();
     }
 
     private void refreshCards(@NonNull BottomSheetDialog dialog) {
@@ -1157,7 +1207,8 @@ public class HomeFragment extends Fragment {
         ImageView icon = new ImageView(requireContext());
         icon.setImageResource(iconRes);
         icon.setColorFilter(iconColor);
-        frame.addView(icon, new FrameLayout.LayoutParams(Math.max(dp(22), size / 2), Math.max(dp(22), size / 2), android.view.Gravity.CENTER));
+        int iconSize = Math.max(dp(16), Math.round(size * 0.56f));
+        frame.addView(icon, new FrameLayout.LayoutParams(iconSize, iconSize, android.view.Gravity.CENTER));
         frame.setClickable(true);
         frame.setFocusable(true);
         frame.setLayoutParams(new LinearLayout.LayoutParams(size, size));
@@ -1173,7 +1224,8 @@ public class HomeFragment extends Fragment {
         ImageView icon = new ImageView(requireContext());
         icon.setImageResource(iconRes);
         icon.setColorFilter(iconColor);
-        frame.addView(icon, new FrameLayout.LayoutParams(Math.max(dp(20), size / 2), Math.max(dp(20), size / 2), android.view.Gravity.CENTER));
+        int iconSize = Math.max(dp(16), Math.round(size * 0.56f));
+        frame.addView(icon, new FrameLayout.LayoutParams(iconSize, iconSize, android.view.Gravity.CENTER));
         frame.setClickable(true);
         frame.setFocusable(true);
         frame.setLayoutParams(new LinearLayout.LayoutParams(size, size));

@@ -10,10 +10,12 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
 import com.example.finanzas.data.api.CategoryStore
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.LocalRepository
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable
 import com.example.finanzas.ui.viewmodel.BudgetViewModel
 import com.example.finanzas.ui.viewmodel.HomeViewModel
 import com.example.finanzas.ui.viewmodel.ReportsViewModel
@@ -45,6 +47,7 @@ class InitialBalanceFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        view.background = SpendlyDecorBackgroundDrawable(requireContext())
         cardForm = view.findViewById(R.id.cardInitialBalanceForm)
         tvStatus = view.findViewById(R.id.tvInitialBalanceStatus)
         actCurrency = view.findViewById(R.id.actInitialCurrency)
@@ -53,6 +56,9 @@ class InitialBalanceFragment : Fragment() {
         etCash = view.findViewById(R.id.etInitialCash)
         etCard = view.findViewById(R.id.etInitialCard)
         btnSave = view.findViewById(R.id.btnSaveInitialBalance)
+        view.findViewById<View>(R.id.btnInitialBalanceBack).setOnClickListener {
+            findNavController().popBackStack()
+        }
 
         setupCurrencySelector()
         UiFormUtils.clearErrorOnTextChange(etCash, etCard)

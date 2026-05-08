@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +14,9 @@ import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
+import android.widget.GridLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.text.TextUtils;
@@ -21,6 +25,7 @@ import android.text.TextWatcher;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.DrawableRes;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
@@ -38,6 +43,7 @@ import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.data.model.TransaccionFiltro;
 import com.example.finanzas.ui.adapter.TransaccionAdapter;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.LabelColorUtils;
@@ -95,6 +101,7 @@ public class ListaTransaccionesFragment extends Fragment {
     private Map<Integer, String> labelAssignments = new HashMap<>();
     private String selectedLabelId = null;
     private TransaccionFiltro.Tipo quickType = TransaccionFiltro.Tipo.TODAS;
+    private boolean suppressSearchTextChange = false;
     private TransactionsViewModel viewModel;
 
     @Nullable
@@ -108,6 +115,7 @@ public class ListaTransaccionesFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        v.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         perfStartMs = PerfLogger.now();
         firstRenderLogged = false;
 
@@ -455,6 +463,7 @@ public class ListaTransaccionesFragment extends Fragment {
         if (quickType != TransaccionFiltro.Tipo.TODAS) return true;
         if (filtroActual == null) return false;
         if (!TextUtils.isEmpty(filtroActual.getTexto())) return true;
+        if (filtroActual.getOrden() != null) return true;
         if (filtroActual.getFechaInicio() != null || filtroActual.getFechaFin() != null) return true;
         if (filtroActual.getCategoriaId() != null) return true;
         if (filtroActual.getTipo() != null && filtroActual.getTipo() != TransaccionFiltro.Tipo.TODAS) return true;
@@ -465,10 +474,19 @@ public class ListaTransaccionesFragment extends Fragment {
     private void renderQuickFilters() {
         if (chipQuickFilters == null) return;
         chipQuickFilters.removeAllViews();
-        addQuickChip(R.string.transactions_quick_all, TransaccionFiltro.Tipo.TODAS);
+        addClearFiltersChip();
         addQuickChip(R.string.transactions_quick_income, TransaccionFiltro.Tipo.INGRESOS);
         addQuickChip(R.string.transactions_quick_expense, TransaccionFiltro.Tipo.GASTOS);
         addQuickChip(R.string.transactions_quick_transfer, TransaccionFiltro.Tipo.TRANSFERENCIAS);
+    }
+
+    private void addClearFiltersChip() {
+        Chip chip = new Chip(requireContext());
+        chip.setText(R.string.transactions_quick_all);
+        chip.setCheckable(false);
+        chip.setOnClickListener(v -> clearAllTransactionFilters());
+        styleClearFilterChip(chip);
+        chipQuickFilters.addView(chip);
     }
 
     private void addQuickChip(int labelRes, TransaccionFiltro.Tipo type) {
@@ -486,8 +504,7 @@ public class ListaTransaccionesFragment extends Fragment {
     }
 
     private void styleQuickFilterChip(@NonNull Chip chip, @NonNull TransaccionFiltro.Tipo type, boolean selected) {
-        int stroke = ContextCompat.getColor(requireContext(),
-                type == TransaccionFiltro.Tipo.TODAS ? R.color.quick_filter_all_stroke : R.color.quick_filter_other_stroke);
+        int stroke = ContextCompat.getColor(requireContext(), R.color.quick_filter_other_stroke);
         int background = ContextCompat.getColor(requireContext(), R.color.md_theme_surface);
         chip.setChipIconVisible(false);
         chip.setCheckedIconVisible(false);
@@ -513,11 +530,53 @@ public class ListaTransaccionesFragment extends Fragment {
         chip.setLayoutParams(params);
     }
 
+    private void styleClearFilterChip(@NonNull Chip chip) {
+        int background = ContextCompat.getColor(requireContext(), R.color.md_theme_surface);
+        int stroke = ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant);
+        chip.setChipIconVisible(false);
+        chip.setCheckedIconVisible(false);
+        chip.setEnsureMinTouchTargetSize(false);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(background));
+        chip.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurfaceVariant));
+        chip.setChipStrokeColor(ColorStateList.valueOf(stroke));
+        chip.setChipStrokeWidth(dp(1));
+        chip.setTextSize(12f);
+        chip.setSingleLine(true);
+        chip.setMinWidth(0);
+        chip.setMinHeight(dp(34));
+        chip.setChipMinHeight(dp(34));
+        chip.setTextStartPadding(dp(8));
+        chip.setTextEndPadding(dp(8));
+        chip.setChipStartPadding(dp(2));
+        chip.setChipEndPadding(dp(2));
+        ChipGroup.LayoutParams params = new ChipGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, 0, dp(4), 0);
+        chip.setLayoutParams(params);
+    }
+
     private void applySearchText(@NonNull String raw) {
+        if (suppressSearchTextChange) return;
         if (filtroActual == null) filtroActual = new TransaccionFiltro();
         String clean = raw.trim();
         filtroActual.setTexto(clean.isEmpty() ? null : clean);
         cargarTransacciones();
+    }
+
+    private void clearAllTransactionFilters() {
+        filtroActual = null;
+        selectedLabelId = null;
+        quickType = TransaccionFiltro.Tipo.TODAS;
+        if (etTransactionSearch != null) {
+            suppressSearchTextChange = true;
+            etTransactionSearch.setText("");
+            suppressSearchTextChange = false;
+        }
+        renderQuickFilters();
+        cargarTransacciones();
+        renderTransactionList();
     }
 
     private void showLabelPickerDialog() {
@@ -686,18 +745,156 @@ public class ListaTransaccionesFragment extends Fragment {
 
     private void showMonthDialog() {
         Calendar current = Calendar.getInstance();
-        String[] months = new String[12];
-        for (int i = 0; i < 12; i++) {
-            months[i] = Format.monthYear(current.get(Calendar.YEAR), i + 1);
+        int initialYear = selectedYear > 0 ? selectedYear : current.get(Calendar.YEAR);
+        int initialMonth = selectedMonth > 0 ? selectedMonth : current.get(Calendar.MONTH) + 1;
+        showMonthYearPicker(initialYear, initialMonth);
+    }
+
+    private void showMonthYearPicker(int initialYear, int initialMonth) {
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(18), dp(20), dp(16));
+        root.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_surface));
+
+        final int[] pendingYear = { initialYear };
+        final int[] pendingMonth = { Math.max(1, Math.min(12, initialMonth)) };
+
+        TextView title = new TextView(requireContext());
+        title.setText(R.string.transactions_change_month);
+        title.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        title.setTextSize(20f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        title.setGravity(android.view.Gravity.CENTER);
+        root.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout yearRow = new LinearLayout(requireContext());
+        yearRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        yearRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams yearRowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        yearRowParams.topMargin = dp(14);
+        root.addView(yearRow, yearRowParams);
+
+        ImageView prev = monthYearNavButton(R.drawable.ic_keyboard_arrow_left);
+        ImageView next = monthYearNavButton(R.drawable.ic_keyboard_arrow_right);
+        TextView yearText = new TextView(requireContext());
+        yearText.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        yearText.setTextSize(22f);
+        yearText.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        yearText.setGravity(android.view.Gravity.CENTER);
+        yearRow.addView(prev, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        yearRow.addView(yearText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        yearRow.addView(next, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+        GridLayout months = new GridLayout(requireContext());
+        months.setColumnCount(3);
+        LinearLayout.LayoutParams monthsParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        monthsParams.topMargin = dp(12);
+        root.addView(months, monthsParams);
+
+        Runnable[] renderMonths = new Runnable[1];
+        renderMonths[0] = () -> {
+            yearText.setText(String.valueOf(pendingYear[0]));
+            months.removeAllViews();
+            String[] labels = new String[]{"Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"};
+            for (int i = 0; i < labels.length; i++) {
+                final int month = i + 1;
+                MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+                button.setText(labels[i]);
+                button.setAllCaps(false);
+                button.setMinHeight(0);
+                button.setMinimumHeight(0);
+                button.setInsetTop(0);
+                button.setInsetBottom(0);
+                boolean selected = month == pendingMonth[0];
+                styleMonthButton(button, selected);
+                button.setOnClickListener(v -> {
+                    pendingMonth[0] = month;
+                    renderMonths[0].run();
+                });
+                GridLayout.LayoutParams params = new GridLayout.LayoutParams(
+                        GridLayout.spec(i / 3),
+                        GridLayout.spec(i % 3, 1f)
+                );
+                params.width = 0;
+                params.height = dp(44);
+                params.setMargins(dp(4), dp(4), dp(4), dp(4));
+                months.addView(button, params);
+            }
+        };
+
+        prev.setOnClickListener(v -> {
+            pendingYear[0]--;
+            renderMonths[0].run();
+        });
+        next.setOnClickListener(v -> {
+            pendingYear[0]++;
+            renderMonths[0].run();
+        });
+        renderMonths[0].run();
+
+        LinearLayout actions = new LinearLayout(requireContext());
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        actionsParams.topMargin = dp(16);
+        root.addView(actions, actionsParams);
+
+        MaterialButton cancel = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        cancel.setText(R.string.import_sheet_cancel);
+        cancel.setAllCaps(false);
+        MaterialButton confirm = new MaterialButton(requireContext());
+        confirm.setText(R.string.card_visible_confirm_action);
+        confirm.setAllCaps(false);
+        actions.addView(cancel, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        LinearLayout.LayoutParams confirmParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+        confirmParams.leftMargin = dp(10);
+        actions.addView(confirm, confirmParams);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(root)
+                .create();
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        confirm.setOnClickListener(v -> {
+            selectedYear = pendingYear[0];
+            selectedMonth = pendingMonth[0];
+            Prefs.setLastTransactionsPeriod(requireContext(), selectedYear, selectedMonth);
+            announcePeriod = false;
+            pendingPrefClear = false;
+            cargarTransacciones();
+            dialog.dismiss();
+        });
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            int screenWidth = getResources().getDisplayMetrics().widthPixels;
+            window.setLayout(Math.min(screenWidth - dp(40), dp(380)), ViewGroup.LayoutParams.WRAP_CONTENT);
         }
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.transactions_change_month)
-                .setItems(months, (dialog, which) -> {
-                    selectedYear = current.get(Calendar.YEAR);
-                    selectedMonth = which + 1;
-                    cargarTransacciones();
-                })
-                .show();
+    }
+
+    private ImageView monthYearNavButton(@DrawableRes int iconRes) {
+        ImageView button = new ImageView(requireContext());
+        button.setImageResource(iconRes);
+        button.setColorFilter(ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface));
+        button.setPadding(dp(12), dp(12), dp(12), dp(12));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
+        bg.setStroke(dp(1), ContextCompat.getColor(requireContext(), R.color.md_theme_outlineVariant));
+        button.setBackground(bg);
+        button.setClickable(true);
+        button.setFocusable(true);
+        return button;
+    }
+
+    private void styleMonthButton(@NonNull MaterialButton button, boolean selected) {
+        int bg = ContextCompat.getColor(requireContext(), selected ? R.color.md_theme_primary : R.color.md_theme_surface);
+        int text = ContextCompat.getColor(requireContext(), selected ? R.color.md_theme_onPrimary : R.color.md_theme_onSurface);
+        int stroke = ContextCompat.getColor(requireContext(), selected ? R.color.md_theme_primary : R.color.md_theme_outlineVariant);
+        button.setBackgroundTintList(ColorStateList.valueOf(bg));
+        button.setTextColor(text);
+        button.setStrokeColor(ColorStateList.valueOf(stroke));
+        button.setStrokeWidth(dp(1));
+        button.setCornerRadius(dp(14));
     }
 
     private void mostrarDialogoFiltros() {
@@ -792,10 +989,7 @@ public class ListaTransaccionesFragment extends Fragment {
 
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         btnClear.setOnClickListener(v -> {
-            filtroActual = null;
-            selectedLabelId = null;
-            cargarTransacciones();
-            renderTransactionList();
+            clearAllTransactionFilters();
             dialog.dismiss();
         });
         btnApply.setOnClickListener(v -> {

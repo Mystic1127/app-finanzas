@@ -28,6 +28,8 @@ public class SettingsService {
     private static final String KEY_TRAVEL_PREFIX = "travel_prefs_user_";
     private static final String KEY_INITIAL_BALANCES_PREFIX = "initial_balances_user_";
     private static final String KEY_FINANCIAL_ACCOUNTS_PREFIX = "financial_accounts_user_";
+    private static final String KEY_LAST_TRANSACTION_ACCOUNT_PREFIX = "last_transaction_account_user_";
+    private static final String KEY_LAST_TRANSACTION_DESTINATION_PREFIX = "last_transaction_destination_user_";
     private static final String KEY_THEME_MODE = "theme_mode";
     private static final String KEY_THEME_MODE_PREFIX = "theme_mode_user_";
     public static final String THEME_SYSTEM = "system";
@@ -216,6 +218,44 @@ public class SettingsService {
             if (account.isVisibleInHome()) return account;
         }
         return cards.isEmpty() ? defaultCardAccount(ctx) : cards.get(0);
+    }
+
+    public static String getLastTransactionAccountType(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            return normalizeAccountType(sp.getString(lastTransactionAccountKey(currentUserId(ctx)), "CARD"));
+        } catch (Exception e) {
+            return "CARD";
+        }
+    }
+
+    public static void setLastTransactionAccountType(Context ctx, String accountType) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            sp.edit()
+                    .putString(lastTransactionAccountKey(currentUserId(ctx)), normalizeAccountType(accountType))
+                    .apply();
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static String getLastTransactionDestinationAccountType(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            return normalizeAccountType(sp.getString(lastTransactionDestinationKey(currentUserId(ctx)), "CASH"));
+        } catch (Exception e) {
+            return "CASH";
+        }
+    }
+
+    public static void setLastTransactionDestinationAccountType(Context ctx, String accountType) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            sp.edit()
+                    .putString(lastTransactionDestinationKey(currentUserId(ctx)), normalizeAccountType(accountType))
+                    .apply();
+        } catch (Exception ignored) {
+        }
     }
 
     public static int countIncludedCardAccounts(Context ctx) {
@@ -451,6 +491,14 @@ public class SettingsService {
 
     private static String financialAccountsKey(long userId) {
         return KEY_FINANCIAL_ACCOUNTS_PREFIX + userId;
+    }
+
+    private static String lastTransactionAccountKey(long userId) {
+        return KEY_LAST_TRANSACTION_ACCOUNT_PREFIX + userId;
+    }
+
+    private static String lastTransactionDestinationKey(long userId) {
+        return KEY_LAST_TRANSACTION_DESTINATION_PREFIX + userId;
     }
 
     private interface JsonUpdater {

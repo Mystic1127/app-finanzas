@@ -1,5 +1,6 @@
 package com.example.finanzas.ui;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -13,6 +14,8 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -106,6 +109,12 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
             }
 
             @Override
+            public void onBudgetDone(@NonNull List<CategoryBudgetInput> items) {
+                saveHandler.removeCallbacks(saveCategoryRunnable);
+                viewModel.saveCategoryBudgetsQuiet(anio, mes, items);
+            }
+
+            @Override
             public void onDelete(@NonNull CategoryBudgetInput item) {
                 removeCategoryBudget(item);
             }
@@ -121,6 +130,14 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
         btnGuardarPresupuesto.setOnClickListener(view -> guardarPresupuesto());
         btnAgregarCategoria.setOnClickListener(view -> showCategoryPickerSheet());
         if (btnAgregarCategoriaEmpty != null) btnAgregarCategoriaEmpty.setOnClickListener(view -> showCategoryPickerSheet());
+        etPresupuesto.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        etPresupuesto.setOnEditorActionListener((textView, actionId, event) -> {
+            if (actionId != EditorInfo.IME_ACTION_DONE) return false;
+            hideKeyboard(textView);
+            textView.clearFocus();
+            guardarPresupuesto();
+            return true;
+        });
         UiFormUtils.clearErrorOnTextChange(etPresupuesto);
         tilPresupuesto.setPrefixText(SettingsService.getCurrencySymbol(requireContext()) + " ");
 
@@ -483,5 +500,10 @@ public class PresupuestoFragment extends androidx.fragment.app.Fragment {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void hideKeyboard(@NonNull View view) {
+        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
     }
 }

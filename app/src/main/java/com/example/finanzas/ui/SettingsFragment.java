@@ -23,6 +23,7 @@ import androidx.navigation.fragment.NavHostFragment;
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.local.LocalRepository;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
 import com.example.finanzas.ui.viewmodel.ReportsViewModel;
@@ -46,6 +47,7 @@ public class SettingsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        view.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         accountSection = view.findViewById(R.id.settingsAccountSection);
         prefsSection = view.findViewById(R.id.settingsPrefsSection);
         view.findViewById(R.id.btnSettingsBack).setOnClickListener(v -> NavHostFragment.findNavController(this).popBackStack());

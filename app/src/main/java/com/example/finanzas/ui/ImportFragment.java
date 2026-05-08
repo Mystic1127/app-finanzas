@@ -1,6 +1,7 @@
 package com.example.finanzas.ui;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
@@ -10,6 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONException;
@@ -18,7 +20,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.finanzas.R;
@@ -27,14 +31,15 @@ import com.example.finanzas.data.api.ImportService;
 import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.ImportJob;
 import com.example.finanzas.data.model.ImportRule;
+import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.adapter.ImportJobAdapter;
 import com.example.finanzas.ui.adapter.ImportRuleAdapter;
 import com.example.finanzas.util.ExcelImportParser;
 import com.example.finanzas.util.Prefs;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -83,9 +88,12 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        view.setBackground(new SpendlyDecorBackgroundDrawable(requireContext()));
         swipe = view.findViewById(R.id.swipeImports);
         tvImportsEmpty = view.findViewById(R.id.tvImportsEmpty);
         tvRulesEmpty = view.findViewById(R.id.tvRulesEmpty);
+        view.findViewById(R.id.btnImportsBack).setOnClickListener(v ->
+                NavHostFragment.findNavController(this).popBackStack());
 
         androidx.recyclerview.widget.RecyclerView rvImports = view.findViewById(R.id.rvImports);
         androidx.recyclerview.widget.RecyclerView rvRules = view.findViewById(R.id.rvRules);
@@ -246,7 +254,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
             activeImportLines = null;
             activeImportPreview = null;
         });
-        dialog.show();
+        showExpandedBottomSheet(dialog);
     }
 
     private void updateImportPreview(@Nullable String raw, @NonNull TextView preview) {
@@ -656,30 +664,45 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
         TextInputEditText etPattern = content.findViewById(R.id.etRulePattern);
         TextInputEditText etDesc = content.findViewById(R.id.etRuleDesc);
         MaterialAutoCompleteTextView actCategoria = content.findViewById(R.id.actRuleCategory);
-        SwitchMaterial swTipo = content.findViewById(R.id.swRuleIngreso);
+        MaterialButton btnIncome = content.findViewById(R.id.btnRuleIncome);
+        MaterialButton btnExpense = content.findViewById(R.id.btnRuleExpense);
         MaterialButton btnCancel = content.findViewById(R.id.btnRuleCancel);
         MaterialButton btnSave = content.findViewById(R.id.btnRuleSave);
         tvTitle.setText(existing == null ? R.string.import_rule_new_title : R.string.import_rule_edit_title);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown,
-                buildCategoriaLabels(false));
-        actCategoria.setAdapter(adapter);
+        final boolean[] ingreso = { existing != null && existing.isIngreso() };
+        final Runnable[] refreshCategories = new Runnable[1];
+        refreshCategories[0] = () -> actCategoria.setAdapter(new ArrayAdapter<>(
+                requireContext(),
+                R.layout.item_dropdown,
+                buildCategoriaLabels(ingreso[0])
+        ));
+        refreshCategories[0].run();
         actCategoria.setOnClickListener(v -> actCategoria.showDropDown());
         actCategoria.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) actCategoria.showDropDown(); });
 
-        swTipo.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            ArrayAdapter<String> nuevo = new ArrayAdapter<>(requireContext(), R.layout.item_dropdown,
-                    buildCategoriaLabels(isChecked));
-            actCategoria.setAdapter(nuevo);
+        Runnable refreshTypeButtons = () -> styleRuleTypeButtons(btnIncome, btnExpense, ingreso[0]);
+        btnIncome.setOnClickListener(v -> {
+            if (ingreso[0]) return;
+            ingreso[0] = true;
+            refreshTypeButtons.run();
+            refreshCategories[0].run();
             actCategoria.setText("", false);
         });
+        btnExpense.setOnClickListener(v -> {
+            if (!ingreso[0]) return;
+            ingreso[0] = false;
+            refreshTypeButtons.run();
+            refreshCategories[0].run();
+            actCategoria.setText("", false);
+        });
+        refreshTypeButtons.run();
 
         if (existing != null) {
             etPattern.setText(existing.getPatron());
             if (!TextUtils.isEmpty(existing.getDescripcion())) {
                 etDesc.setText(existing.getDescripcion());
             }
-            swTipo.setChecked(existing.isIngreso());
             if (existing.getCategoriaId() != null) {
                 String nombre = categoriaNombres.get(existing.getCategoriaId());
                 if (nombre != null) {
@@ -706,10 +729,10 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 ImportRule rule = existing == null ? new ImportRule() : existing;
                 rule.setPatron(patron);
                 rule.setDescripcion(etDesc.getText() == null ? null : etDesc.getText().toString().trim());
-                rule.setIngreso(swTipo.isChecked());
+                rule.setIngreso(ingreso[0]);
 
                 String categoriaSel = actCategoria.getText() == null ? "" : actCategoria.getText().toString().trim();
-                Integer categoriaId = resolveCategoriaId(categoriaSel, swTipo.isChecked());
+                Integer categoriaId = resolveCategoriaId(categoriaSel, ingreso[0]);
                 rule.setCategoriaId(categoriaId);
 
                 btnSave.setEnabled(false);
@@ -732,7 +755,41 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 });
         });
 
+        showExpandedBottomSheet(dialog);
+    }
+
+    private void showExpandedBottomSheet(@NonNull BottomSheetDialog dialog) {
+        dialog.setOnShowListener(d -> {
+            FrameLayout bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet == null) return;
+            BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
+            behavior.setSkipCollapsed(true);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        });
         dialog.show();
+    }
+
+    private void styleRuleTypeButtons(
+            @NonNull MaterialButton income,
+            @NonNull MaterialButton expense,
+            boolean incomeSelected
+    ) {
+        styleRuleTypeButton(income, incomeSelected);
+        styleRuleTypeButton(expense, !incomeSelected);
+    }
+
+    private void styleRuleTypeButton(@NonNull MaterialButton button, boolean selected) {
+        int accent = ContextCompat.getColor(requireContext(), R.color.planning_dialog_button);
+        int text = ContextCompat.getColor(requireContext(), selected ? R.color.planning_dialog_button : R.color.md_theme_onSurfaceVariant);
+        int bg = ContextCompat.getColor(requireContext(), R.color.md_theme_surface);
+        int stroke = ContextCompat.getColor(requireContext(), selected ? R.color.planning_dialog_button : R.color.md_theme_outlineVariant);
+        button.setBackgroundTintList(ColorStateList.valueOf(bg));
+        button.setTextColor(text);
+        button.setIconTint(ColorStateList.valueOf(text));
+        button.setStrokeColor(ColorStateList.valueOf(stroke));
+        button.setStrokeWidth(dp(selected ? 2 : 1));
+        button.setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        if (selected) button.setRippleColor(ColorStateList.valueOf(accent));
     }
 
     private List<String> buildCategoriaLabels(boolean ingreso) {
@@ -834,7 +891,7 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                 .setTitle(R.string.import_rule_delete_title)
                 .setMessage(R.string.import_rule_delete_confirm)
                 .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(R.string.import_rule_delete, (dialog, which) ->
+            .setPositiveButton(R.string.import_rule_delete, (dialog, which) ->
                         ImportService.deleteRule(requireContext(), rule.getId(), new ImportService.SimpleCallback() {
                             @Override
                             public void onSuccess() {
@@ -850,5 +907,9 @@ public class ImportFragment extends Fragment implements ImportJobAdapter.Listene
                             }
                         }))
                 .show();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }

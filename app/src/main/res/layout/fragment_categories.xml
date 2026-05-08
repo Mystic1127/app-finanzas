@@ -6,17 +6,17 @@
     android:background="@color/md_theme_background"
     android:orientation="vertical"
     android:paddingStart="22dp"
-    android:paddingTop="28dp"
+    android:paddingTop="24dp"
     android:paddingEnd="22dp">
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="58dp">
+        android:layout_height="44dp">
 
         <ImageView
             android:id="@+id/btnCategoriesBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_gravity="start|center_vertical"
             android:padding="10dp"
             android:src="@drawable/ic_arrow_back"
@@ -26,15 +26,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
+            android:includeFontPadding="false"
             android:text="@string/categories_title"
             android:textColor="@color/md_theme_onSurface"
-            android:textSize="24sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
         <ImageView
             android:id="@+id/btnCategoryAdd"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_gravity="end|center_vertical"
             android:padding="10dp"
             android:src="@drawable/ic_add"

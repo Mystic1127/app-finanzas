@@ -1,9 +1,12 @@
 package com.example.finanzas.ui.adapter;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +38,7 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
 
     public interface Listener {
         void onBudgetChanged(@NonNull List<CategoryBudgetInput> items);
+        void onBudgetDone(@NonNull List<CategoryBudgetInput> items);
         void onDelete(@NonNull CategoryBudgetInput item);
     }
 
@@ -87,6 +91,7 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
         holder.iconBg.setBackground(iconBg);
 
         if (holder.watcher != null) holder.etMonto.removeTextChangedListener(holder.watcher);
+        holder.etMonto.setImeOptions(EditorInfo.IME_ACTION_DONE);
         holder.etMonto.setText(moneyNumber(item.getMonto()));
         holder.etMonto.setOnFocusChangeListener((view, hasFocus) -> {
             if (hasFocus) {
@@ -99,6 +104,13 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
             if (value.isEmpty()) {
                 holder.etMonto.setText(moneyNumber(0.0));
             }
+        });
+        holder.etMonto.setOnEditorActionListener((view, actionId, event) -> {
+            if (actionId != EditorInfo.IME_ACTION_DONE) return false;
+            hideKeyboard(view);
+            view.clearFocus();
+            if (listener != null) listener.onBudgetDone(getItems());
+            return true;
         });
         holder.watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
@@ -186,6 +198,11 @@ public class CategoryBudgetEditAdapter extends RecyclerView.Adapter<CategoryBudg
             return String.format(Locale.US, "%.0f", amount);
         }
         return String.format(Locale.US, "%.2f", amount);
+    }
+
+    private static void hideKeyboard(@NonNull View view) {
+        InputMethodManager imm = (InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
     }
 
     static class VH extends RecyclerView.ViewHolder {

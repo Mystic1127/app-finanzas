@@ -229,10 +229,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun updateAnalysisChartModels(state: AnalysisChartState) {
         val xValues = state.months.indices.map { it.toDouble() }
         incomeExpenseChartProducer.runTransaction {
-            if (state.hasIncomeExpense()) {
+            val latest = state.months.lastOrNull()
+            if (latest != null && (latest.ingresos > 0.0 || latest.gastos > 0.0)) {
                 columnSeries {
-                    series(xValues, state.months.map { it.ingresos })
-                    series(xValues, state.months.map { it.gastos })
+                    series(listOf(0.0), listOf(latest.ingresos))
+                    series(listOf(0.0), listOf(latest.gastos))
                 }
             }
         }

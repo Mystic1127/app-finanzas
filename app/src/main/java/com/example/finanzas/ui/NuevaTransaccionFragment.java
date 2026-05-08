@@ -106,10 +106,16 @@ public class NuevaTransaccionFragment extends Fragment {
     private View layoutMoreOptions;
     private ScrollView transactionScroll;
     private TextView tvMontoCurrency, tvMontoError;
+    private TextView tvFormTitle;
+    private ImageView btnBack;
+    private View btnDelete;
     private boolean moreOptionsExpanded = false;
     private boolean saveButtonExpandTouch = false;
     private boolean microAnimationsReady = false;
     private boolean suppressSelectionAnimation = false;
+    private boolean savedSuccessfully = false;
+    private boolean editingTransferLocked = false;
+    private boolean editingStandardLocked = false;
     private int lastAnimatedTransactionTypeId = View.NO_ID;
     private int lastAnimatedAccountTypeId = View.NO_ID;
     private int lastAnimatedDestinationTypeId = View.NO_ID;
@@ -142,6 +148,9 @@ public class NuevaTransaccionFragment extends Fragment {
         etMonto       = v.findViewById(R.id.etMonto);
         tvMontoCurrency = v.findViewById(R.id.tvMontoCurrency);
         tvMontoError = v.findViewById(R.id.tvMontoError);
+        tvFormTitle = v.findViewById(R.id.tvTransactionFormTitle);
+        btnBack = v.findViewById(R.id.btnTransactionBack);
+        btnDelete = v.findViewById(R.id.btnTransactionDelete);
         tilFecha      = v.findViewById(R.id.tilFecha);
         tilHora       = v.findViewById(R.id.tilHora);
         tilCategoria  = v.findViewById(R.id.tilCategoria);
@@ -183,6 +192,7 @@ public class NuevaTransaccionFragment extends Fragment {
         if (etFecha != null) UiFormUtils.bindDatePicker(requireContext(), etFecha);
         if (etHora != null) UiFormUtils.bindTimePicker(requireContext(), etHora);
         configureNoteDoneAction();
+        configureAmountDoneAction();
         bindMontoErrorCleaner();
         UiFormUtils.clearErrorOnTextChange(etFecha, etHora, actCategoria);
 
@@ -224,6 +234,9 @@ public class NuevaTransaccionFragment extends Fragment {
 
     @Override
     public void onDestroyView() {
+        if (!isEditingTransaction() && !savedSuccessfully) {
+            clearTransientRecurrenceState();
+        }
         microAnimationsReady = false;
         MicroAnimations.cancelAndReset(
                 btnTipoGasto,
@@ -237,12 +250,24 @@ public class NuevaTransaccionFragment extends Fragment {
     }
 
     @Override
+    public void onPause() {
+        if (!isEditingTransaction() && !savedSuccessfully) {
+            clearTransientRecurrenceState();
+        }
+        super.onPause();
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         updateCurrencyPrefix();
-        populateAccountTypeButtons(selectedAccountType);
+        populateAccountTypeButtons(selectedAccountType, false);
         populateDestinationAccountButtons(selectedDestinationAccountType);
         loadLabels();
+    }
+
+    private boolean isEditingTransaction() {
+        return editingId != null && editingId > 0;
     }
 
     private void updateCurrencyPrefix() {
@@ -274,6 +299,26 @@ public class NuevaTransaccionFragment extends Fragment {
                     .getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) {
                 imm.hideSoftInputFromWindow(textView.getWindowToken(), 0);
+            }
+            resetTransactionScrollAfterKeyboard();
+            return true;
+        });
+    }
+
+    private void configureAmountDoneAction() {
+        if (etMonto == null) return;
+        etMonto.setSingleLine(true);
+        etMonto.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        etMonto.setOnEditorActionListener((textView, actionId, event) -> {
+            if (actionId != EditorInfo.IME_ACTION_DONE) return false;
+            textView.clearFocus();
+            InputMethodManager imm = (InputMethodManager) textView.getContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.hideSoftInputFromWindow(textView.getWindowToken(), 0);
+            }
+            if (!isTransferSelected()) {
+                showCategoryPickerSheet();
             }
             resetTransactionScrollAfterKeyboard();
             return true;
@@ -356,6 +401,31 @@ public class NuevaTransaccionFragment extends Fragment {
         updateDestinationAccountUi();
     }
 
+    private void applyEditingModeUi() {
+        if (toggleTipo == null) return;
+        if (editingTransferLocked) {
+            if (btnTipoGasto != null) btnTipoGasto.setVisibility(View.GONE);
+            if (btnTipoIngreso != null) btnTipoIngreso.setVisibility(View.GONE);
+            if (btnTipoTransferencia != null) {
+                btnTipoTransferencia.setVisibility(View.VISIBLE);
+                btnTipoTransferencia.setEnabled(true);
+            }
+            runWithoutSelectionAnimation(() -> toggleTipo.check(R.id.btnTipoTransferencia));
+        } else if (editingStandardLocked) {
+            if (btnTipoTransferencia != null) btnTipoTransferencia.setVisibility(View.GONE);
+            if (btnTipoGasto != null) btnTipoGasto.setVisibility(View.VISIBLE);
+            if (btnTipoIngreso != null) btnTipoIngreso.setVisibility(View.VISIBLE);
+        } else {
+            if (btnTipoGasto != null) btnTipoGasto.setVisibility(View.VISIBLE);
+            if (btnTipoTransferencia != null) {
+                btnTipoTransferencia.setVisibility(View.VISIBLE);
+                btnTipoTransferencia.setEnabled(true);
+            }
+            if (btnTipoIngreso != null) btnTipoIngreso.setVisibility(View.VISIBLE);
+        }
+        updateTransactionTypeUi();
+    }
+
     private String resolveSelectedCurrency() {
         String raw = actMoneda == null || actMoneda.getText() == null
                 ? SettingsService.getCurrencyCode(requireContext())
@@ -378,7 +448,7 @@ public class NuevaTransaccionFragment extends Fragment {
             }
             populateDestinationAccountButtons(selectedDestinationAccountType);
         });
-        populateAccountTypeButtons("CARD");
+        populateAccountTypeButtons(defaultTransactionAccountType(), false);
     }
 
     private void setupDestinationAccountSelector() {
@@ -392,7 +462,7 @@ public class NuevaTransaccionFragment extends Fragment {
             if (animateSelection) MicroAnimations.pulseSelection(group.findViewById(checkedId));
             lastAnimatedDestinationTypeId = checkedId;
         });
-        populateDestinationAccountButtons("CASH");
+        populateDestinationAccountButtons(defaultDestinationAccountType());
     }
 
     private void setupRecurrenceSelector() {
@@ -503,6 +573,18 @@ public class NuevaTransaccionFragment extends Fragment {
         updateCustomRecurrenceSummary();
     }
 
+    private void clearTransientRecurrenceState() {
+        if (actRecurrence != null) {
+            actRecurrence.setText("", false);
+        }
+        renderCustomRecurrenceDayChips(0);
+        if (tilRecurrence != null) {
+            tilRecurrence.setError(null);
+            tilRecurrence.setHelperText(null);
+        }
+        updateCustomRecurrenceVisibility();
+    }
+
     private void setupLabelSelector() {
         loadLabels();
         if (etEtiquetaVisual != null) etEtiquetaVisual.setOnClickListener(v -> showLabelSheet());
@@ -552,6 +634,20 @@ public class NuevaTransaccionFragment extends Fragment {
         populateAccountTypeButtons(preferredAccountType, true);
     }
 
+    private String defaultTransactionAccountType() {
+        String lastUsed = SettingsService.normalizeAccountType(SettingsService.getLastTransactionAccountType(requireContext()));
+        if ("CASH".equals(lastUsed) || findCardAccount(lastUsed) != null) return lastUsed;
+        return "CARD";
+    }
+
+    private String defaultDestinationAccountType() {
+        String lastUsed = SettingsService.normalizeAccountType(SettingsService.getLastTransactionDestinationAccountType(requireContext()));
+        if (!lastUsed.equals(resolveSelectedAccountType()) && ("CASH".equals(lastUsed) || findCardAccount(lastUsed) != null)) {
+            return lastUsed;
+        }
+        return nextAvailableDestinationCardId();
+    }
+
     private void populateAccountTypeButtons(@Nullable String preferredAccountType, boolean useVisibleCardForDefault) {
         if (toggleAccountType == null || getContext() == null) return;
         String preferred = SettingsService.normalizeAccountType(preferredAccountType == null ? selectedAccountType : preferredAccountType);
@@ -559,8 +655,18 @@ public class NuevaTransaccionFragment extends Fragment {
             preferred = SettingsService.getVisibleCardAccount(requireContext()).getId();
         }
         FinancialAccount cardAccount = findCardAccount(preferred);
-        if ("CASH".equals(preferred) || cardAccount == null) {
-            cardAccount = SettingsService.getVisibleCardAccount(requireContext());
+        if ("CASH".equals(preferred)) {
+            cardAccount = SettingsService.defaultCardAccount(requireContext());
+        } else if (cardAccount == null) {
+            cardAccount = new FinancialAccount(
+                    preferred,
+                    SettingsService.getFinancialAccountName(requireContext(), preferred),
+                    0L,
+                    "",
+                    true,
+                    false,
+                    true
+            );
         }
         toggleAccountType.removeAllViews();
         accountTypesByButtonId.clear();
@@ -595,10 +701,15 @@ public class NuevaTransaccionFragment extends Fragment {
         if ("CASH".equals(preferred)) {
             destinationCard = null;
         } else if (destinationCard == null) {
-            destinationCard = firstDestinationCard(origin);
-            if (destinationCard != null) {
-                preferred = SettingsService.normalizeAccountType(destinationCard.getId());
-            }
+            destinationCard = new FinancialAccount(
+                    preferred,
+                    SettingsService.getFinancialAccountName(requireContext(), preferred),
+                    0L,
+                    "",
+                    true,
+                    false,
+                    true
+            );
         }
         toggleDestinationAccount.removeAllViews();
         destinationTypesByButtonId.clear();
@@ -1120,6 +1231,15 @@ public class NuevaTransaccionFragment extends Fragment {
 
         if (args.containsKey(EXTRA_ID)) {
             editingId = args.getInt(EXTRA_ID, -1);
+            if (tvFormTitle != null) tvFormTitle.setText(R.string.nav_edit_transaction_title);
+            if (btnBack != null) {
+                btnBack.setVisibility(View.VISIBLE);
+                btnBack.setOnClickListener(v -> NavHostFragment.findNavController(this).popBackStack());
+            }
+            if (btnDelete != null) {
+                btnDelete.setVisibility(View.VISIBLE);
+                btnDelete.setOnClickListener(v -> confirmDeleteEditingTransaction());
+            }
 
             double m = args.getDouble(EXTRA_MONTO, -1);
             if (m >= 0) etMonto.setText(String.valueOf(m));
@@ -1128,6 +1248,8 @@ public class NuevaTransaccionFragment extends Fragment {
 
             boolean isTransfer = args.getBoolean(EXTRA_IS_TRANSFER, false);
             boolean esIngreso = args.getBoolean(EXTRA_ES_INGRESO, false);
+            editingTransferLocked = isTransfer;
+            editingStandardLocked = !isTransfer;
             if (isTransfer && toggleTipo != null) {
                 toggleTipo.check(R.id.btnTipoTransferencia);
                 updateTransactionTypeUi();
@@ -1148,7 +1270,7 @@ public class NuevaTransaccionFragment extends Fragment {
                 actMoneda.setText(CurrencyConverter.normalize(moneda), false);
                 updateCurrencyPrefix();
             }
-            setSelectedAccountType(args.getString(EXTRA_ACCOUNT_TYPE, "CARD"));
+            populateAccountTypeButtons(args.getString(EXTRA_ACCOUNT_TYPE, "CARD"), false);
             if (isTransfer) {
                 String destination = args.getString(EXTRA_DESTINATION_ACCOUNT_TYPE, selectedDestinationAccountType);
                 populateDestinationAccountButtons(destination);
@@ -1158,7 +1280,11 @@ public class NuevaTransaccionFragment extends Fragment {
             loadExistingRecurrence(editingId);
 
             btnGuardar.setText(R.string.btn_guardar);
+            applyEditingModeUi();
         } else {
+            if (tvFormTitle != null) tvFormTitle.setText(R.string.nav_new_transaction_title);
+            if (btnBack != null) btnBack.setVisibility(View.GONE);
+            if (btnDelete != null) btnDelete.setVisibility(View.GONE);
             btnGuardar.setText(R.string.btn_guardar);
             if (etFecha != null) etFecha.setText(UiFormUtils.formatUiDate(new Date()));
             if (etHora != null) etHora.setText(formatTime(new Date()));
@@ -1610,6 +1736,8 @@ public class NuevaTransaccionFragment extends Fragment {
                             @Override public void onOk() {
                                 persistOptionalLabel(editingIdLocal);
                                 persistOptionalRecurrence(editingIdLocal, true, accountTypeLocal, destinationTypeLocal, montoLocal, transferNoteLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
+                                rememberTransactionAccounts(accountTypeLocal, destinationTypeLocal);
+                                savedSuccessfully = true;
                                 UiFormUtils.setActionLoading(btnGuardar, false);
                                 UiFormUtils.showMessage(requireView(), R.string.trans_updated);
                                 NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
@@ -1627,6 +1755,8 @@ public class NuevaTransaccionFragment extends Fragment {
                         @Override public void onOk(int newId) {
                             persistOptionalLabel(newId);
                             persistOptionalRecurrence(newId, true, accountTypeLocal, destinationTypeLocal, montoLocal, transferNoteLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
+                            rememberTransactionAccounts(accountTypeLocal, destinationTypeLocal);
+                            savedSuccessfully = true;
                             UiFormUtils.setActionLoading(btnGuardar, false);
                             UiFormUtils.showMessage(requireView(), R.string.trans_saved);
                             finishAfterCreate();
@@ -1643,6 +1773,8 @@ public class NuevaTransaccionFragment extends Fragment {
                         @Override public void onOk(int newId) {
                             persistOptionalLabel(newId);
                             persistOptionalRecurrence(newId, false, accountTypeLocal, null, montoLocal, notaLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
+                            rememberTransactionAccounts(accountTypeLocal, null);
+                            savedSuccessfully = true;
                             UiFormUtils.setActionLoading(btnGuardar, false);
                             UiFormUtils.showMessage(requireView(), R.string.trans_saved);
                             finishAfterCreate();
@@ -1663,6 +1795,8 @@ public class NuevaTransaccionFragment extends Fragment {
                         @Override public void onOk() {
                             persistOptionalLabel(editingIdLocal);
                             persistOptionalRecurrence(editingIdLocal, false, accountTypeLocal, null, montoLocal, notaLocal, fechaMs, monedaLocal, recurrenceLocal, recurrenceDaysMaskLocal);
+                            rememberTransactionAccounts(accountTypeLocal, null);
+                            savedSuccessfully = true;
                             UiFormUtils.setActionLoading(btnGuardar, false);
                             UiFormUtils.showMessage(requireView(), R.string.trans_updated);
                             NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
@@ -1761,6 +1895,44 @@ public class NuevaTransaccionFragment extends Fragment {
         NavController controller = NavHostFragment.findNavController(this);
         if (!controller.popBackStack(R.id.nav_home, false)) {
             controller.navigate(R.id.nav_home, null, NavigationAnimations.mainFade());
+        }
+    }
+
+    private void confirmDeleteEditingTransaction() {
+        if (!isEditingTransaction()) return;
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.btn_eliminar)
+                .setMessage(R.string.pres_confirm_delete)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.btn_eliminar, (dialog, which) -> deleteEditingTransaction())
+                .show();
+    }
+
+    private void deleteEditingTransaction() {
+        if (!isEditingTransaction()) return;
+        final int id = editingId;
+        if (btnDelete != null) btnDelete.setEnabled(false);
+        UiFormUtils.setActionLoading(btnGuardar, true);
+        TransService.delete(requireContext(), id, new TransService.VoidCb() {
+            @Override public void onOk() {
+                savedSuccessfully = true;
+                UiFormUtils.setActionLoading(btnGuardar, false);
+                UiFormUtils.showMessage(requireView(), R.string.trans_deleted);
+                NavHostFragment.findNavController(NuevaTransaccionFragment.this).popBackStack();
+            }
+
+            @Override public void onError(@Nullable String message) {
+                if (btnDelete != null) btnDelete.setEnabled(true);
+                UiFormUtils.setActionLoading(btnGuardar, false);
+                UiFormUtils.showMessage(requireView(), !TextUtils.isEmpty(message) ? message : getString(R.string.error_eliminar_transaccion));
+            }
+        });
+    }
+
+    private void rememberTransactionAccounts(@NonNull String accountType, @Nullable String destinationType) {
+        SettingsService.setLastTransactionAccountType(requireContext(), accountType);
+        if (!TextUtils.isEmpty(destinationType)) {
+            SettingsService.setLastTransactionDestinationAccountType(requireContext(), destinationType);
         }
     }
 
