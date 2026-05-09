@@ -196,6 +196,68 @@ class LocalRepositoryInstrumentedTest {
     }
 
     @Test
+    fun reminderListCalculatesRemainingDaysFromDueDate() = runBlocking {
+        val userA = createUser("reminder-days@test.com", "Reminder Days")
+        loginAs(userA, "reminder-days@test.com", "Reminder Days")
+        val due = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, 10)
+            set(Calendar.HOUR_OF_DAY, 12)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        assertTrue(repository.saveReminder(com.example.finanzas.data.model.PaymentReminder().apply {
+            titulo = "Claro"
+            monto = 29.90
+            moneda = "PEN"
+            fechaVencimiento = due.time
+            notificar = true
+            diasRecordatorio = 1
+        }))
+
+        val saved = repository.listReminders(false).first()
+        assertEquals(10, saved.diasRestantes)
+    }
+
+    @Test
+    fun markingRecurringReminderPaidAdvancesToNextOccurrence() = runBlocking {
+        val userA = createUser("reminder-recurring@test.com", "Reminder Recurring")
+        loginAs(userA, "reminder-recurring@test.com", "Reminder Recurring")
+        val due = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, 10)
+            set(Calendar.HOUR_OF_DAY, 12)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val expectedNext = (due.clone() as Calendar).apply {
+            add(Calendar.MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+        }
+
+        assertTrue(repository.saveReminder(com.example.finanzas.data.model.PaymentReminder().apply {
+            titulo = "Claro"
+            monto = 29.90
+            moneda = "PEN"
+            fechaVencimiento = due.time
+            frecuencia = "mensual"
+            notificar = true
+            diasRecordatorio = 1
+        }))
+        val id = repository.listReminders(false).first().id
+
+        assertTrue(repository.markReminderPaid(id, true))
+
+        val saved = repository.listReminders(false).first()
+        val actual = Calendar.getInstance().apply { time = saved.fechaVencimiento }
+        assertTrue(!saved.isPagado)
+        assertEquals(expectedNext.get(Calendar.YEAR), actual.get(Calendar.YEAR))
+        assertEquals(expectedNext.get(Calendar.MONTH), actual.get(Calendar.MONTH))
+        assertEquals(expectedNext.get(Calendar.DAY_OF_MONTH), actual.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
     fun initialBalancesAreScopedByCurrentUser() = runBlocking {
         val userA = createUser("initial-a@test.com", "Initial A")
         val userB = createUser("initial-b@test.com", "Initial B")

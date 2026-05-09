@@ -18,6 +18,10 @@ import java.io.File
 import java.io.FileWriter
 import java.text.Normalizer
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -1011,6 +1015,32 @@ class LocalRepository private constructor(
     suspend fun markReminderPaid(id: Int, paid: Boolean): Boolean = withContext(Dispatchers.IO) {
         val userId = currentUserId()
         val reminder = db.recordatorioDao().listAll(userId).firstOrNull { it.id == id }?.toPaymentReminder()
+        if (paid && reminder != null && isRecurringReminder(reminder.frecuencia)) {
+            val nextDue = nextRecurringDueDate(reminder.fechaVencimiento, reminder.frecuencia)
+            reminder.fechaVencimiento = nextDue
+            reminder.isPagado = false
+            val updated = db.recordatorioDao().updateById(
+                id = reminder.id,
+                userId = userId,
+                titulo = reminder.titulo ?: "",
+                monto = reminder.monto,
+                moneda = CurrencyConverter.normalize(reminder.moneda),
+                fechaVencimiento = nextDue?.time ?: 0,
+                pagado = 0,
+                categoriaId = reminder.categoriaId,
+                horaRecordatorio = reminder.horaRecordatorio,
+                frecuencia = reminder.frecuencia,
+                notificar = if (reminder.isNotificar) 1 else 0,
+                diasRecordatorio = reminder.diasRecordatorio,
+                googleEventId = reminder.googleEventId,
+                notificationId = reminder.notificationId
+            ) > 0
+            if (updated) {
+                if (reminder.isNotificar) ReminderScheduler.schedule(appContext, reminder) else ReminderScheduler.cancel(appContext, reminder)
+                bumpDataVersion()
+            }
+            return@withContext updated
+        }
         (db.recordatorioDao().markPaid(id, userId, if (paid) 1 else 0) > 0).also {
             if (it) {
                 reminder?.let { existing ->
@@ -1048,7 +1078,38 @@ class LocalRepository private constructor(
             diasRecordatorio = this@toPaymentReminder.diasRecordatorio
             googleEventId = this@toPaymentReminder.googleEventId
             notificationId = this@toPaymentReminder.notificationId
+            diasRestantes = daysUntilLocalDate(this@toPaymentReminder.fechaVencimiento)
         }
+    }
+
+    private fun daysUntilLocalDate(dateMillis: Long): Int {
+        if (dateMillis <= 0L) return 0
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val due = Instant.ofEpochMilli(dateMillis).atZone(zone).toLocalDate()
+        return ChronoUnit.DAYS.between(today, due).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+    }
+
+    private fun isRecurringReminder(frequency: String?): Boolean {
+        return "mensual".equals(frequency, ignoreCase = true) ||
+            "trimestral".equals(frequency, ignoreCase = true)
+    }
+
+    private fun nextRecurringDueDate(currentDueDate: Date?, frequency: String?): Date? {
+        if (currentDueDate == null) return null
+        val months = when {
+            "mensual".equals(frequency, ignoreCase = true) -> 1L
+            "trimestral".equals(frequency, ignoreCase = true) -> 3L
+            else -> return currentDueDate
+        }
+        val zone = ZoneId.systemDefault()
+        val currentDue = currentDueDate.toInstant().atZone(zone).toLocalDate()
+        val today = LocalDate.now(zone)
+        var nextDue = currentDue.plusMonths(months)
+        while (!nextDue.isAfter(today)) {
+            nextDue = nextDue.plusMonths(months)
+        }
+        return Date.from(nextDue.atStartOfDay(zone).toInstant())
     }
 
     suspend fun listImports(): List<ImportJob> = withContext(Dispatchers.IO) {
