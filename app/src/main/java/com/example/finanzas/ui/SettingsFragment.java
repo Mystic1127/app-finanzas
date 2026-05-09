@@ -143,7 +143,12 @@ public class SettingsFragment extends Fragment {
                 R.drawable.ic_light_mode,
                 R.drawable.ic_dark_mode
         };
-        final int[] selected = {1};
+        String currentMode = SettingsService.getThemeMode(requireContext());
+        final int[] selected = {
+                SettingsService.THEME_DARK.equals(currentMode)
+                        ? 2
+                        : SettingsService.THEME_LIGHT.equals(currentMode) ? 1 : 0
+        };
         showChoiceDialog(
                 R.drawable.ic_palette,
                 "Tema",
@@ -171,7 +176,15 @@ public class SettingsFragment extends Fragment {
                 R.drawable.ic_flag_eu,
                 R.drawable.ic_flag_cl
         };
-        final int[] selected = {2};
+        String currentCurrency = SettingsService.getCurrencyCode(requireContext());
+        int currentIndex = 0;
+        for (int i = 0; i < labels.length; i++) {
+            if (labels[i].equalsIgnoreCase(currentCurrency)) {
+                currentIndex = i;
+                break;
+            }
+        }
+        final int[] selected = {currentIndex};
         showChoiceDialog(
                 R.drawable.ic_currency,
                 "Moneda principal",
@@ -223,7 +236,7 @@ public class SettingsFragment extends Fragment {
 
         ImageView icon = new ImageView(requireContext());
         icon.setImageResource(headerIcon);
-        icon.setColorFilter(color(R.color.md_theme_primary));
+        icon.setColorFilter(color(R.color.md_theme_onPrimaryContainer));
         icon.setPadding(dp(11), dp(11), dp(11), dp(11));
         icon.setBackground(ovalDrawable(color(R.color.md_theme_primaryContainer)));
         header.addView(icon, new LinearLayout.LayoutParams(dp(50), dp(50)));
@@ -263,6 +276,8 @@ public class SettingsFragment extends Fragment {
         List<View> rows = new ArrayList<>();
         List<RadioButton> radios = new ArrayList<>();
         List<ImageView> checks = new ArrayList<>();
+        List<ImageView> optionIconViews = new ArrayList<>();
+        List<TextView> labelViews = new ArrayList<>();
         for (int i = 0; i < labels.length; i++) {
             View row = dialogChoiceRow(labels[i],
                     optionIcons == null ? 0 : optionIcons[i],
@@ -270,11 +285,13 @@ public class SettingsFragment extends Fragment {
             final int index = i;
             row.setOnClickListener(v -> {
                 selected[0] = index;
-                updateChoiceRows(rows, radios, checks, selected[0]);
+                updateChoiceRows(rows, radios, checks, optionIconViews, labelViews, selected[0]);
             });
             rows.add(row);
             radios.add(row.findViewWithTag("radio"));
             checks.add(row.findViewWithTag("check"));
+            optionIconViews.add(row.findViewWithTag("optionIcon"));
+            labelViews.add(row.findViewWithTag("label"));
             LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(54)
@@ -282,7 +299,7 @@ public class SettingsFragment extends Fragment {
             if (i > 0) rowParams.topMargin = dp(8);
             list.addView(row, rowParams);
         }
-        updateChoiceRows(rows, radios, checks, selected[0]);
+        updateChoiceRows(rows, radios, checks, optionIconViews, labelViews, selected[0]);
 
         MaterialButton doneButton = new MaterialButton(requireContext());
         doneButton.setText("Listo");
@@ -326,6 +343,7 @@ public class SettingsFragment extends Fragment {
 
         if (optionIcon != 0) {
             ImageView option = new ImageView(requireContext());
+            option.setTag("optionIcon");
             option.setImageResource(optionIcon);
             option.setColorFilter(color(R.color.md_theme_primary));
             LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(dp(26), dp(26));
@@ -334,6 +352,7 @@ public class SettingsFragment extends Fragment {
         }
 
         TextView labelView = new TextView(requireContext());
+        labelView.setTag("label");
         labelView.setText(label);
         labelView.setTextColor(color(R.color.md_theme_onSurface));
         labelView.setTextSize(16f);
@@ -352,7 +371,6 @@ public class SettingsFragment extends Fragment {
             ImageView check = new ImageView(requireContext());
             check.setTag("check");
             check.setImageResource(R.drawable.ic_check_circle);
-            check.setColorFilter(color(R.color.md_theme_primary));
             LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(dp(25), dp(25));
             checkParams.leftMargin = dp(8);
             row.addView(check, checkParams);
@@ -364,18 +382,33 @@ public class SettingsFragment extends Fragment {
             @NonNull List<View> rows,
             @NonNull List<RadioButton> radios,
             @NonNull List<ImageView> checks,
+            @NonNull List<ImageView> optionIcons,
+            @NonNull List<TextView> labels,
             int selected
     ) {
         for (int i = 0; i < rows.size(); i++) {
             boolean checked = i == selected;
+            int background = checked ? color(R.color.md_theme_primaryContainer) : color(R.color.md_theme_surface);
+            int content = checked ? color(R.color.md_theme_onPrimaryContainer) : color(R.color.md_theme_onSurface);
+            int accent = checked ? color(R.color.md_theme_onPrimaryContainer) : color(R.color.md_theme_primary);
             rows.get(i).setBackground(roundedStrokeDrawable(
-                    checked ? color(R.color.md_theme_primaryContainer) : color(R.color.md_theme_surface),
+                    background,
                     color(R.color.md_theme_outlineVariant),
                     dp(16)
             ));
             radios.get(i).setChecked(checked);
+            radios.get(i).setButtonTintList(ColorStateList.valueOf(accent));
+            ImageView option = optionIcons.get(i);
+            if (option != null) {
+                option.setColorFilter(accent);
+            }
+            TextView label = labels.get(i);
+            if (label != null) {
+                label.setTextColor(content);
+            }
             ImageView check = checks.get(i);
             if (check != null) {
+                check.setColorFilter(accent);
                 check.setVisibility(checked ? View.VISIBLE : View.INVISIBLE);
             }
         }

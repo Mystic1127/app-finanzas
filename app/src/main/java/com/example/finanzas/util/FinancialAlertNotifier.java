@@ -42,10 +42,38 @@ public final class FinancialAlertNotifier {
             }
         }
 
+        for (PaymentReminder reminder : summary.getRecordatorios()) {
+            if (reminder != null && !reminder.isPagado() && reminder.isNotificar()
+                    && reminder.getDiasRestantes() >= 0 && reminder.getDiasRestantes() <= 1) {
+                String title = reminder.getDiasRestantes() == 0
+                        ? context.getString(R.string.notification_reminder_today_title)
+                        : context.getString(R.string.notification_reminder_tomorrow_title);
+                String body = safe(reminder.getTitulo(), context.getString(R.string.home_reminder_without_title))
+                        + " - " + Format.money(reminder.getMonto(), reminder.getMoneda());
+                notifyOnce(context, "reminder_due_" + reminder.getId() + "_" + reminder.getDiasRestantes(), title, body, 4110 + reminder.getId());
+                return;
+            }
+        }
+
         if (summary.isPresupuestoExcedido() && summary.getPresupuestoMonto() > 0.0) {
             String body = Format.money(summary.getGastos(), currency)
                     + " de " + Format.money(summary.getPresupuestoMonto(), currency);
             notifyOnce(context, "budget_" + summary.getAnio() + "_" + summary.getMes(), context.getString(R.string.notification_budget_title), body, 3101);
+            return;
+        }
+
+        if (summary.getPresupuestoMonto() > 0.0 && summary.getPresupuestoPorcentaje() >= 90.0) {
+            String body = Format.money(summary.getGastos(), currency)
+                    + " de " + Format.money(summary.getPresupuestoMonto(), currency);
+            notifyOnce(context, "budget_near_" + summary.getAnio() + "_" + summary.getMes(), context.getString(R.string.notification_budget_near_title), body, 3105);
+            return;
+        }
+
+        if (!summary.isProyeccionPreliminar() && summary.getProyeccionFinMes() < 0.0) {
+            notifyOnce(context, "projection_negative_" + summary.getAnio() + "_" + summary.getMes(),
+                    context.getString(R.string.notification_projection_title),
+                    Format.money(summary.getProyeccionFinMes(), currency),
+                    3106);
             return;
         }
 

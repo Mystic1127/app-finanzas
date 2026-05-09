@@ -46,6 +46,9 @@ import com.example.finanzas.util.PinSession
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class PinSetupFragment : Fragment() {
+    companion object {
+        const val ARG_RECOVERY_MODE = "pin_recovery_mode"
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -55,18 +58,19 @@ class PinSetupFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             SpendlyComposeTheme {
+                val recoveryMode = arguments?.getBoolean(ARG_RECOVERY_MODE, false) == true
                 PinSetupScreen(
-                    hasPin = Prefs.hasPin(requireContext()),
+                    hasPin = Prefs.hasPin(requireContext()) && !recoveryMode,
                     onBackClick = { findNavController().popBackStack() },
                     onCancel = { findNavController().popBackStack() },
-                    onSave = ::savePin,
+                    onSave = { pin, confirm -> savePin(pin, confirm, recoveryMode) },
                     onRemove = ::confirmRemovePin
                 )
             }
         }
     }
 
-    private fun savePin(pin: String, confirm: String): Pair<String?, String?> {
+    private fun savePin(pin: String, confirm: String, recoveryMode: Boolean): Pair<String?, String?> {
         if (pin.length != 4 || !TextUtils.isDigitsOnly(pin)) {
             return getString(R.string.pin_setup_invalid) to null
         }
@@ -77,7 +81,11 @@ class PinSetupFragment : Fragment() {
         Prefs.savePin(requireContext(), pin)
         PinSession.unlock()
         Toast.makeText(requireContext(), R.string.pin_setup_success, Toast.LENGTH_SHORT).show()
-        findNavController().popBackStack()
+        if (recoveryMode) {
+            findNavController().popBackStack(R.id.nav_pin_lock, true)
+        } else {
+            findNavController().popBackStack()
+        }
         return null to null
     }
 
@@ -118,32 +126,41 @@ private fun PinSetupScreen(
         confirmError = errors.second
     }
 
-    SpendlyAuthScreenContainer {
+    SpendlyAuthScreenContainer(
+        scrollEnabled = false,
+        scrollWhenImeVisible = true,
+        horizontalPadding = 24.dp,
+        verticalPadding = 12.dp
+    ) {
         SpendlyTopBar(
             title = stringResource(R.string.pin_setup_title),
             onBackClick = onBackClick
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        SpendlyLogoMark(markSize = 72.dp)
+        SpendlyLogoMark(markSize = 56.dp)
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        SpendlyBrandTitle(fontSize = 38)
+        SpendlyBrandTitle(fontSize = 32)
 
         Text(
             text = "Protege tu acceso con un PIN seguro",
             color = colors.muted,
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = 2.dp)
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        SpendlyAuthCard {
+        SpendlyAuthCard(
+            horizontalPadding = 20.dp,
+            verticalPadding = 14.dp,
+            cornerRadius = 24.dp
+        ) {
             SpendlyPinField(
                 value = pin,
                 onValueChange = {
@@ -157,7 +174,7 @@ private fun PinSetupScreen(
                 error = pinError
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             SpendlyPinField(
                 value = confirm,
@@ -174,7 +191,7 @@ private fun PinSetupScreen(
                 onImeAction = ::save
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             SpendlyRequirementCard(
                 title = "Tu PIN debe:",
@@ -182,10 +199,11 @@ private fun PinSetupScreen(
                     "Tener 4 dígitos",
                     "Ser fácil de recordar para ti",
                     "Ser difícil de adivinar"
-                )
+                ),
+                compact = true
             )
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             SpendlyPrimaryButton(
                 text = stringResource(R.string.pin_setup_save),
@@ -222,6 +240,6 @@ private fun PinSetupScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }

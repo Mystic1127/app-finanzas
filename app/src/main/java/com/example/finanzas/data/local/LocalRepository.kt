@@ -197,10 +197,19 @@ class LocalRepository private constructor(
         true
     }
 
+    suspend fun resetPassword(email: String, newPassword: String): Boolean = withContext(Dispatchers.IO) {
+        val user = db.userDao().findByEmail(email) ?: return@withContext false
+        db.userDao().update(user.copy(password = PasswordSecurity.hashPassword(newPassword)))
+        true
+    }
+
     fun getUserByEmailBlocking(email: String): User? = kotlinx.coroutines.runBlocking { getUserByEmail(email) }
 
     fun changePasswordBlocking(email: String, oldPassword: String, newPassword: String): Boolean =
         kotlinx.coroutines.runBlocking { changePassword(email, oldPassword, newPassword) }
+
+    fun resetPasswordBlocking(email: String, newPassword: String): Boolean =
+        kotlinx.coroutines.runBlocking { resetPassword(email, newPassword) }
 
     suspend fun createCategoria(nombre: String, esIngreso: Boolean): Int = withContext(Dispatchers.IO) {
         val current = db.categoriaDao().listAll()
@@ -423,13 +432,38 @@ class LocalRepository private constructor(
             }
             .toList()
 
-        list = when (filtro?.orden) {
-            TransaccionFiltro.Orden.NOMBRE -> list.sortedBy { it.nota ?: "" }
-            TransaccionFiltro.Orden.CATEGORIA -> list.sortedBy { it.categoriaNombre ?: "" }
-            TransaccionFiltro.Orden.MONTO -> list.sortedBy { it.monto }
-            else -> list.sortedBy { it.fecha }
+        val orden = filtro?.orden ?: TransaccionFiltro.Orden.FECHA
+        val ascendente = filtro?.isAscendente == true
+        when (orden) {
+            TransaccionFiltro.Orden.NOMBRE -> {
+                val sorted = list.sortedWith(
+                    compareBy<Transaccion> { it.nota.orEmpty().lowercase(Locale.ROOT) }
+                        .thenBy { it.id }
+                )
+                if (ascendente) sorted else sorted.reversed()
+            }
+            TransaccionFiltro.Orden.CATEGORIA -> {
+                val sorted = list.sortedWith(
+                    compareBy<Transaccion> { it.categoriaNombre.orEmpty().lowercase(Locale.ROOT) }
+                        .thenBy { it.id }
+                )
+                if (ascendente) sorted else sorted.reversed()
+            }
+            TransaccionFiltro.Orden.MONTO -> {
+                val sorted = list.sortedWith(compareBy<Transaccion> { it.monto }.thenBy { it.id })
+                if (ascendente) sorted else sorted.reversed()
+            }
+            TransaccionFiltro.Orden.FECHA -> {
+                if (ascendente) {
+                    list.sortedWith(compareBy<Transaccion> { it.fecha?.time ?: 0L }.thenBy { it.id })
+                } else {
+                    list.sortedWith(
+                        compareByDescending<Transaccion> { it.fecha?.time ?: 0L }
+                            .thenByDescending { it.id }
+                    )
+                }
+            }
         }
-        if (filtro == null || !filtro.isAscendente) list.reversed() else list
     }
 
     suspend fun listTransaccionesEnMonedaBase(anio: Int, mes: Int, filtro: TransaccionFiltro? = null): List<Transaccion> = withContext(Dispatchers.IO) {
@@ -500,7 +534,7 @@ class LocalRepository private constructor(
         return if (entity.esIngreso == 1) amountInBase else -amountInBase
     }
 
-    suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency(), accountType: String = "CARD"): Int = withContext(Dispatchers.IO) {
+    suspend fun createTransaccion(categoriaId: Int, esIngreso: Boolean, monto: Double, nota: String?, fecha: Long, moneda: String = baseCurrency(), accountType: String = "CARD"): Int = withContext(Dispatchers.IO) {
         require(categoriaId > 0) { "Categoria invalida" }
         require(monto > 0.0) { "Monto invalido" }
         require(fecha > 0L) { "Fecha invalida" }
@@ -560,7 +594,7 @@ class LocalRepository private constructor(
         updated > 0
     }
 
-    suspend fun createTransfer(originAccountType: String, destinationAccountType: String, monto: Double, nota: String?, fecha: Long = System.currentTimeMillis(), moneda: String = baseCurrency()): Int = withContext(Dispatchers.IO) {
+    suspend fun createTransfer(originAccountType: String, destinationAccountType: String, monto: Double, nota: String?, fecha: Long, moneda: String = baseCurrency()): Int = withContext(Dispatchers.IO) {
         require(monto > 0.0) { "Monto invalido" }
         require(fecha > 0L) { "Fecha invalida" }
         val userId = currentUserId()
@@ -915,23 +949,7 @@ class LocalRepository private constructor(
     suspend fun listReminders(includePaid: Boolean): List<PaymentReminder> = withContext(Dispatchers.IO) {
         db.recordatorioDao().listAll(currentUserId())
             .filter { includePaid || it.pagado == 0 }
-            .map {
-                PaymentReminder().apply {
-                    id = it.id
-                    titulo = it.titulo
-                    monto = it.monto
-                    moneda = CurrencyConverter.normalize(it.moneda)
-                    if (it.fechaVencimiento > 0) fechaVencimiento = Date(it.fechaVencimiento)
-                    pagado = it.pagado == 1
-                    categoriaId = it.categoriaId
-                    horaRecordatorio = it.horaRecordatorio
-                    frecuencia = it.frecuencia
-                    notificar = it.notificar == 1
-                    diasRecordatorio = it.diasRecordatorio
-                    googleEventId = it.googleEventId
-                    notificationId = it.notificationId
-                }
-            }
+            .map { it.toPaymentReminder() }
     }
 
     suspend fun saveReminder(reminder: PaymentReminder): Boolean = withContext(Dispatchers.IO) {
@@ -941,8 +959,8 @@ class LocalRepository private constructor(
         val pagado = if (reminder.isPagado) 1 else 0
         val notificar = if (reminder.isNotificar) 1 else 0
 
-        if (reminder.id > 0) {
-            (db.recordatorioDao().updateById(
+        val saved = if (reminder.id > 0) {
+            db.recordatorioDao().updateById(
                 id = reminder.id,
                 userId = userId,
                 titulo = titulo,
@@ -957,7 +975,7 @@ class LocalRepository private constructor(
                 diasRecordatorio = reminder.diasRecordatorio,
                 googleEventId = reminder.googleEventId,
                 notificationId = reminder.notificationId
-            ) > 0).also { if (it) bumpDataVersion() }
+            ) > 0
         } else {
             val id = db.recordatorioDao().insert(
                 RecordatorioEntity(
@@ -977,17 +995,60 @@ class LocalRepository private constructor(
                 )
             )
             reminder.id = id.toInt()
-            if (id > 0) bumpDataVersion()
             id > 0
         }
+        if (saved) {
+            if (reminder.isNotificar && !reminder.isPagado) {
+                ReminderScheduler.schedule(appContext, reminder)
+            } else {
+                ReminderScheduler.cancel(appContext, reminder)
+            }
+            bumpDataVersion()
+        }
+        saved
     }
 
     suspend fun markReminderPaid(id: Int, paid: Boolean): Boolean = withContext(Dispatchers.IO) {
-        (db.recordatorioDao().markPaid(id, currentUserId(), if (paid) 1 else 0) > 0).also { if (it) bumpDataVersion() }
+        val userId = currentUserId()
+        val reminder = db.recordatorioDao().listAll(userId).firstOrNull { it.id == id }?.toPaymentReminder()
+        (db.recordatorioDao().markPaid(id, userId, if (paid) 1 else 0) > 0).also {
+            if (it) {
+                reminder?.let { existing ->
+                    existing.isPagado = paid
+                    if (paid) ReminderScheduler.cancel(appContext, existing) else ReminderScheduler.schedule(appContext, existing)
+                }
+                bumpDataVersion()
+            }
+        }
     }
 
     suspend fun deleteReminder(id: Int): Boolean = withContext(Dispatchers.IO) {
-        (db.recordatorioDao().deleteById(id, currentUserId()) > 0).also { if (it) bumpDataVersion() }
+        val userId = currentUserId()
+        val reminder = db.recordatorioDao().listAll(userId).firstOrNull { it.id == id }?.toPaymentReminder()
+        (db.recordatorioDao().deleteById(id, userId) > 0).also {
+            if (it) {
+                reminder?.let { existing -> ReminderScheduler.cancel(appContext, existing) }
+                bumpDataVersion()
+            }
+        }
+    }
+
+    private fun RecordatorioEntity.toPaymentReminder(): PaymentReminder {
+        return PaymentReminder().apply {
+            id = this@toPaymentReminder.id
+            titulo = this@toPaymentReminder.titulo
+            monto = this@toPaymentReminder.monto
+            moneda = CurrencyConverter.normalize(this@toPaymentReminder.moneda)
+            if (this@toPaymentReminder.fechaVencimiento > 0) fechaVencimiento = Date(this@toPaymentReminder.fechaVencimiento)
+            pagado = this@toPaymentReminder.pagado == 1
+            categoriaId = this@toPaymentReminder.categoriaId
+            horaRecordatorio = this@toPaymentReminder.horaRecordatorio
+            frecuencia = this@toPaymentReminder.frecuencia
+            notificar = this@toPaymentReminder.notificar == 1
+            diasRecordatorio = this@toPaymentReminder.diasRecordatorio
+            googleEventId = this@toPaymentReminder.googleEventId
+            notificationId = this@toPaymentReminder.notificationId
+        }
     }
 
     suspend fun listImports(): List<ImportJob> = withContext(Dispatchers.IO) {
@@ -1392,8 +1453,10 @@ class LocalRepository private constructor(
         summary.presupuestoPorcentaje = if (presMonto > 0) (gastos / presMonto) * 100.0 else 0.0
         summary.presupuestoExcedido = presRestante < 0
         summary.gastoProyectado = gastos
-        summary.gastoPromedioDiario = gastos / maxOf(1, Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH))
-        summary.diasRestantes = maxOf(0, Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH) - Calendar.getInstance().get(Calendar.DAY_OF_MONTH))
+        val daysInMonth = daysInMonth(anio, mes)
+        val elapsedDays = elapsedDaysForMonth(anio, mes, daysInMonth)
+        summary.gastoPromedioDiario = gastos / elapsedDays.coerceAtLeast(1)
+        summary.diasRestantes = (daysInMonth - elapsedDays).coerceAtLeast(0)
         summary.presupuestosCategoria.addAll(listPresupuestosCategoria(anio, mes))
         summary.metas.addAll(listGoals())
         summary.recordatorios.addAll(listReminders(false))
@@ -1508,10 +1571,28 @@ class LocalRepository private constructor(
         summary.presupuestoPorcentaje = if (presMonto > 0) (gastos / presMonto) * 100.0 else 0.0
         summary.presupuestoExcedido = summary.presupuestoRestante < 0
         summary.gastoProyectado = gastos
-        summary.gastoPromedioDiario = gastos / maxOf(1, Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH))
-        summary.diasRestantes = maxOf(0, Calendar.getInstance().getActualMaximum(Calendar.DAY_OF_MONTH) - Calendar.getInstance().get(Calendar.DAY_OF_MONTH))
+        val daysInMonth = daysInMonth(anio, mes)
+        val elapsedDays = elapsedDaysForMonth(anio, mes, daysInMonth)
+        summary.gastoPromedioDiario = gastos / elapsedDays.coerceAtLeast(1)
+        summary.diasRestantes = (daysInMonth - elapsedDays).coerceAtLeast(0)
 
         summary
+    }
+
+    private fun daysInMonth(anio: Int, mes: Int): Int {
+        return Calendar.getInstance().apply {
+            clear()
+            set(anio, mes - 1, 1)
+        }.getActualMaximum(Calendar.DAY_OF_MONTH)
+    }
+
+    private fun elapsedDaysForMonth(anio: Int, mes: Int, daysInMonth: Int): Int {
+        val today = Calendar.getInstance()
+        return if (today.get(Calendar.YEAR) == anio && today.get(Calendar.MONTH) + 1 == mes) {
+            today.get(Calendar.DAY_OF_MONTH).coerceIn(1, daysInMonth)
+        } else {
+            daysInMonth
+        }
     }
 
     @Synchronized

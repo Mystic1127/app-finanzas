@@ -81,8 +81,8 @@ interface TransaccionDao {
     ): Int
     @Query("DELETE FROM transacciones WHERE id=:id AND user_id=:userId") fun deleteById(id: Int, userId: Int): Int
     @Query("DELETE FROM transacciones WHERE user_id=:userId") fun deleteForUser(userId: Int): Int
-    @Query("SELECT * FROM transacciones WHERE user_id=:userId ORDER BY fecha DESC") fun listAll(userId: Int): List<TransaccionEntity>
-    @Query("SELECT * FROM transacciones WHERE user_id=:userId AND fecha>=:start AND fecha<:end ORDER BY fecha DESC")
+    @Query("SELECT * FROM transacciones WHERE user_id=:userId ORDER BY fecha DESC, id DESC") fun listAll(userId: Int): List<TransaccionEntity>
+    @Query("SELECT * FROM transacciones WHERE user_id=:userId AND fecha>=:start AND fecha<:end ORDER BY fecha DESC, id DESC")
     fun listBetween(userId: Int, start: Long, end: Long): List<TransaccionEntity>
 }
 

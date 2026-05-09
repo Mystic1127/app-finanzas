@@ -73,6 +73,7 @@ import java.util.Map;
 public class ListaTransaccionesFragment extends Fragment {
 
     private TransaccionAdapter adapter;
+    private RecyclerView listView;
     private ProgressBar progress;
     private TextView tvPeriodo;
     private TextView tvEmpty;
@@ -103,6 +104,8 @@ public class ListaTransaccionesFragment extends Fragment {
     private TransaccionFiltro.Tipo quickType = TransaccionFiltro.Tipo.TODAS;
     private boolean suppressSearchTextChange = false;
     private TransactionsViewModel viewModel;
+    private int lastRenderedTopTransactionId = -1;
+    private int lastRenderedCount = -1;
 
     @Nullable
     @Override
@@ -119,7 +122,7 @@ public class ListaTransaccionesFragment extends Fragment {
         perfStartMs = PerfLogger.now();
         firstRenderLogged = false;
 
-        RecyclerView listView = v.findViewById(R.id.listView);
+        listView = v.findViewById(R.id.listView);
         tvPeriodo = v.findViewById(R.id.tvPeriodo);
         tvEmpty = v.findViewById(R.id.tvTransactionsEmpty);
         progress = v.findViewById(R.id.progressLista);
@@ -415,9 +418,29 @@ public class ListaTransaccionesFragment extends Fragment {
                 visible.add(tx);
             }
         }
-        adapter.submitTransactions(visible, visibleLabelDetails());
+        boolean shouldScrollToTop = shouldScrollToTopForNewData(visible);
+        adapter.submitTransactions(visible, visibleLabelDetails(), () -> {
+            if (shouldScrollToTop && listView != null) {
+                listView.scrollToPosition(0);
+            }
+        });
         if (tvEmpty != null) tvEmpty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
         updateVisibleTotal(visible);
+    }
+
+    private boolean shouldScrollToTopForNewData(@NonNull List<Transaccion> visible) {
+        int newTopId = visible.isEmpty() ? -1 : visible.get(0).getId();
+        int newCount = visible.size();
+        boolean changedAtTop = newTopId != lastRenderedTopTransactionId;
+        boolean addedItems = lastRenderedCount >= 0 && newCount > lastRenderedCount;
+        lastRenderedTopTransactionId = newTopId;
+        lastRenderedCount = newCount;
+        return isRecentOrder() && !visible.isEmpty() && (changedAtTop || addedItems);
+    }
+
+    private boolean isRecentOrder() {
+        if (filtroActual == null || filtroActual.getOrden() == null) return true;
+        return filtroActual.getOrden() == TransaccionFiltro.Orden.FECHA && !filtroActual.isAscendente();
     }
 
     @NonNull

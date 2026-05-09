@@ -37,6 +37,7 @@ import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
 import com.example.finanzas.data.api.AuthService
+import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.ui.compose.SpendlyAuthCard
 import com.example.finanzas.ui.compose.SpendlyAuthField
 import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
@@ -48,9 +49,12 @@ import com.example.finanzas.ui.compose.SpendlyPasswordField
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.compose.SpendlyTopBar
 import com.example.finanzas.ui.compose.spendlyAuthColors
+import com.example.finanzas.util.DeviceAuthHelper
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.RecurringTransactionStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LoginFragment : Fragment() {
 
@@ -64,9 +68,7 @@ class LoginFragment : Fragment() {
             SpendlyComposeTheme {
                 LoginScreen(
                     onBackClick = { findNavController().popBackStack() },
-                    onForgotPasswordClick = {
-                        Toast.makeText(requireContext(), "La recuperación estará disponible pronto.", Toast.LENGTH_SHORT).show()
-                    },
+                    onForgotPasswordClick = ::recoverPassword,
                     onLogin = { email, pass, setLoading ->
                         login(email, pass, setLoading)
                     },
@@ -130,12 +132,55 @@ class LoginFragment : Fragment() {
             }
         }
     }
+
+    private fun recoverPassword(emailRaw: String) {
+        val email = emailRaw.trim()
+        if (email.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val appContext = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            val user = withContext(Dispatchers.IO) {
+                LocalRepository.getInstance(appContext).getUserByEmail(email)
+            }
+            if (!isAdded) return@launch
+            if (user == null) {
+                Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            DeviceAuthHelper.authenticate(
+                fragment = this@LoginFragment,
+                onSuccess = {
+                    Toast.makeText(requireContext(), R.string.device_auth_verified, Toast.LENGTH_SHORT).show()
+                    findNavController().navigate(
+                        R.id.nav_change_password,
+                        Bundle().apply {
+                            putBoolean(ChangePasswordFragment.ARG_RECOVERY_MODE, true)
+                            putString(ChangePasswordFragment.ARG_RECOVERY_EMAIL, email)
+                        }
+                    )
+                },
+                onCancel = {
+                    Toast.makeText(requireContext(), R.string.device_auth_cancelled, Toast.LENGTH_SHORT).show()
+                },
+                onFailure = {
+                    Toast.makeText(requireContext(), R.string.device_auth_failed, Toast.LENGTH_SHORT).show()
+                },
+                onNoDeviceLock = {
+                    Toast.makeText(requireContext(), R.string.device_auth_no_lock, Toast.LENGTH_LONG).show()
+                }
+            )
+        }
+    }
 }
 
 @Composable
 private fun LoginScreen(
     onBackClick: () -> Unit,
-    onForgotPasswordClick: () -> Unit,
+    onForgotPasswordClick: (String) -> Unit,
     onLogin: (String, String, (Boolean) -> Unit) -> Unit,
     onRegisterClick: () -> Unit
 ) {
@@ -201,7 +246,7 @@ private fun LoginScreen(
                 modifier = Modifier
                     .padding(top = 18.dp)
                     .align(Alignment.CenterHorizontally)
-                    .clickable(enabled = !loading, onClick = onForgotPasswordClick)
+                    .clickable(enabled = !loading) { onForgotPasswordClick(email) }
             )
 
             Spacer(modifier = Modifier.height(18.dp))

@@ -40,9 +40,9 @@ import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.compose.SpendlySecondaryTextButton
 import com.example.finanzas.ui.compose.SpendlyVisibilityToggle
 import com.example.finanzas.ui.compose.spendlyBringFocusedFieldIntoView
+import com.example.finanzas.util.DeviceAuthHelper
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.PinSession
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class PinLockFragment : Fragment() {
 
@@ -88,17 +88,29 @@ class PinLockFragment : Fragment() {
     }
 
     private fun confirmClearPin() {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.pin_lock_forgot)
-            .setMessage(R.string.pin_lock_clear_confirm)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                Prefs.clearPin(requireContext())
-                PinSession.lock()
-                Toast.makeText(requireContext(), R.string.pin_lock_cleared, Toast.LENGTH_SHORT).show()
-                findNavController().popBackStack()
+        if (Prefs.getCurrentUserId(requireContext()) <= 0 || !Prefs.hasPin(requireContext())) {
+            Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        DeviceAuthHelper.authenticate(
+            fragment = this,
+            onSuccess = {
+                Toast.makeText(requireContext(), R.string.device_auth_verified, Toast.LENGTH_SHORT).show()
+                findNavController().navigate(
+                    R.id.nav_pin_setup,
+                    Bundle().apply { putBoolean(PinSetupFragment.ARG_RECOVERY_MODE, true) }
+                )
+            },
+            onCancel = {
+                Toast.makeText(requireContext(), R.string.device_auth_cancelled, Toast.LENGTH_SHORT).show()
+            },
+            onFailure = {
+                Toast.makeText(requireContext(), R.string.device_auth_failed, Toast.LENGTH_SHORT).show()
+            },
+            onNoDeviceLock = {
+                Toast.makeText(requireContext(), R.string.device_auth_no_lock, Toast.LENGTH_LONG).show()
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        )
     }
 }
 

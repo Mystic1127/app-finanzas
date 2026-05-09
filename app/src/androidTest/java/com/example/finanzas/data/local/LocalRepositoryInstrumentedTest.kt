@@ -343,6 +343,25 @@ class LocalRepositoryInstrumentedTest {
         assertEquals(100.0, repository.buildHomeSummary(2026, 4).saldoActualTotal, 0.01)
     }
 
+    @Test
+    fun addedCardInitialBalanceConvertsIntoCurrentBaseAndRecalculatesWhenBaseChanges() = runBlocking {
+        val userA = createUser("card-usd@test.com", "Card USD")
+        loginAs(userA, "card-usd@test.com", "Card USD")
+        saveCurrency("PEN", 0.0)
+
+        assertTrue(repository.configureInitialBalances(0.0, 100.0, "PEN"))
+        val usdCard = repository.createFinancialAccount("Dolares", 100.0, "USD", "1234")
+
+        val penSummary = repository.buildHomeSummary(2026, 4)
+        assertEquals(450.75, penSummary.saldoActualTotal, 0.01)
+        assertEquals(350.75, penSummary.accountBalances.first { it.id == usdCard.id }.balance, 0.01)
+
+        saveCurrency("USD", 0.0)
+        val usdSummary = repository.buildHomeSummary(2026, 4)
+        assertEquals(128.51, usdSummary.saldoActualTotal, 0.01)
+        assertEquals(100.0, usdSummary.accountBalances.first { it.id == usdCard.id }.balance, 0.01)
+    }
+
     private suspend fun createUser(email: String, name: String): Int {
         val out = IntArray(1)
         assertTrue(repository.registerUser(name, email, "123456", out))

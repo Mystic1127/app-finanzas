@@ -72,10 +72,13 @@
     <string name="auth_confirm_password">Confirmar contraseña</string>
     <string name="auth_btn_login">Entrar</string>
     <string name="auth_btn_registrarse">Registrarme</string>
-    <string name="auth_forgot_password">Olvidé mi contraseña</string>
+    <string name="auth_forgot_password">¿Olvidaste tu contraseña?</string>
     <string name="auth_link_registro">¿No tienes cuenta? Crear una</string>
     <string name="auth_link_login">¿Ya tienes cuenta? Inicia sesión</string>
     <string name="auth_link_register">Crear cuenta</string>
+    <string name="auth_recovery_unavailable">No se puede recuperar la cuenta en este dispositivo.</string>
+    <string name="auth_recovery_success">Contraseña actualizada correctamente.</string>
+    <string name="auth_recovery_title">Recuperar contraseña</string>
 
     <string name="home_saldo_mes">Saldo del mes</string>
     <string name="home_dashboard_title">Dashboard financiero</string>
@@ -535,6 +538,13 @@
     <string name="pin_lock_clear_confirm">Se eliminará el PIN actual y deberás configurarlo nuevamente. ¿Continuar?</string>
     <string name="pin_lock_cleared">Se eliminó el PIN. Configura uno nuevo en tu perfil.</string>
     <string name="pin_lock_wrong">PIN incorrecto, intenta nuevamente.</string>
+    <string name="device_auth_title">Verifica tu identidad</string>
+    <string name="device_auth_subtitle">Usa el bloqueo de tu celular para continuar</string>
+    <string name="device_auth_description">Después podrás crear un nuevo PIN o contraseña para Spendly.</string>
+    <string name="device_auth_verified">Identidad verificada</string>
+    <string name="device_auth_cancelled">Verificación cancelada</string>
+    <string name="device_auth_failed">No se pudo verificar tu identidad</string>
+    <string name="device_auth_no_lock">Configura un bloqueo de pantalla en tu celular para usar esta opción</string>
 
     <string name="pin_setup_title">Configurar PIN</string>
     <string name="pin_setup_message">El PIN protege tus datos cuando abras la aplicación. Elige un número fácil de recordar.</string>
@@ -657,7 +667,11 @@
     <string name="category_save_error">No se pudo guardar la categor&#237;a.</string>
     <string name="notification_channel_alerts">Alertas importantes</string>
     <string name="notification_budget_title">Presupuesto superado</string>
+    <string name="notification_budget_near_title">Presupuesto casi al límite</string>
     <string name="notification_low_balance_title">Saldo bajo</string>
     <string name="notification_overdue_title">Recordatorio vencido</string>
+    <string name="notification_reminder_today_title">Pago vence hoy</string>
+    <string name="notification_reminder_tomorrow_title">Pago vence mañana</string>
+    <string name="notification_projection_title">Proyección negativa</string>
     <string name="notification_account_title">Saldo cr&#237;tico</string>
 </resources>

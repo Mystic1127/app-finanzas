@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,10 @@ import com.example.finanzas.ui.compose.spendlyAuthColors
 import com.example.finanzas.util.Prefs
 
 class ChangePasswordFragment : Fragment() {
+    companion object {
+        const val ARG_RECOVERY_MODE = "recovery_mode"
+        const val ARG_RECOVERY_EMAIL = "recovery_email"
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -53,10 +58,19 @@ class ChangePasswordFragment : Fragment() {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             SpendlyComposeTheme {
+                val recoveryMode = arguments?.getBoolean(ARG_RECOVERY_MODE, false) == true
+                val recoveryEmail = arguments?.getString(ARG_RECOVERY_EMAIL).orEmpty()
                 ChangePasswordScreen(
+                    recoveryMode = recoveryMode,
                     onBackClick = { findNavController().popBackStack() },
                     onCancel = { findNavController().popBackStack() },
-                    onSave = ::changePassword
+                    onSave = { oldPassword, newPassword, confirm ->
+                        if (recoveryMode) {
+                            recoverPassword(recoveryEmail, newPassword, confirm)
+                        } else {
+                            changePassword(oldPassword, newPassword, confirm)
+                        }
+                    }
                 )
             }
         }
@@ -101,10 +115,41 @@ class ChangePasswordFragment : Fragment() {
             }
         })
     }
+
+    private fun recoverPassword(email: String, newPassword: String, confirm: String) {
+        val newP = newPassword.trim()
+        val conf = confirm.trim()
+
+        if (email.isBlank() || TextUtils.isEmpty(newP) || TextUtils.isEmpty(conf)) {
+            Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (newP != conf) {
+            Toast.makeText(requireContext(), "La confirmación no coincide", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        UserService.resetPassword(requireContext(), email, newP, object : UserService.SimpleCb {
+            override fun onOk() {
+                if (!isAdded) return
+                Toast.makeText(requireContext(), R.string.auth_recovery_success, Toast.LENGTH_SHORT).show()
+                Prefs.clearAuth(requireContext())
+                if (!findNavController().popBackStack(R.id.nav_login, false)) {
+                    findNavController().navigate(R.id.nav_login)
+                }
+            }
+
+            override fun onFail() {
+                if (!isAdded) return
+                Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
 }
 
 @Composable
 private fun ChangePasswordScreen(
+    recoveryMode: Boolean = false,
     onBackClick: () -> Unit,
     onCancel: () -> Unit,
     onSave: (String, String, String) -> Unit
@@ -117,42 +162,53 @@ private fun ChangePasswordScreen(
     var confirmVisible by rememberSaveable { mutableStateOf(false) }
     val colors = spendlyAuthColors()
 
-    SpendlyAuthScreenContainer {
+    SpendlyAuthScreenContainer(
+        scrollEnabled = false,
+        scrollWhenImeVisible = true,
+        horizontalPadding = 24.dp,
+        verticalPadding = 12.dp
+    ) {
         SpendlyTopBar(
-            title = "Cambiar contraseña",
+            title = if (recoveryMode) stringResource(R.string.auth_recovery_title) else "Cambiar contraseña",
             onBackClick = onBackClick
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        SpendlyLogoMark(markSize = 72.dp)
+        SpendlyLogoMark(markSize = 56.dp)
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        SpendlyBrandTitle(fontSize = 38)
+        SpendlyBrandTitle(fontSize = 32)
 
         Text(
-            text = "Actualiza tu acceso de forma segura",
+            text = if (recoveryMode) "Crea una nueva contraseña para Spendly" else "Actualiza tu acceso de forma segura",
             color = colors.muted,
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = 2.dp)
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        SpendlyAuthCard {
-            SpendlyPasswordField(
-                value = oldPassword,
-                onValueChange = { oldPassword = it },
-                label = "Contraseña actual",
-                visible = oldVisible,
-                onToggleVisible = { oldVisible = !oldVisible },
-                enabled = true
-            )
+        SpendlyAuthCard(
+            horizontalPadding = 20.dp,
+            verticalPadding = 14.dp,
+            cornerRadius = 24.dp
+        ) {
+            if (!recoveryMode) {
+                SpendlyPasswordField(
+                    value = oldPassword,
+                    onValueChange = { oldPassword = it },
+                    label = "Contraseña actual",
+                    visible = oldVisible,
+                    onToggleVisible = { oldVisible = !oldVisible },
+                    enabled = true
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             SpendlyPasswordField(
                 value = newPassword,
@@ -163,7 +219,7 @@ private fun ChangePasswordScreen(
                 enabled = true
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             SpendlyPasswordField(
                 value = confirm,
@@ -176,7 +232,7 @@ private fun ChangePasswordScreen(
                 onImeAction = { onSave(oldPassword, newPassword, confirm) }
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             SpendlyRequirementCard(
                 title = "Tu nueva contraseña debe:",
@@ -184,10 +240,11 @@ private fun ChangePasswordScreen(
                     "Tener al menos 8 caracteres",
                     "Combinar letras y números",
                     "Ser diferente a la anterior"
-                )
+                ),
+                compact = true
             )
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             SpendlyPrimaryButton(
                 text = "Guardar contraseña",
@@ -210,6 +267,6 @@ private fun ChangePasswordScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }

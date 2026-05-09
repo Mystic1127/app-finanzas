@@ -21,4 +21,10 @@ public class UserService {
         boolean ok = LocalRepository.getInstance(ctx).changePasswordBlocking(email, oldPass, newPass);
         if (ok) cb.onOk(); else cb.onFail();
     }
+
+    public static void resetPassword(Context ctx, String email, String newPass, SimpleCb cb){
+        if (ctx == null || cb == null || email == null) { if (cb!=null) cb.onFail(); return; }
+        boolean ok = LocalRepository.getInstance(ctx).resetPasswordBlocking(email, newPass);
+        if (ok) cb.onOk(); else cb.onFail();
+    }
 }

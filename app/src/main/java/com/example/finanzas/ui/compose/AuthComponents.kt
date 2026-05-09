@@ -1,5 +1,7 @@
 package com.example.finanzas.ui.compose
 
+import android.graphics.Rect
+import android.view.ViewTreeObserver
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
@@ -38,8 +40,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +60,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -132,21 +139,52 @@ internal fun spendlyAuthColors(): SpendlyAuthColors {
 }
 
 @Composable
-internal fun SpendlyAuthScreenContainer(content: @Composable ColumnScope.() -> Unit) {
+internal fun SpendlyAuthScreenContainer(
+    scrollEnabled: Boolean = true,
+    scrollWhenImeVisible: Boolean = false,
+    horizontalPadding: Dp = 24.dp,
+    verticalPadding: Dp = 16.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
     val scrollState = rememberScrollState()
+    val imeVisible = rememberKeyboardVisible()
+    val scrollModifier = if (scrollEnabled || (scrollWhenImeVisible && imeVisible)) {
+        Modifier.verticalScroll(scrollState)
+    } else {
+        Modifier
+    }
     SpendlyAuthBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
+                .then(scrollModifier)
                 .systemBarsPadding()
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             content = content
         )
     }
+}
+
+@Composable
+private fun rememberKeyboardVisible(): Boolean {
+    val view = LocalView.current
+    var visible by remember { mutableStateOf(false) }
+    DisposableEffect(view) {
+        val rect = Rect()
+        val listener = ViewTreeObserver.OnGlobalLayoutListener {
+            view.getWindowVisibleDisplayFrame(rect)
+            val rootHeight = view.rootView.height
+            visible = rootHeight > 0 && rootHeight - rect.bottom > rootHeight * 0.15f
+        }
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        onDispose {
+            view.viewTreeObserver.removeOnGlobalLayoutListener(listener)
+        }
+    }
+    return visible
 }
 
 @Composable
@@ -292,17 +330,22 @@ internal fun SpendlyBrandTitle(
 }
 
 @Composable
-internal fun SpendlyAuthCard(content: @Composable ColumnScope.() -> Unit) {
+internal fun SpendlyAuthCard(
+    horizontalPadding: Dp = 20.dp,
+    verticalPadding: Dp = 22.dp,
+    cornerRadius: Dp = 30.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
     val colors = spendlyAuthColors()
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(30.dp))
+            .clip(RoundedCornerShape(cornerRadius))
             .background(colors.surface)
-            .border(1.dp, colors.border.copy(alpha = 0.82f), RoundedCornerShape(30.dp))
+            .border(1.dp, colors.border.copy(alpha = 0.82f), RoundedCornerShape(cornerRadius))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             content = content
         )
@@ -707,21 +750,32 @@ internal fun SpendlyDividerOr() {
 internal fun SpendlyRequirementCard(
     title: String,
     requirements: List<String>,
-    iconRes: Int = R.drawable.ic_lock_outline_24
+    iconRes: Int = R.drawable.ic_lock_outline_24,
+    compact: Boolean = false
 ) {
     val colors = spendlyAuthColors()
+    val horizontalPadding = if (compact) 14.dp else 18.dp
+    val verticalPadding = if (compact) 12.dp else 18.dp
+    val iconContainerSize = if (compact) 46.dp else 62.dp
+    val iconSize = if (compact) 26.dp else 34.dp
+    val titleSize = if (compact) 16.sp else 20.sp
+    val titleLineHeight = if (compact) 20.sp else 24.sp
+    val itemTopPadding = if (compact) 5.dp else 8.dp
+    val itemIconSize = if (compact) 16.dp else 19.dp
+    val itemTextSize = if (compact) 13.sp else 15.sp
+    val itemLineHeight = if (compact) 17.sp else 20.sp
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(if (colors.dark) Color(0x331B3428) else Color(0xFFF4F8F5))
-            .padding(horizontal = 18.dp, vertical = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(62.dp)
+                .size(iconContainerSize)
                 .clip(CircleShape)
                 .background(colors.accent.copy(alpha = if (colors.dark) 0.20f else 0.12f)),
             contentAlignment = Alignment.Center
@@ -730,7 +784,7 @@ internal fun SpendlyRequirementCard(
                 painter = painterResource(iconRes),
                 contentDescription = null,
                 tint = colors.accent,
-                modifier = Modifier.size(34.dp)
+                modifier = Modifier.size(iconSize)
             )
         }
 
@@ -738,27 +792,27 @@ internal fun SpendlyRequirementCard(
             Text(
                 text = title,
                 color = colors.accent,
-                fontSize = 20.sp,
-                lineHeight = 24.sp,
+                fontSize = titleSize,
+                lineHeight = titleLineHeight,
                 fontWeight = FontWeight.Bold
             )
             requirements.forEach { item ->
                 Row(
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = itemTopPadding),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 10.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_check_circle),
                         contentDescription = null,
                         tint = colors.accent,
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(itemIconSize)
                     )
                     Text(
                         text = item,
                         color = colors.muted,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp
+                        fontSize = itemTextSize,
+                        lineHeight = itemLineHeight
                     )
                 }
             }

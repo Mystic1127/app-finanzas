@@ -70,6 +70,7 @@ kotlin {
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.core.splashscreen)
+    implementation(libs.biometric)
     implementation(libs.security.crypto)
     implementation(libs.coroutines.android)
     implementation(libs.room.runtime)

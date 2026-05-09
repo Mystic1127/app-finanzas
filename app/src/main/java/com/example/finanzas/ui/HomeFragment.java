@@ -36,11 +36,13 @@ import com.example.finanzas.data.api.AccountService;
 import com.example.finanzas.data.api.CategoryStore;
 import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.AccountBalance;
+import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.FinancialAccount;
 import com.example.finanzas.data.model.HomeSummary;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
+import com.example.finanzas.util.CategoryPrefs;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
 import com.example.finanzas.util.FinancialAlertNotifier;
@@ -554,6 +556,11 @@ public class HomeFragment extends Fragment {
         return date == null ? 0L : date.getTime();
     }
 
+    @NonNull
+    private Categoria categoryFor(@NonNull Transaccion tx) {
+        return new Categoria(tx.getCategoriaId(), tx.getCategoriaNombre(), tx.isEsIngreso());
+    }
+
     private String cardMetricRenderKey(
             @NonNull List<FinancialAccount> cards,
             @NonNull List<FinancialAccount> included,
@@ -595,6 +602,7 @@ public class HomeFragment extends Fragment {
         for (Transaccion tx : transactions) {
             if (tx == null || count >= 5) continue;
             TransactionLabelStore.Label label = labels.get(tx.getId());
+            CategoryPrefs.Meta meta = CategoryPrefs.meta(requireContext(), categoryFor(tx));
             key.append('|')
                     .append(tx.getId())
                     .append(':')
@@ -614,7 +622,11 @@ public class HomeFragment extends Fragment {
                     .append(':')
                     .append(tx.getNota())
                     .append(":label=")
-                    .append(label == null ? "" : label.id + "," + label.name + "," + label.colorHex);
+                    .append(label == null ? "" : label.id + "," + label.name + "," + label.colorHex)
+                    .append(":categoryMeta=")
+                    .append(meta.iconKey)
+                    .append(',')
+                    .append(meta.color);
             count++;
         }
         return key.toString();
@@ -630,7 +642,7 @@ public class HomeFragment extends Fragment {
         bg.setCornerRadius(dp(18));
         int accent = label != null ? label.colorInt() : (tx.isTransfer()
                 ? color(R.color.chartAccent)
-                : CategoryVisuals.colorFor(requireContext(), tx.getCategoriaNombre(), tx.isEsIngreso()));
+                : CategoryVisuals.colorFor(requireContext(), categoryFor(tx)));
         bg.setColor(label != null ? LabelColorUtils.cardBackground(requireContext(), accent) : color(R.color.md_theme_surface));
         bg.setStroke(dp(1), label != null ? LabelColorUtils.cardStroke(requireContext(), accent) : color(R.color.md_theme_outlineVariant));
         row.setBackground(bg);
@@ -639,7 +651,7 @@ public class HomeFragment extends Fragment {
         row.setLayoutParams(rowParams);
 
         ImageView icon = new ImageView(requireContext());
-        icon.setImageResource(tx.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(tx.getCategoriaNombre(), tx.isEsIngreso()));
+        icon.setImageResource(tx.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(requireContext(), categoryFor(tx)));
         icon.setColorFilter(accent);
         GradientDrawable iconBg = new GradientDrawable();
         iconBg.setShape(GradientDrawable.OVAL);

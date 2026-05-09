@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
+import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.Transaccion;
 import com.example.finanzas.util.CategoryVisuals;
 import com.example.finanzas.util.Format;
@@ -59,6 +60,14 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
             @NonNull List<Transaccion> transactions,
             @Nullable Map<Integer, TransactionLabelStore.Label> labels
     ) {
+        submitTransactions(transactions, labels, null);
+    }
+
+    public void submitTransactions(
+            @NonNull List<Transaccion> transactions,
+            @Nullable Map<Integer, TransactionLabelStore.Label> labels,
+            @Nullable Runnable commitCallback
+    ) {
         accountNameCache.clear();
         Map<Integer, TransactionLabelStore.Label> safeLabels = labels == null ? new HashMap<>() : labels;
         List<TransactionRow> rows = new ArrayList<>(transactions.size());
@@ -67,7 +76,7 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
                 rows.add(new TransactionRow(transaction, safeLabels.get(transaction.getId())));
             }
         }
-        submitList(rows);
+        submitList(rows, commitCallback);
     }
 
     @Override
@@ -153,7 +162,7 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
 
             int typeColor = t.isTransfer()
                     ? ContextCompat.getColor(context, R.color.chartAccent)
-                    : CategoryVisuals.colorFor(context, t.getCategoriaNombre(), t.isEsIngreso());
+                    : CategoryVisuals.colorFor(context, categoryFor(t));
             tvMonto.setTextColor(ContextCompat.getColor(context,
                     t.isTransfer() ? R.color.chartAccent : (t.isEsIngreso() ? R.color.income : R.color.expense)));
             tvTitulo.setTextColor(ContextCompat.getColor(context, R.color.md_theme_onSurface));
@@ -178,7 +187,7 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
                 labelColor.setVisibility(View.VISIBLE);
             }
             if (ivTipo != null) {
-                ivTipo.setImageResource(t.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
+                ivTipo.setImageResource(t.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(context, categoryFor(t)));
                 ivTipo.setColorFilter(accent);
                 GradientDrawable iconBg = new GradientDrawable();
                 iconBg.setShape(GradientDrawable.OVAL);
@@ -211,7 +220,7 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
         private void bindDefaultState(@NonNull Transaccion t, int typeColor) {
             if (labelColor != null) labelColor.setVisibility(View.GONE);
             if (ivTipo != null) {
-                ivTipo.setImageResource(t.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(t.getCategoriaNombre(), t.isEsIngreso()));
+                ivTipo.setImageResource(t.isTransfer() ? R.drawable.ic_transferencia : CategoryVisuals.iconFor(context, categoryFor(t)));
                 ivTipo.setColorFilter(typeColor);
                 GradientDrawable iconBg = new GradientDrawable();
                 iconBg.setShape(GradientDrawable.OVAL);
@@ -239,6 +248,15 @@ public class TransaccionAdapter extends ListAdapter<TransaccionAdapter.Transacti
             background.setStroke(dp(1), LabelColorUtils.cardStroke(context, labelColor));
         }
         row.setBackground(background);
+    }
+
+    @NonNull
+    private Categoria categoryFor(@NonNull Transaccion transaction) {
+        return new Categoria(
+                transaction.getCategoriaId(),
+                transaction.getCategoriaNombre(),
+                transaction.isEsIngreso()
+        );
     }
 
     public static final class TransactionRow {
