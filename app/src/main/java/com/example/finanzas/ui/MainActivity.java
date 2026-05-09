@@ -62,6 +62,13 @@ public class MainActivity extends AppCompatActivity {
     private int contentTopMargin;
     private int contentBottomMargin;
     private int pendingDrawerDestination = 0;
+    private boolean requestedBottomNavVisible = false;
+    private final Runnable hideBottomNavAfterTransition = () -> {
+        if (bottomNavContainer == null || navController == null) return;
+        if (requestedBottomNavVisible) return;
+        setContentBottomMargin(contentBottomMargin);
+        bottomNavContainer.setVisibility(View.GONE);
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -164,10 +171,7 @@ public class MainActivity extends AppCompatActivity {
                     && args != null
                     && args.containsKey(NuevaTransaccionFragment.EXTRA_ID);
             boolean bottomVisible = isBottomDestination(destId) && !editingTransaction;
-            setContentBottomMargin(bottomVisible ? dp(104) : contentBottomMargin);
-            if (bottomNavContainer != null) {
-                bottomNavContainer.setVisibility(bottomVisible ? View.VISIBLE : View.GONE);
-            }
+            applyBottomNavVisibility(bottomVisible);
             updateBottomSelection(destId);
 
             if (isAuthScreen) {
@@ -340,6 +344,27 @@ public class MainActivity extends AppCompatActivity {
                 || destId == R.id.nav_new
                 || destId == R.id.nav_budget
                 || destId == R.id.nav_planning;
+    }
+
+    private void applyBottomNavVisibility(boolean visible) {
+        requestedBottomNavVisible = visible;
+        if (bottomNavContainer == null) {
+            setContentBottomMargin(visible ? dp(104) : contentBottomMargin);
+            return;
+        }
+        bottomNavContainer.removeCallbacks(hideBottomNavAfterTransition);
+        if (visible) {
+            setContentBottomMargin(dp(104));
+            bottomNavContainer.setVisibility(View.VISIBLE);
+            return;
+        }
+        if (bottomNavContainer.getVisibility() == View.VISIBLE) {
+            setContentBottomMargin(dp(104));
+            bottomNavContainer.postDelayed(hideBottomNavAfterTransition, 220L);
+        } else {
+            setContentBottomMargin(contentBottomMargin);
+            bottomNavContainer.setVisibility(View.GONE);
+        }
     }
 
     private boolean isDrawerDestination(int destId) {
