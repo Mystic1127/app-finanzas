@@ -1,5 +1,8 @@
 package com.example.finanzas.ui;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -8,12 +11,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
@@ -33,6 +38,10 @@ import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.PinSession;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.button.MaterialButton;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class SettingsFragment extends Fragment {
     private LinearLayout accountSection;
@@ -124,33 +133,54 @@ public class SettingsFragment extends Fragment {
     }
 
     private void showThemeDialog() {
-        String[] labels = new String[] {
+        String[] labels = new String[]{
                 getString(R.string.perfil_theme_system),
                 getString(R.string.perfil_theme_light),
                 getString(R.string.perfil_theme_dark)
         };
-        String current = SettingsService.getThemeMode(requireContext());
-        int checked = SettingsService.THEME_LIGHT.equals(current) ? 1 : SettingsService.THEME_DARK.equals(current) ? 2 : 0;
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.perfil_theme_title)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    String mode = which == 1 ? SettingsService.THEME_LIGHT : which == 2 ? SettingsService.THEME_DARK : SettingsService.THEME_SYSTEM;
+        int[] icons = new int[]{
+                R.drawable.ic_brightness_6,
+                R.drawable.ic_light_mode,
+                R.drawable.ic_dark_mode
+        };
+        final int[] selected = {1};
+        showChoiceDialog(
+                R.drawable.ic_palette,
+                "Tema",
+                "Elige la apariencia de la app",
+                labels,
+                icons,
+                null,
+                selected,
+                which -> {
+                    String mode = which == 1
+                            ? SettingsService.THEME_LIGHT
+                            : which == 2 ? SettingsService.THEME_DARK : SettingsService.THEME_SYSTEM;
                     SettingsService.saveThemeMode(requireContext(), mode);
                     SettingsService.applyThemeMode(requireContext());
-                    dialog.dismiss();
                     renderRows();
-                })
-                .show();
+                }
+        );
     }
 
     private void showCurrencyDialog() {
-        java.util.List<String> currencies = CurrencyConverter.supportedCurrencies();
-        String[] labels = currencies.toArray(new String[0]);
-        String current = SettingsService.getCurrencyCode(requireContext());
-        int checked = Math.max(0, currencies.indexOf(current));
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.perfil_currency_title)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+        String[] labels = new String[]{"PEN", "USD", "EUR", "CLP"};
+        int[] flags = new int[]{
+                R.drawable.ic_flag_pe,
+                R.drawable.ic_flag_us,
+                R.drawable.ic_flag_eu,
+                R.drawable.ic_flag_cl
+        };
+        final int[] selected = {2};
+        showChoiceDialog(
+                R.drawable.ic_currency,
+                "Moneda principal",
+                "Selecciona la moneda que usarás por defecto",
+                labels,
+                null,
+                flags,
+                selected,
+                which -> {
                     SettingsService.saveCurrency(requireContext(), labels[which], SettingsService.getManualRate(requireContext()), new SettingsService.SaveCb() {
                         @Override
                         public void onSuccess() {
@@ -164,9 +194,191 @@ public class SettingsFragment extends Fragment {
                             Toast.makeText(requireContext(), R.string.perfil_currency_error, Toast.LENGTH_SHORT).show();
                         }
                     });
-                    dialog.dismiss();
-                })
-                .show();
+                }
+        );
+    }
+
+    private interface ChoiceDone {
+        void onDone(int selected);
+    }
+
+    private void showChoiceDialog(
+            @DrawableRes int headerIcon,
+            @NonNull String title,
+            @NonNull String subtitle,
+            @NonNull String[] labels,
+            @Nullable int[] optionIcons,
+            @Nullable int[] trailingIcons,
+            @NonNull int[] selected,
+            @NonNull ChoiceDone done
+    ) {
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(20), dp(20), dp(20));
+        root.setBackground(roundedDrawable(color(R.color.dialog_surface), dp(26)));
+
+        LinearLayout header = new LinearLayout(requireContext());
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+
+        ImageView icon = new ImageView(requireContext());
+        icon.setImageResource(headerIcon);
+        icon.setColorFilter(color(R.color.md_theme_primary));
+        icon.setPadding(dp(11), dp(11), dp(11), dp(11));
+        icon.setBackground(ovalDrawable(color(R.color.md_theme_primaryContainer)));
+        header.addView(icon, new LinearLayout.LayoutParams(dp(50), dp(50)));
+
+        LinearLayout headerTexts = new LinearLayout(requireContext());
+        headerTexts.setOrientation(LinearLayout.VERTICAL);
+        TextView titleView = new TextView(requireContext());
+        titleView.setText(title);
+        titleView.setTextColor(color(R.color.md_theme_onSurface));
+        titleView.setTextSize(22f);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        headerTexts.addView(titleView);
+        TextView subtitleView = new TextView(requireContext());
+        subtitleView.setText(subtitle);
+        subtitleView.setTextColor(color(R.color.md_theme_onSurfaceVariant));
+        subtitleView.setTextSize(14f);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        subtitleParams.topMargin = dp(2);
+        headerTexts.addView(subtitleView, subtitleParams);
+        LinearLayout.LayoutParams headerTextParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        headerTextParams.leftMargin = dp(14);
+        header.addView(headerTexts, headerTextParams);
+        root.addView(header);
+
+        LinearLayout list = new LinearLayout(requireContext());
+        list.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        listParams.topMargin = dp(18);
+        root.addView(list, listParams);
+
+        List<View> rows = new ArrayList<>();
+        List<RadioButton> radios = new ArrayList<>();
+        List<ImageView> checks = new ArrayList<>();
+        for (int i = 0; i < labels.length; i++) {
+            View row = dialogChoiceRow(labels[i],
+                    optionIcons == null ? 0 : optionIcons[i],
+                    trailingIcons == null ? 0 : trailingIcons[i]);
+            final int index = i;
+            row.setOnClickListener(v -> {
+                selected[0] = index;
+                updateChoiceRows(rows, radios, checks, selected[0]);
+            });
+            rows.add(row);
+            radios.add(row.findViewWithTag("radio"));
+            checks.add(row.findViewWithTag("check"));
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(54)
+            );
+            if (i > 0) rowParams.topMargin = dp(8);
+            list.addView(row, rowParams);
+        }
+        updateChoiceRows(rows, radios, checks, selected[0]);
+
+        MaterialButton doneButton = new MaterialButton(requireContext());
+        doneButton.setText("Listo");
+        doneButton.setAllCaps(false);
+        doneButton.setTextColor(color(R.color.md_theme_onPrimary));
+        doneButton.setBackgroundTintList(ColorStateList.valueOf(color(R.color.md_theme_primary)));
+        doneButton.setCornerRadius(dp(18));
+        LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(52)
+        );
+        doneParams.topMargin = dp(18);
+        root.addView(doneButton, doneParams);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(root)
+                .create();
+        doneButton.setOnClickListener(v -> {
+            done.onDone(selected[0]);
+            dialog.dismiss();
+        });
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+    }
+
+    private View dialogChoiceRow(@NonNull String label, @DrawableRes int optionIcon, @DrawableRes int trailingIcon) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(10), 0, dp(12), 0);
+        row.setClickable(true);
+        row.setFocusable(true);
+
+        RadioButton radio = new RadioButton(requireContext());
+        radio.setTag("radio");
+        radio.setClickable(false);
+        radio.setButtonTintList(ColorStateList.valueOf(color(R.color.md_theme_primary)));
+        row.addView(radio, new LinearLayout.LayoutParams(dp(38), dp(38)));
+
+        if (optionIcon != 0) {
+            ImageView option = new ImageView(requireContext());
+            option.setImageResource(optionIcon);
+            option.setColorFilter(color(R.color.md_theme_primary));
+            LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(dp(26), dp(26));
+            optionParams.leftMargin = dp(4);
+            row.addView(option, optionParams);
+        }
+
+        TextView labelView = new TextView(requireContext());
+        labelView.setText(label);
+        labelView.setTextColor(color(R.color.md_theme_onSurface));
+        labelView.setTextSize(16f);
+        labelView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        labelParams.leftMargin = optionIcon == 0 ? dp(10) : dp(12);
+        row.addView(labelView, labelParams);
+
+        if (trailingIcon != 0) {
+            ImageView trailing = new ImageView(requireContext());
+            trailing.setImageResource(trailingIcon);
+            row.addView(trailing, new LinearLayout.LayoutParams(dp(30), dp(22)));
+        }
+
+        if (trailingIcon == 0) {
+            ImageView check = new ImageView(requireContext());
+            check.setTag("check");
+            check.setImageResource(R.drawable.ic_check_circle);
+            check.setColorFilter(color(R.color.md_theme_primary));
+            LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(dp(25), dp(25));
+            checkParams.leftMargin = dp(8);
+            row.addView(check, checkParams);
+        }
+        return row;
+    }
+
+    private void updateChoiceRows(
+            @NonNull List<View> rows,
+            @NonNull List<RadioButton> radios,
+            @NonNull List<ImageView> checks,
+            int selected
+    ) {
+        for (int i = 0; i < rows.size(); i++) {
+            boolean checked = i == selected;
+            rows.get(i).setBackground(roundedStrokeDrawable(
+                    checked ? color(R.color.md_theme_primaryContainer) : color(R.color.md_theme_surface),
+                    color(R.color.md_theme_outlineVariant),
+                    dp(16)
+            ));
+            radios.get(i).setChecked(checked);
+            ImageView check = checks.get(i);
+            if (check != null) {
+                check.setVisibility(checked ? View.VISIBLE : View.INVISIBLE);
+            }
+        }
     }
 
     private String themeLabel() {
@@ -211,5 +423,29 @@ public class SettingsFragment extends Fragment {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private int color(int resId) {
+        return ContextCompat.getColor(requireContext(), resId);
+    }
+
+    private GradientDrawable roundedDrawable(int color, int radius) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(radius);
+        return drawable;
+    }
+
+    private GradientDrawable roundedStrokeDrawable(int color, int stroke, int radius) {
+        GradientDrawable drawable = roundedDrawable(color, radius);
+        drawable.setStroke(dp(1), stroke);
+        return drawable;
+    }
+
+    private GradientDrawable ovalDrawable(int color) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.OVAL);
+        drawable.setColor(color);
+        return drawable;
     }
 }

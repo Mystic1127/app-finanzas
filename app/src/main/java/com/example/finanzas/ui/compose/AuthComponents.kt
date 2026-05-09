@@ -3,6 +3,7 @@ package com.example.finanzas.ui.compose
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -253,71 +254,20 @@ internal fun SpendlyLogoMark(
     modifier: Modifier = Modifier,
     markSize: Dp = 124.dp
 ) {
-    val colors = spendlyAuthColors()
     Box(
         modifier = modifier.size(markSize + 44.dp),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(colors.accent.copy(alpha = if (colors.dark) 0.34f else 0.18f), Color.Transparent),
-                    center = center,
-                    radius = size.minDimension * 0.48f
-                ),
-                radius = size.minDimension * 0.48f,
-                center = center
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(colors.cyan.copy(alpha = if (colors.dark) 0.13f else 0.12f), Color.Transparent),
-                    center = Offset(size.width * 0.60f, size.height * 0.42f),
-                    radius = size.minDimension * 0.34f
-                ),
-                radius = size.minDimension * 0.34f,
-                center = Offset(size.width * 0.60f, size.height * 0.42f)
-            )
-        }
-
         Box(
             modifier = Modifier
                 .size(markSize)
-                .clip(RoundedCornerShape(markSize * 0.22f))
-                .background(if (colors.dark) Color(0x2BFFFFFF) else Color(0x8CFFFFFF))
-                .border(1.dp, colors.teal.copy(alpha = if (colors.dark) 0.40f else 0.58f), RoundedCornerShape(markSize * 0.22f))
+                .clip(RoundedCornerShape(markSize * 0.22f)),
+            contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawCircle(
-                    color = Color.White.copy(alpha = if (colors.dark) 0.23f else 0.50f),
-                    radius = size.minDimension * 0.36f,
-                    center = Offset(size.width * 0.25f, size.height * 0.27f)
-                )
-                drawCircle(
-                    color = colors.accent.copy(alpha = if (colors.dark) 0.54f else 0.35f),
-                    radius = size.minDimension * 0.33f,
-                    center = Offset(size.width * 0.72f, size.height * 0.70f)
-                )
-                drawRoundRect(
-                    color = Color(0xD8050B13),
-                    topLeft = Offset(size.width * 0.28f, size.height * 0.36f),
-                    size = Size(size.width * 0.50f, size.height * 0.30f),
-                    cornerRadius = CornerRadius(size.minDimension * 0.14f, size.minDimension * 0.14f)
-                )
-                drawCircle(
-                    color = colors.accent,
-                    radius = size.minDimension * 0.07f,
-                    center = Offset(size.width * 0.62f, size.height * 0.50f)
-                )
-            }
-
-            Icon(
-                painter = painterResource(R.drawable.ic_shopping_bag),
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_spendly_source),
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.10f),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(markSize * 0.32f)
+                modifier = Modifier.size(markSize * 2.2f)
             )
         }
     }
@@ -469,6 +419,63 @@ internal fun SpendlyPasswordField(
         textStyle = TextStyle(color = colors.text, fontSize = 17.sp),
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = imeAction),
+        keyboardActions = KeyboardActions(
+            onNext = { onImeAction?.invoke() ?: focusManager.moveFocus(FocusDirection.Next) },
+            onDone = { onImeAction?.invoke() ?: focusManager.clearFocus() }
+        ),
+        shape = RoundedCornerShape(10.dp),
+        colors = authTextFieldColors(colors)
+    )
+}
+
+@Composable
+internal fun SpendlyPinField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    visible: Boolean,
+    onToggleVisible: () -> Unit,
+    enabled: Boolean,
+    error: String?,
+    imeAction: ImeAction = ImeAction.Next,
+    onImeAction: (() -> Unit)? = null
+) {
+    val colors = spendlyAuthColors()
+    val focusManager = LocalFocusManager.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = { onValueChange(it.filter(Char::isDigit).take(4)) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .spendlyBringFocusedFieldIntoView()
+            .height(if (error == null) 58.dp else 80.dp),
+        enabled = enabled,
+        singleLine = true,
+        isError = error != null,
+        supportingText = error?.let { { Text(it) } },
+        placeholder = {
+            Text(label, color = colors.muted, fontSize = 18.sp)
+        },
+        leadingIcon = {
+            Icon(
+                painter = painterResource(R.drawable.ic_lock_outline_24),
+                contentDescription = null,
+                tint = colors.accent,
+                modifier = Modifier.size(24.dp)
+            )
+        },
+        trailingIcon = {
+            SpendlyVisibilityToggle(
+                visible = visible,
+                onToggleVisible = onToggleVisible,
+                enabled = enabled,
+                showDescription = "Mostrar PIN",
+                hideDescription = "Ocultar PIN"
+            )
+        },
+        textStyle = TextStyle(color = colors.text, fontSize = 17.sp),
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = imeAction),
         keyboardActions = KeyboardActions(
             onNext = { onImeAction?.invoke() ?: focusManager.moveFocus(FocusDirection.Next) },
             onDone = { onImeAction?.invoke() ?: focusManager.clearFocus() }
@@ -661,6 +668,101 @@ internal fun SpendlyDividerDot() {
                 .height(1.dp)
                 .background(colors.border.copy(alpha = 0.45f))
         )
+    }
+}
+
+@Composable
+internal fun SpendlyDividerOr() {
+    val colors = spendlyAuthColors()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(colors.border.copy(alpha = 0.45f))
+        )
+        Text(
+            text = "o",
+            color = colors.muted,
+            fontSize = 18.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 22.dp)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(colors.border.copy(alpha = 0.45f))
+        )
+    }
+}
+
+@Composable
+internal fun SpendlyRequirementCard(
+    title: String,
+    requirements: List<String>,
+    iconRes: Int = R.drawable.ic_lock_outline_24
+) {
+    val colors = spendlyAuthColors()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (colors.dark) Color(0x331B3428) else Color(0xFFF4F8F5))
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(62.dp)
+                .clip(CircleShape)
+                .background(colors.accent.copy(alpha = if (colors.dark) 0.20f else 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = colors.accent,
+                modifier = Modifier.size(34.dp)
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = colors.accent,
+                fontSize = 20.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+            requirements.forEach { item ->
+                Row(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_check_circle),
+                        contentDescription = null,
+                        tint = colors.accent,
+                        modifier = Modifier.size(19.dp)
+                    )
+                    Text(
+                        text = item,
+                        color = colors.muted,
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        }
     }
 }
 

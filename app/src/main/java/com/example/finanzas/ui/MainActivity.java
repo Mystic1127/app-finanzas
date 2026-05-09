@@ -140,7 +140,9 @@ public class MainActivity extends AppCompatActivity {
                     || destId == R.id.nav_pin_lock);
             boolean isImmersiveAuthScreen = (destId == R.id.nav_login
                     || destId == R.id.nav_register
-                    || destId == R.id.nav_welcome);
+                    || destId == R.id.nav_welcome
+                    || destId == R.id.nav_change_password
+                    || destId == R.id.nav_pin_setup);
             if (isImmersiveAuthScreen) {
                 applyAuthSystemBars();
             }

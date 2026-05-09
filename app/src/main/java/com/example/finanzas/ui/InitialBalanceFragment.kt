@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -39,6 +40,8 @@ class InitialBalanceFragment : Fragment() {
     private lateinit var tilCard: TextInputLayout
     private lateinit var etCash: TextInputEditText
     private lateinit var etCard: TextInputEditText
+    private lateinit var tvCashSymbol: TextView
+    private lateinit var tvCardSymbol: TextView
     private lateinit var btnSave: MaterialButton
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -55,6 +58,8 @@ class InitialBalanceFragment : Fragment() {
         tilCard = view.findViewById(R.id.tilInitialCard)
         etCash = view.findViewById(R.id.etInitialCash)
         etCard = view.findViewById(R.id.etInitialCard)
+        tvCashSymbol = view.findViewById(R.id.tvInitialCashSymbol)
+        tvCardSymbol = view.findViewById(R.id.tvInitialCardSymbol)
         btnSave = view.findViewById(R.id.btnSaveInitialBalance)
         view.findViewById<View>(R.id.btnInitialBalanceBack).setOnClickListener {
             findNavController().popBackStack()
@@ -67,7 +72,27 @@ class InitialBalanceFragment : Fragment() {
     }
 
     private fun setupCurrencySelector() {
-        val adapter = ArrayAdapter(requireContext(), R.layout.item_dropdown, CurrencyConverter.supportedCurrencies())
+        val adapter = object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.item_currency_dropdown,
+            CurrencyConverter.supportedCurrencies()
+        ) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return bindCurrencyRow(position, convertView, parent)
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return bindCurrencyRow(position, convertView, parent)
+            }
+
+            private fun bindCurrencyRow(position: Int, convertView: View?, parent: ViewGroup): View {
+                val row = convertView ?: layoutInflater.inflate(R.layout.item_currency_dropdown, parent, false)
+                val code = getItem(position).orEmpty()
+                row.findViewById<TextView>(R.id.tvCurrencyCode).text = code
+                row.findViewById<ImageView>(R.id.ivCurrencyFlag).setImageResource(flagForCurrency(code))
+                return row
+            }
+        }
         actCurrency.setAdapter(adapter)
         actCurrency.setText(SettingsService.getCurrencyCode(requireContext()), false)
         actCurrency.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) actCurrency.showDropDown() }
@@ -77,9 +102,16 @@ class InitialBalanceFragment : Fragment() {
     }
 
     private fun updateCurrencyPrefix() {
-        val prefix = SettingsService.getCurrencySymbol(CurrencyConverter.normalize(actCurrency.text?.toString())) + " "
-        tilCash.prefixText = prefix
-        tilCard.prefixText = prefix
+        val symbol = SettingsService.getCurrencySymbol(CurrencyConverter.normalize(actCurrency.text?.toString()))
+        tvCashSymbol.text = symbol
+        tvCardSymbol.text = symbol
+    }
+
+    private fun flagForCurrency(code: String): Int = when (CurrencyConverter.normalize(code)) {
+        "USD" -> R.drawable.ic_flag_us
+        "EUR" -> R.drawable.ic_flag_eu
+        "CLP" -> R.drawable.ic_flag_cl
+        else -> R.drawable.ic_flag_pe
     }
 
     private fun loadState() {

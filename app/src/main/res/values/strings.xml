@@ -579,7 +579,7 @@
     <string name="perfil_currency_rate_hint">Tasa local opcional (PEN por 1 unidad)</string>
     <string name="perfil_currency_save">Guardar moneda</string>
     <string name="perfil_initial_balances_title">Saldos iniciales</string>
-    <string name="perfil_initial_balances_subtitle">Define el dinero real con el que empiezas en efectivo y tarjeta/cuenta.</string>
+    <string name="perfil_initial_balances_subtitle">Establece los saldos con los que comienzas en Spendly</string>
     <string name="perfil_initial_cash_hint">Efectivo inicial</string>
     <string name="perfil_initial_card_hint">Tarjeta/Cuenta inicial</string>
     <string name="perfil_initial_balances_save">Guardar saldos iniciales</string>
