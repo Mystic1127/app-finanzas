@@ -1,7 +1,9 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,4 +27,14 @@ object AuthService {
         val ok = LocalRepository.getInstance(ctx).registerUser(nombre, email, pass, outId)
         if (!ok) null else AuthResult("local-token", outId[0], nombre, email)
     }
+
+    suspend fun loginWithGoogle(ctx: Context, firebaseUser: FirebaseUser): AuthResult? = withContext(Dispatchers.IO) {
+        val email = firebaseUser.email ?: return@withContext null
+        val localUser = LocalRepository.getInstance(ctx)
+            .ensureCloudUser(firebaseUser.displayName, email, firebaseUser.uid)
+        AuthResult("firebase:${firebaseUser.uid}", localUser.id, localUser.nombre, localUser.email)
+    }
+
+    suspend fun syncGoogleAccount(ctx: Context): CloudSyncService.Result =
+        CloudSyncService.syncAfterLogin(ctx)
 }

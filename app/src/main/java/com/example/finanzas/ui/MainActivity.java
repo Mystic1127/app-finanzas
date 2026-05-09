@@ -1,6 +1,10 @@
 package com.example.finanzas.ui;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -37,6 +41,7 @@ import androidx.navigation.ui.NavigationUI;
 import com.example.finanzas.BuildConfig;
 import com.example.finanzas.R;
 import com.example.finanzas.data.api.SettingsService;
+import com.example.finanzas.data.cloud.CloudSyncService;
 import com.example.finanzas.data.local.LocalRepository;
 import com.example.finanzas.ui.viewmodel.BudgetViewModel;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
@@ -48,8 +53,10 @@ import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.PinSession;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
+import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.Objects;
+import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -71,6 +78,13 @@ public class MainActivity extends AppCompatActivity {
     private ViewTreeObserver.OnPreDrawListener pendingBottomChromeHideListener;
     private View pendingBottomChromeHideView;
     private FragmentManager.FragmentLifecycleCallbacks pendingBottomChromeHideCallback;
+    private final BroadcastReceiver cloudSyncRestoredReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!CloudSyncService.ACTION_SYNC_RESTORED.equals(intent.getAction())) return;
+            reloadAfterCloudRestore();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -136,6 +150,12 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(navView, navController);
         setupBottomNavigation();
+        ContextCompat.registerReceiver(
+                this,
+                cloudSyncRestoredReceiver,
+                new IntentFilter(CloudSyncService.ACTION_SYNC_RESTORED),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
 
 
         navView.setNavigationItemSelectedListener(this::onDrawerItemSelected);
@@ -211,7 +231,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        CloudSyncService.scheduleSync(this);
         enforcePinIfNeeded();
+    }
+
+    @Override
+    protected void onDestroy() {
+        unregisterReceiver(cloudSyncRestoredReceiver);
+        super.onDestroy();
     }
 
     @Override
@@ -225,6 +252,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        CloudSyncService.scheduleUpload(this);
         if (!isChangingConfigurations() && Prefs.hasPin(this)) {
             PinSession.lock();
         }
@@ -252,6 +280,7 @@ public class MainActivity extends AppCompatActivity {
             navView.postDelayed(() -> {
 
                 Prefs.clearAuth(this);
+                FirebaseAuth.getInstance().signOut();
                 clearScopedViewModelCaches();
                 LocalRepository.invalidateDataVersion();
 
@@ -276,6 +305,18 @@ public class MainActivity extends AppCompatActivity {
         provider.get(TransactionsViewModel.class).clearCache();
         provider.get(ReportsViewModel.class).clearCache();
         provider.get(BudgetViewModel.class).clearCache();
+    }
+
+    private void reloadAfterCloudRestore() {
+        clearScopedViewModelCaches();
+        LocalRepository.invalidateDataVersion();
+        if (navController == null || navController.getCurrentDestination() == null) return;
+        if (navController.getCurrentDestination().getId() != R.id.nav_home) return;
+        Calendar cal = Calendar.getInstance();
+        new ViewModelProvider(this)
+                .get(HomeViewModel.class)
+                .loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, true);
+        Toast.makeText(this, "Datos restaurados desde la nube", Toast.LENGTH_SHORT).show();
     }
 
     public void switchToUser(long userId, String email, String name) {

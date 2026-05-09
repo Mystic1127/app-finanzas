@@ -31,12 +31,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
 import com.example.finanzas.data.api.AuthService
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.ui.compose.HighlightedSentence
 import com.example.finanzas.ui.compose.SpendlyAuthCard
@@ -51,9 +53,32 @@ import com.example.finanzas.ui.compose.SpendlyTopBar
 import com.example.finanzas.ui.compose.spendlyAuthColors
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.RecurringTransactionStore
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class RegisterFragment : Fragment() {
+    private var googleLoading: ((Boolean) -> Unit)? = null
+
+    private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val setLoading = googleLoading
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching {
+                val account = GoogleSignIn.getSignedInAccountFromIntent(result.data).await()
+                val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+                FirebaseAuth.getInstance().signInWithCredential(credential).await().user
+                    ?: error("Firebase no devolvió usuario")
+            }.onSuccess { user ->
+                completeGoogleRegistration(user, setLoading)
+            }.onFailure {
+                setLoading?.invoke(false)
+                if (isAdded) Toast.makeText(requireContext(), "No se pudo continuar con Google", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -67,6 +92,9 @@ class RegisterFragment : Fragment() {
                     onBackClick = { findNavController().popBackStack() },
                     onRegister = { nombre, email, pass, conf, setLoading ->
                         register(nombre, email, pass, conf, setLoading)
+                    },
+                    onGoogleRegister = { setLoading ->
+                        registerWithGoogle(setLoading)
                     },
                     onLoginClick = {
                         val opts = NavOptions.Builder().setPopUpTo(R.id.nav_register, true).build()
@@ -132,12 +160,44 @@ class RegisterFragment : Fragment() {
             }
         }
     }
+
+    private fun registerWithGoogle(setLoading: (Boolean) -> Unit) {
+        setLoading(true)
+        googleLoading = setLoading
+        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        googleSignInLauncher.launch(GoogleSignIn.getClient(requireActivity(), options).signInIntent)
+    }
+
+    private suspend fun completeGoogleRegistration(
+        firebaseUser: com.google.firebase.auth.FirebaseUser,
+        setLoading: ((Boolean) -> Unit)?
+    ) {
+        val result = AuthService.loginWithGoogle(requireContext(), firebaseUser)
+        if (!isAdded) return
+        if (result == null) {
+            setLoading?.invoke(false)
+            Toast.makeText(requireContext(), "No se pudo vincular la cuenta de Google", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Prefs.setToken(requireContext(), result.token)
+        Prefs.setUserSession(requireContext(), result.userId.toLong(), result.email, result.nombre)
+        SettingsService.prepareCurrencySetupForNewUser(requireContext())
+        RecurringTransactionStore.processDueAsync(requireContext())
+        CloudSyncService.scheduleSync(requireContext())
+        Toast.makeText(requireContext(), "Cuenta de Google conectada", Toast.LENGTH_SHORT).show()
+        val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
+        findNavController().navigate(R.id.nav_home, null, opts)
+    }
 }
 
 @Composable
 private fun RegisterScreen(
     onBackClick: () -> Unit,
     onRegister: (String, String, String, String, (Boolean) -> Unit) -> Unit,
+    onGoogleRegister: ((Boolean) -> Unit) -> Unit,
     onLoginClick: () -> Unit
 ) {
     var nombre by rememberSaveable { mutableStateOf("") }
@@ -225,6 +285,15 @@ private fun RegisterScreen(
                 loading = loading,
                 enabled = !loading,
                 onClick = { onRegister(nombre, email, password, confirmPassword) { loading = it } },
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            SpendlyPrimaryButton(
+                text = "Continuar con Google",
+                loading = false,
+                enabled = !loading,
+                onClick = { onGoogleRegister { loading = it } },
             )
 
             Text(

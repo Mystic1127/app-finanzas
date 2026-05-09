@@ -11,6 +11,9 @@ interface UserDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insert(entity: UserEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsert(entity: UserEntity): Long
+
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     fun findByEmail(email: String): UserEntity?
 
@@ -31,6 +34,9 @@ interface CategoriaDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(entity: CategoriaEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertAll(items: List<CategoriaEntity>)
 
     @Query("UPDATE categorias SET nombre=:nombre, es_ingreso=:esIngreso WHERE id=:id AND user_id=:userId")
     fun updateById(id: Int, userId: Int, nombre: String, esIngreso: Int): Int
@@ -55,6 +61,9 @@ interface CategoriaDao {
 interface TransaccionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(entity: TransaccionEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertAll(items: List<TransaccionEntity>)
     @Query(
         """
         UPDATE transacciones
@@ -91,8 +100,14 @@ interface RecurringTransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsert(entity: RecurringTransactionEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertAll(items: List<RecurringTransactionEntity>)
+
     @Query("SELECT * FROM transacciones_recurrentes WHERE user_id=:userId AND is_active=1 ORDER BY id ASC")
     fun listActive(userId: Int): List<RecurringTransactionEntity>
+
+    @Query("SELECT * FROM transacciones_recurrentes WHERE user_id=:userId ORDER BY id ASC")
+    fun listAll(userId: Int): List<RecurringTransactionEntity>
 
     @Query("SELECT * FROM transacciones_recurrentes WHERE user_id=:userId AND source_transaction_id=:sourceTransactionId LIMIT 1")
     fun findBySource(userId: Int, sourceTransactionId: Int): RecurringTransactionEntity?
@@ -106,12 +121,18 @@ interface RecurringTransactionDao {
     @Query("DELETE FROM transacciones_recurrentes WHERE user_id=:userId AND source_transaction_id=:sourceTransactionId")
     fun deleteBySource(userId: Int, sourceTransactionId: Int): Int
 
+    @Query("DELETE FROM transacciones_recurrentes WHERE user_id=:userId")
+    fun deleteForUser(userId: Int): Int
+
     @Query("SELECT COUNT(*) FROM transacciones WHERE user_id=:userId AND nota LIKE '%' || :marker || '%'")
     fun countGeneratedMarker(userId: Int, marker: String): Int
 }
 
 @Dao
 interface PresupuestoDao {
+    @Query("SELECT * FROM presupuestos WHERE user_id=:userId ORDER BY anio, mes")
+    fun listAll(userId: Int): List<PresupuestoEntity>
+
     @Query("SELECT * FROM presupuestos WHERE user_id=:userId AND anio=:anio AND mes=:mes")
     fun find(userId: Int, anio: Int, mes: Int): PresupuestoEntity?
     @Query(
@@ -125,11 +146,15 @@ interface PresupuestoDao {
     )
     fun findLatestUpTo(userId: Int, anio: Int, mes: Int): PresupuestoEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsert(entity: PresupuestoEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertAll(items: List<PresupuestoEntity>)
     @Query("DELETE FROM presupuestos WHERE user_id=:userId") fun deleteForUser(userId: Int): Int
 }
 
 @Dao
 interface PresupuestoCategoriaDao {
+    @Query("SELECT * FROM presupuestos_categoria WHERE user_id=:userId ORDER BY anio, mes, categoria_id")
+    fun listAll(userId: Int): List<PresupuestoCategoriaEntity>
+
     @Query("SELECT * FROM presupuestos_categoria WHERE user_id=:userId AND anio=:anio AND mes=:mes")
     fun listByMonth(userId: Int, anio: Int, mes: Int): List<PresupuestoCategoriaEntity>
     @Query(
@@ -143,6 +168,7 @@ interface PresupuestoCategoriaDao {
     )
     fun findLatestUpTo(userId: Int, anio: Int, mes: Int): PresupuestoCategoriaEntity?
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsert(entity: PresupuestoCategoriaEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertAll(items: List<PresupuestoCategoriaEntity>)
     @Query("DELETE FROM presupuestos_categoria WHERE user_id=:userId AND anio=:anio AND mes=:mes")
     fun deleteByMonth(userId: Int, anio: Int, mes: Int): Int
     @Query("DELETE FROM presupuestos_categoria WHERE user_id=:userId") fun deleteForUser(userId: Int): Int
@@ -154,6 +180,7 @@ interface MetaDao {
     @Query("SELECT COUNT(*) FROM metas WHERE id=:id AND user_id=:userId")
     fun countById(id: Int, userId: Int): Int
     @Insert(onConflict = OnConflictStrategy.ABORT) fun insert(entity: MetaEntity): Long
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertAll(items: List<MetaEntity>)
     @Query(
         """
         UPDATE metas
@@ -180,8 +207,12 @@ interface MetaDao {
 
 @Dao
 interface MetaHitoDao {
+    @Query("SELECT * FROM metas_hitos WHERE user_id=:userId ORDER BY id ASC")
+    fun listByUser(userId: Int): List<MetaHitoEntity>
+
     @Query("SELECT * FROM metas_hitos WHERE user_id=:userId AND meta_id=:metaId") fun listByMeta(userId: Int, metaId: Int): List<MetaHitoEntity>
     @Insert(onConflict = OnConflictStrategy.ABORT) fun insert(entity: MetaHitoEntity): Long
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertAll(items: List<MetaHitoEntity>)
     @Query(
         """
         UPDATE metas_hitos
@@ -217,6 +248,7 @@ interface MetaHitoDao {
 interface RecordatorioDao {
     @Query("SELECT * FROM recordatorios WHERE user_id=:userId ORDER BY fecha_vencimiento ASC") fun listAll(userId: Int): List<RecordatorioEntity>
     @Insert(onConflict = OnConflictStrategy.ABORT) fun insert(entity: RecordatorioEntity): Long
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertAll(items: List<RecordatorioEntity>)
     @Query(
         """
         UPDATE recordatorios
@@ -261,6 +293,7 @@ interface ImportJobDao {
     @Query("SELECT * FROM import_jobs WHERE user_id=:userId ORDER BY id DESC") fun listAll(userId: Int): List<ImportJobEntity>
     @Query("SELECT * FROM import_jobs WHERE id=:id AND user_id=:userId LIMIT 1") fun findById(id: Int, userId: Int): ImportJobEntity?
     @Insert(onConflict = OnConflictStrategy.ABORT) fun insert(entity: ImportJobEntity): Long
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertAll(items: List<ImportJobEntity>)
     @Query("UPDATE import_jobs SET estado=:estado WHERE id=:id AND user_id=:userId") fun updateEstado(id: Int, userId: Int, estado: String): Int
     @Query("DELETE FROM import_jobs WHERE user_id=:userId") fun deleteForUser(userId: Int): Int
 }
@@ -269,6 +302,7 @@ interface ImportJobDao {
 interface ImportRuleDao {
     @Query("SELECT * FROM import_rules WHERE user_id=:userId") fun listAll(userId: Int): List<ImportRuleEntity>
     @Insert(onConflict = OnConflictStrategy.ABORT) fun insert(entity: ImportRuleEntity): Long
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertAll(items: List<ImportRuleEntity>)
     @Query(
         """
         UPDATE import_rules

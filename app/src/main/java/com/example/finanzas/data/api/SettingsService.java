@@ -469,6 +469,41 @@ public class SettingsService {
         }
     }
 
+    public static JSONObject exportSyncSettings(Context ctx) {
+        JSONObject body = new JSONObject();
+        try {
+            long userId = currentUserId(ctx);
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            body.put("dashboard", getRawForUser(sp, dashboardKey(userId), KEY_DASHBOARD_LEGACY));
+            body.put("travel", getRawForUser(sp, travelKey(userId), KEY_TRAVEL_LEGACY));
+            body.put("initialBalances", sp.getString(initialBalancesKey(userId), "{}"));
+            body.put("financialAccounts", sp.getString(financialAccountsKey(userId), "{}"));
+            body.put("lastTransactionAccount", sp.getString(lastTransactionAccountKey(userId), "CARD"));
+            body.put("lastTransactionDestination", sp.getString(lastTransactionDestinationKey(userId), "CASH"));
+            body.put("themeMode", getThemeMode(ctx));
+        } catch (Exception ignored) {
+        }
+        return body;
+    }
+
+    public static void importSyncSettings(Context ctx, JSONObject body) {
+        if (body == null) return;
+        try {
+            long userId = currentUserId(ctx);
+            SharedPreferences.Editor editor = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+            editor.putString(dashboardKey(userId), body.optString("dashboard", "{}"));
+            editor.putString(travelKey(userId), body.optString("travel", "{}"));
+            editor.putString(initialBalancesKey(userId), body.optString("initialBalances", "{}"));
+            editor.putString(financialAccountsKey(userId), body.optString("financialAccounts", "{}"));
+            editor.putString(lastTransactionAccountKey(userId), normalizeAccountType(body.optString("lastTransactionAccount", "CARD")));
+            editor.putString(lastTransactionDestinationKey(userId), normalizeAccountType(body.optString("lastTransactionDestination", "CASH")));
+            editor.putString(themeModeKey(userId), normalizeThemeMode(body.optString("themeMode", THEME_SYSTEM)));
+            editor.apply();
+            applyThemeMode(ctx);
+        } catch (Exception ignored) {
+        }
+    }
+
     private static long currentUserId(Context ctx) {
         long userId = Prefs.getCurrentUserId(ctx.getApplicationContext());
         if (userId <= 0) {

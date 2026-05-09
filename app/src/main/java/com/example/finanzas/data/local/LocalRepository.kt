@@ -190,6 +190,23 @@ class LocalRepository private constructor(
         db.userDao().findByEmail(email)?.let { User(it.id, it.nombre, it.email) }
     }
 
+    suspend fun ensureCloudUser(nombre: String?, email: String, firebaseUid: String): User = withContext(Dispatchers.IO) {
+        val cleanEmail = email.trim()
+        val cleanName = nombre?.trim().takeUnless { it.isNullOrEmpty() } ?: cleanEmail.substringBefore('@')
+        val existing = db.userDao().findByEmail(cleanEmail)
+        if (existing != null) {
+            return@withContext User(existing.id, existing.nombre, existing.email)
+        }
+        val id = db.userDao().insert(
+            UserEntity(
+                nombre = cleanName,
+                email = cleanEmail,
+                password = PasswordSecurity.hashPassword("firebase:$firebaseUid")
+            )
+        ).toInt()
+        User(id, cleanName, cleanEmail)
+    }
+
     suspend fun listUsers(): List<User> = withContext(Dispatchers.IO) {
         db.userDao().listAll().map { User(it.id, it.nombre, it.email) }
     }
@@ -1186,6 +1203,7 @@ class LocalRepository private constructor(
 
         db.withTransaction {
             db.transaccionDao().deleteForUser(userId)
+            db.recurringTransactionDao().deleteForUser(userId)
             db.presupuestoCategoriaDao().deleteForUser(userId)
             db.presupuestoDao().deleteForUser(userId)
             db.metaHitoDao().deleteForUser(userId)
@@ -1786,6 +1804,302 @@ class LocalRepository private constructor(
             clean.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true) ||
             clean.startsWith(Transaccion.INITIAL_BALANCE_ACCOUNT_NOTE_PREFIX, ignoreCase = true)
     }
+
+    suspend fun currentUserHasSyncableData(): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        db.transaccionDao().listAll(userId).isNotEmpty() ||
+            db.presupuestoDao().listAll(userId).isNotEmpty() ||
+            db.presupuestoCategoriaDao().listAll(userId).isNotEmpty() ||
+            db.metaDao().listAll(userId).isNotEmpty() ||
+            db.recordatorioDao().listAll(userId).isNotEmpty() ||
+            db.importRuleDao().listAll(userId).isNotEmpty() ||
+            db.importJobDao().listAll(userId).isNotEmpty() ||
+            db.recurringTransactionDao().listAll(userId).isNotEmpty() ||
+            db.categoriaDao().listForUser(userId).any { it.userId == userId }
+    }
+
+    suspend fun exportCurrentUserSyncSnapshot(): JSONObject = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        ensureDefaultCategories(userId)
+        JSONObject()
+            .put("schemaVersion", 1)
+            .put("exportedAt", System.currentTimeMillis())
+            .put("tables", JSONObject()
+                .put("categorias", jsonArray(db.categoriaDao().listForUser(userId).map { it.toSyncJson() }))
+                .put("transacciones", jsonArray(db.transaccionDao().listAll(userId).map { it.toSyncJson() }))
+                .put("transacciones_recurrentes", jsonArray(db.recurringTransactionDao().listAll(userId).map { it.toSyncJson() }))
+                .put("presupuestos", jsonArray(db.presupuestoDao().listAll(userId).map { it.toSyncJson() }))
+                .put("presupuestos_categoria", jsonArray(db.presupuestoCategoriaDao().listAll(userId).map { it.toSyncJson() }))
+                .put("metas", jsonArray(db.metaDao().listAll(userId).map { it.toSyncJson() }))
+                .put("metas_hitos", jsonArray(db.metaHitoDao().listByUser(userId).map { it.toSyncJson() }))
+                .put("recordatorios", jsonArray(db.recordatorioDao().listAll(userId).map { it.toSyncJson() }))
+                .put("import_jobs", jsonArray(db.importJobDao().listAll(userId).map { it.toSyncJson() }))
+                .put("import_rules", jsonArray(db.importRuleDao().listAll(userId).map { it.toSyncJson() }))
+            )
+            .put("settings", SettingsService.exportSyncSettings(appContext))
+    }
+
+    suspend fun importCurrentUserSyncSnapshot(snapshot: JSONObject): Boolean = withContext(Dispatchers.IO) {
+        val userId = currentUserId()
+        val tables = snapshot.optJSONObject("tables") ?: return@withContext false
+        val reminders = db.recordatorioDao().listAll(userId).map { it.toPaymentReminder() }
+        reminders.forEach { ReminderScheduler.cancel(appContext, it) }
+
+        db.withTransaction {
+            db.transaccionDao().deleteForUser(userId)
+            db.recurringTransactionDao().deleteForUser(userId)
+            db.presupuestoCategoriaDao().deleteForUser(userId)
+            db.presupuestoDao().deleteForUser(userId)
+            db.metaHitoDao().deleteForUser(userId)
+            db.metaDao().deleteForUser(userId)
+            db.recordatorioDao().deleteForUser(userId)
+            db.importRuleDao().deleteForUser(userId)
+            db.importJobDao().deleteForUser(userId)
+            db.categoriaDao().deleteForUser(userId)
+
+            db.categoriaDao().upsertAll(tables.optArrayObjects("categorias").map { it.toCategoriaEntity(userId) })
+            db.transaccionDao().upsertAll(tables.optArrayObjects("transacciones").map { it.toTransaccionEntity(userId) })
+            db.recurringTransactionDao().upsertAll(tables.optArrayObjects("transacciones_recurrentes").map { it.toRecurringTransactionEntity(userId) })
+            db.presupuestoDao().upsertAll(tables.optArrayObjects("presupuestos").map { it.toPresupuestoEntity(userId) })
+            db.presupuestoCategoriaDao().upsertAll(tables.optArrayObjects("presupuestos_categoria").map { it.toPresupuestoCategoriaEntity(userId) })
+            db.metaDao().upsertAll(tables.optArrayObjects("metas").map { it.toMetaEntity(userId) })
+            db.metaHitoDao().upsertAll(tables.optArrayObjects("metas_hitos").map { it.toMetaHitoEntity(userId) })
+            db.recordatorioDao().upsertAll(tables.optArrayObjects("recordatorios").map { it.toRecordatorioEntity(userId) })
+            db.importJobDao().upsertAll(tables.optArrayObjects("import_jobs").map { it.toImportJobEntity(userId) })
+            db.importRuleDao().upsertAll(tables.optArrayObjects("import_rules").map { it.toImportRuleEntity(userId) })
+        }
+        SettingsService.importSyncSettings(appContext, snapshot.optJSONObject("settings") ?: JSONObject())
+        db.recordatorioDao().listAll(userId).map { it.toPaymentReminder() }.forEach { ReminderScheduler.schedule(appContext, it) }
+        bumpDataVersion()
+        true
+    }
+
+    private fun jsonArray(items: List<JSONObject>): JSONArray = JSONArray().apply {
+        items.forEach { put(it) }
+    }
+
+    private fun JSONObject.optArrayObjects(name: String): List<JSONObject> {
+        val array = optJSONArray(name) ?: return emptyList()
+        return List(array.length()) { index -> array.optJSONObject(index) ?: JSONObject() }
+    }
+
+    private fun CategoriaEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("userId", userId)
+        .put("nombre", nombre)
+        .put("esIngreso", esIngreso)
+
+    private fun TransaccionEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("categoriaId", categoriaId)
+        .put("esIngreso", esIngreso)
+        .put("monto", monto)
+        .put("moneda", moneda)
+        .put("fecha", fecha)
+        .put("accountType", accountType)
+        .put("nota", nota)
+
+    private fun RecurringTransactionEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("sourceTransactionId", sourceTransactionId)
+        .put("frequency", frequency)
+        .put("daysMask", daysMask)
+        .put("isActive", isActive)
+        .put("isTransfer", isTransfer)
+        .put("categoryId", categoryId)
+        .put("isIncome", isIncome)
+        .put("amount", amount)
+        .put("currency", currency)
+        .put("accountType", accountType)
+        .put("destinationAccountType", destinationAccountType)
+        .put("note", note)
+        .put("labelId", labelId)
+        .put("firstDate", firstDate)
+        .put("lastGeneratedDay", lastGeneratedDay)
+
+    private fun PresupuestoEntity.toSyncJson() = JSONObject()
+        .put("anio", anio)
+        .put("mes", mes)
+        .put("monto", monto)
+        .put("moneda", moneda)
+
+    private fun PresupuestoCategoriaEntity.toSyncJson() = JSONObject()
+        .put("anio", anio)
+        .put("mes", mes)
+        .put("categoriaId", categoriaId)
+        .put("monto", monto)
+        .put("moneda", moneda)
+
+    private fun MetaEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("titulo", titulo)
+        .put("montoObjetivo", montoObjetivo)
+        .put("montoActual", montoActual)
+        .put("moneda", moneda)
+        .put("fechaObjetivo", fechaObjetivo)
+
+    private fun MetaHitoEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("metaId", metaId)
+        .put("titulo", titulo)
+        .put("montoPlanificado", montoPlanificado)
+        .put("moneda", moneda)
+        .put("fechaObjetivo", fechaObjetivo)
+        .put("notificar", notificar)
+        .put("diasRecordatorio", diasRecordatorio)
+        .put("completado", completado)
+
+    private fun RecordatorioEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("titulo", titulo)
+        .put("monto", monto)
+        .put("moneda", moneda)
+        .put("fechaVencimiento", fechaVencimiento)
+        .put("pagado", pagado)
+        .put("categoriaId", categoriaId)
+        .put("horaRecordatorio", horaRecordatorio)
+        .put("frecuencia", frecuencia)
+        .put("notificar", notificar)
+        .put("diasRecordatorio", diasRecordatorio)
+        .put("googleEventId", googleEventId)
+        .put("notificationId", notificationId)
+
+    private fun ImportJobEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("nombre", nombre)
+        .put("tipo", tipo)
+        .put("estado", estado)
+        .put("lineas", lineas)
+
+    private fun ImportRuleEntity.toSyncJson() = JSONObject()
+        .put("id", id)
+        .put("patron", patron)
+        .put("esIngreso", esIngreso)
+        .put("categoriaId", categoriaId)
+        .put("nota", nota)
+
+    private fun JSONObject.toCategoriaEntity(currentUserId: Int) = CategoriaEntity(
+        id = optInt("id"),
+        userId = if (optInt("userId") == 0) 0 else currentUserId,
+        nombre = optString("nombre", ""),
+        esIngreso = optInt("esIngreso")
+    )
+
+    private fun JSONObject.toTransaccionEntity(userId: Int) = TransaccionEntity(
+        id = optInt("id"),
+        userId = userId,
+        categoriaId = optInt("categoriaId"),
+        esIngreso = optInt("esIngreso"),
+        monto = optDouble("monto"),
+        moneda = optString("moneda", "PEN"),
+        fecha = optLong("fecha"),
+        accountType = optString("accountType", "CARD"),
+        nota = optNullableString("nota")
+    )
+
+    private fun JSONObject.toRecurringTransactionEntity(userId: Int) = RecurringTransactionEntity(
+        id = optInt("id"),
+        userId = userId,
+        sourceTransactionId = optInt("sourceTransactionId"),
+        frequency = optString("frequency", ""),
+        daysMask = optInt("daysMask"),
+        isActive = optInt("isActive", 1),
+        isTransfer = optInt("isTransfer"),
+        categoryId = optInt("categoryId"),
+        isIncome = optInt("isIncome"),
+        amount = optDouble("amount"),
+        currency = optString("currency", "PEN"),
+        accountType = optString("accountType", "CARD"),
+        destinationAccountType = optNullableString("destinationAccountType"),
+        note = optNullableString("note"),
+        labelId = optNullableString("labelId"),
+        firstDate = optLong("firstDate"),
+        lastGeneratedDay = optNullableString("lastGeneratedDay")
+    )
+
+    private fun JSONObject.toPresupuestoEntity(userId: Int) = PresupuestoEntity(
+        userId = userId,
+        anio = optInt("anio"),
+        mes = optInt("mes"),
+        monto = optDouble("monto"),
+        moneda = optString("moneda", "PEN")
+    )
+
+    private fun JSONObject.toPresupuestoCategoriaEntity(userId: Int) = PresupuestoCategoriaEntity(
+        userId = userId,
+        anio = optInt("anio"),
+        mes = optInt("mes"),
+        categoriaId = optInt("categoriaId"),
+        monto = optDouble("monto"),
+        moneda = optString("moneda", "PEN")
+    )
+
+    private fun JSONObject.toMetaEntity(userId: Int) = MetaEntity(
+        id = optInt("id"),
+        userId = userId,
+        titulo = optString("titulo", ""),
+        montoObjetivo = optDouble("montoObjetivo"),
+        montoActual = optDouble("montoActual"),
+        moneda = optString("moneda", "PEN"),
+        fechaObjetivo = optNullableLong("fechaObjetivo")
+    )
+
+    private fun JSONObject.toMetaHitoEntity(userId: Int) = MetaHitoEntity(
+        id = optInt("id"),
+        userId = userId,
+        metaId = optInt("metaId"),
+        titulo = optString("titulo", ""),
+        montoPlanificado = optDouble("montoPlanificado"),
+        moneda = optString("moneda", "PEN"),
+        fechaObjetivo = optNullableLong("fechaObjetivo"),
+        notificar = optInt("notificar"),
+        diasRecordatorio = optInt("diasRecordatorio"),
+        completado = optInt("completado")
+    )
+
+    private fun JSONObject.toRecordatorioEntity(userId: Int) = RecordatorioEntity(
+        id = optInt("id"),
+        userId = userId,
+        titulo = optString("titulo", ""),
+        monto = optDouble("monto"),
+        moneda = optString("moneda", "PEN"),
+        fechaVencimiento = optLong("fechaVencimiento"),
+        pagado = optInt("pagado"),
+        categoriaId = optNullableInt("categoriaId"),
+        horaRecordatorio = optNullableString("horaRecordatorio"),
+        frecuencia = optNullableString("frecuencia"),
+        notificar = optInt("notificar"),
+        diasRecordatorio = optInt("diasRecordatorio"),
+        googleEventId = optNullableString("googleEventId"),
+        notificationId = optNullableString("notificationId")
+    )
+
+    private fun JSONObject.toImportJobEntity(userId: Int) = ImportJobEntity(
+        id = optInt("id"),
+        userId = userId,
+        nombre = optString("nombre", ""),
+        tipo = optString("tipo", ""),
+        estado = optString("estado", ""),
+        lineas = optNullableString("lineas")
+    )
+
+    private fun JSONObject.toImportRuleEntity(userId: Int) = ImportRuleEntity(
+        id = optInt("id"),
+        userId = userId,
+        patron = optString("patron", ""),
+        esIngreso = optInt("esIngreso"),
+        categoriaId = optNullableInt("categoriaId"),
+        nota = optNullableString("nota")
+    )
+
+    private fun JSONObject.optNullableString(name: String): String? =
+        if (has(name) && !isNull(name)) optString(name) else null
+
+    private fun JSONObject.optNullableLong(name: String): Long? =
+        if (has(name) && !isNull(name)) optLong(name) else null
+
+    private fun JSONObject.optNullableInt(name: String): Int? =
+        if (has(name) && !isNull(name)) optInt(name) else null
 
     private fun isValidAmount(value: Double): Boolean {
         return !value.isNaN() && !value.isInfinite() && value >= 0.0

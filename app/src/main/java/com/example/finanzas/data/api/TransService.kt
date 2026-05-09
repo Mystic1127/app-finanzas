@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.Transaccion
 import com.example.finanzas.data.model.TransaccionFiltro
@@ -53,7 +54,9 @@ object TransService {
         moneda: String,
         accountType: String
     ): Int = withContext(Dispatchers.IO) {
-        LocalRepository.getInstance(ctx).createTransaccion(categoriaId.toInt(), esIngreso, monto, nota, fecha, moneda, accountType)
+        val id = LocalRepository.getInstance(ctx).createTransaccion(categoriaId.toInt(), esIngreso, monto, nota, fecha, moneda, accountType)
+        if (id > 0) CloudSyncService.scheduleUpload(ctx)
+        id
     }
 
     suspend fun update(
@@ -88,8 +91,10 @@ object TransService {
         moneda: String,
         accountType: String
     ): Boolean = withContext(Dispatchers.IO) {
-        LocalRepository.getInstance(ctx)
+        val updated = LocalRepository.getInstance(ctx)
             .updateTransaccion(id.toInt(), categoriaId.toInt(), esIngreso, monto, nota, fecha, moneda, accountType)
+        if (updated) CloudSyncService.scheduleUpload(ctx)
+        updated
     }
 
     suspend fun createTransfer(
@@ -101,8 +106,10 @@ object TransService {
         fecha: Long,
         moneda: String
     ): Int = withContext(Dispatchers.IO) {
-        LocalRepository.getInstance(ctx)
+        val id = LocalRepository.getInstance(ctx)
             .createTransfer(originAccountType, destinationAccountType, monto, nota, fecha, moneda)
+        if (id > 0) CloudSyncService.scheduleUpload(ctx)
+        id
     }
 
     suspend fun updateTransfer(
@@ -115,8 +122,10 @@ object TransService {
         fecha: Long,
         moneda: String
     ): Boolean = withContext(Dispatchers.IO) {
-        LocalRepository.getInstance(ctx)
+        val updated = LocalRepository.getInstance(ctx)
             .updateTransfer(id.toInt(), originAccountType, destinationAccountType, monto, nota, fecha, moneda)
+        if (updated) CloudSyncService.scheduleUpload(ctx)
+        updated
     }
 
     suspend fun delete(ctx: Context, id: Long): Boolean = withContext(Dispatchers.IO) {
@@ -125,6 +134,7 @@ object TransService {
         if (deleted) {
             TransactionLabelStore.setLabel(ctx, transactionId, null)
             RecurringTransactionStore.deleteTemplateForSource(ctx, transactionId)
+            CloudSyncService.scheduleUpload(ctx)
         }
         deleted
     }
