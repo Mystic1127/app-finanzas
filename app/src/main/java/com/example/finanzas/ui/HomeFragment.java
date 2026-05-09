@@ -175,9 +175,9 @@ public class HomeFragment extends Fragment {
 
     private void setupNavigation(@NonNull View root) {
         btnSettings.setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.nav_settings, null, NavigationAnimations.detailSlide()));
+                Navigation.findNavController(v).navigate(R.id.nav_settings));
         btnSeeTransactions.setOnClickListener(v ->
-                Navigation.findNavController(root).navigate(R.id.nav_list, null, NavigationAnimations.detailSlide()));
+                Navigation.findNavController(root).navigate(R.id.nav_list));
     }
 
     private void observeViewModel() {

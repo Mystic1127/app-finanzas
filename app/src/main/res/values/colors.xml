@@ -34,6 +34,10 @@
     <color name="md_theme_surfaceContainer">#F0F7F2</color>
     <color name="md_theme_surfaceContainerHigh">#EAF2ED</color>
     <color name="md_theme_surfaceContainerHighest">#E4EEE8</color>
+    <color name="bottom_dock_surface">#FBFFFC</color>
+    <color name="bottom_dock_stroke">#D7E7DD</color>
+    <color name="bottom_dock_scrim_mid">#99FDFEFE</color>
+    <color name="bottom_dock_scrim_end">#EEFDFEFE</color>
     <color name="md_theme_outline">#B8C8BF</color>
     <color name="md_theme_outlineVariant">#DDE9E2</color>
 

@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.Toast;
 import android.view.WindowManager;
 import android.widget.ImageView;
@@ -23,6 +24,8 @@ import androidx.core.view.GravityCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDestination;
@@ -59,9 +62,15 @@ public class MainActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private View navHostView;
     private View bottomNavContainer;
+    private View bottomNavScrim;
+    private FragmentManager navHostChildFragmentManager;
     private int contentTopMargin;
     private int contentBottomMargin;
     private int pendingDrawerDestination = 0;
+    private boolean requestedBottomChromeVisible = false;
+    private ViewTreeObserver.OnPreDrawListener pendingBottomChromeHideListener;
+    private View pendingBottomChromeHideView;
+    private FragmentManager.FragmentLifecycleCallbacks pendingBottomChromeHideCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
                 (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
         navHost = Objects.requireNonNull(navHost, "NavHostFragment not found");
         navController = navHost.getNavController();
+        navHostChildFragmentManager = navHost.getChildFragmentManager();
 
 
         appBarConfiguration = new AppBarConfiguration.Builder(
@@ -164,10 +174,8 @@ public class MainActivity extends AppCompatActivity {
                     && args != null
                     && args.containsKey(NuevaTransaccionFragment.EXTRA_ID);
             boolean bottomVisible = isBottomDestination(destId) && !editingTransaction;
-            setContentBottomMargin(bottomVisible ? dp(104) : contentBottomMargin);
-            if (bottomNavContainer != null) {
-                bottomNavContainer.setVisibility(bottomVisible ? View.VISIBLE : View.GONE);
-            }
+            setContentBottomMargin(contentBottomMargin);
+            applyBottomChromeVisibility(bottomVisible);
             updateBottomSelection(destId);
 
             if (isAuthScreen) {
@@ -287,6 +295,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupBottomNavigation() {
         bottomNavContainer = findViewById(R.id.bottom_nav_container);
+        bottomNavScrim = findViewById(R.id.bottom_nav_scrim);
         bindBottomItem(R.id.bottomNavHome, R.id.nav_home);
         bindBottomItem(R.id.bottomNavAnalysis, R.id.nav_analysis);
         bindBottomItem(R.id.bottomNavNew, R.id.nav_new);
@@ -340,6 +349,92 @@ public class MainActivity extends AppCompatActivity {
                 || destId == R.id.nav_new
                 || destId == R.id.nav_budget
                 || destId == R.id.nav_planning;
+    }
+
+    private void applyBottomChromeVisibility(boolean visible) {
+        requestedBottomChromeVisible = visible;
+        if (visible) {
+            cancelPendingBottomChromeHide();
+            setBottomChromeVisibility(View.VISIBLE);
+        } else if (isBottomChromeVisible()) {
+            hideBottomChromeOnNextContentDraw();
+        } else {
+            setBottomChromeVisibility(View.GONE);
+        }
+    }
+
+    private boolean isBottomChromeVisible() {
+        return (bottomNavContainer != null && bottomNavContainer.getVisibility() == View.VISIBLE)
+                || (bottomNavScrim != null && bottomNavScrim.getVisibility() == View.VISIBLE);
+    }
+
+    private void setBottomChromeVisibility(int visibility) {
+        if (bottomNavContainer != null) bottomNavContainer.setVisibility(visibility);
+        if (bottomNavScrim != null) bottomNavScrim.setVisibility(visibility);
+    }
+
+    private void hideBottomChromeOnNextContentDraw() {
+        cancelPendingBottomChromeHide();
+        if (navHostChildFragmentManager == null) {
+            setBottomChromeVisibility(View.GONE);
+            return;
+        }
+
+        pendingBottomChromeHideCallback = new FragmentManager.FragmentLifecycleCallbacks() {
+            @Override
+            public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment,
+                                              @NonNull View view, Bundle savedInstanceState) {
+                if (fm != navHostChildFragmentManager || requestedBottomChromeVisible) return;
+                hideBottomChromeOnViewPreDraw(view);
+            }
+        };
+        navHostChildFragmentManager.registerFragmentLifecycleCallbacks(pendingBottomChromeHideCallback, false);
+        navHostView.post(() -> {
+            if (requestedBottomChromeVisible || pendingBottomChromeHideListener != null || navHostChildFragmentManager == null) {
+                return;
+            }
+            Fragment current = navHostChildFragmentManager.getPrimaryNavigationFragment();
+            if (current != null && current.getView() != null) {
+                hideBottomChromeOnViewPreDraw(current.getView());
+            }
+        });
+    }
+
+    private void hideBottomChromeOnViewPreDraw(@NonNull View view) {
+        if (pendingBottomChromeHideListener != null) return;
+        ViewTreeObserver observer = view.getViewTreeObserver();
+        if (!observer.isAlive()) {
+            setBottomChromeVisibility(View.GONE);
+            return;
+        }
+        pendingBottomChromeHideView = view;
+        pendingBottomChromeHideListener = new ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                cancelPendingBottomChromeHide();
+                if (!requestedBottomChromeVisible) {
+                    setBottomChromeVisibility(View.GONE);
+                }
+                return true;
+            }
+        };
+        observer.addOnPreDrawListener(pendingBottomChromeHideListener);
+        view.invalidate();
+    }
+
+    private void cancelPendingBottomChromeHide() {
+        if (pendingBottomChromeHideCallback != null && navHostChildFragmentManager != null) {
+            navHostChildFragmentManager.unregisterFragmentLifecycleCallbacks(pendingBottomChromeHideCallback);
+            pendingBottomChromeHideCallback = null;
+        }
+        if (pendingBottomChromeHideListener != null && pendingBottomChromeHideView != null) {
+            ViewTreeObserver observer = pendingBottomChromeHideView.getViewTreeObserver();
+            if (observer.isAlive()) {
+                observer.removeOnPreDrawListener(pendingBottomChromeHideListener);
+            }
+        }
+        pendingBottomChromeHideListener = null;
+        pendingBottomChromeHideView = null;
     }
 
     private boolean isDrawerDestination(int destId) {
