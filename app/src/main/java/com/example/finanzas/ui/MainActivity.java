@@ -51,6 +51,8 @@ import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.RecurringTransactionStore;
 import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.PinSession;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -168,10 +170,12 @@ public class MainActivity extends AppCompatActivity {
             boolean isAuthScreen = (destId == R.id.nav_login
                     || destId == R.id.nav_register
                     || destId == R.id.nav_welcome
+                    || destId == R.id.nav_email_verification
                     || destId == R.id.nav_pin_lock);
             boolean isImmersiveAuthScreen = (destId == R.id.nav_login
                     || destId == R.id.nav_register
                     || destId == R.id.nav_welcome
+                    || destId == R.id.nav_email_verification
                     || destId == R.id.nav_change_password
                     || destId == R.id.nav_pin_setup);
             if (isImmersiveAuthScreen) {
@@ -188,6 +192,9 @@ public class MainActivity extends AppCompatActivity {
                     || destId == R.id.nav_reports
                     || destId == R.id.nav_imports
                     || destId == R.id.nav_perfil
+                    || destId == R.id.nav_recurring_settings
+                    || destId == R.id.nav_recurring_rule
+                    || destId == R.id.nav_device_accounts
                     || destId == R.id.nav_initial_balance;
             toolbar.setVisibility((isImmersiveAuthScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
             setContentTopMargin((isImmersiveAuthScreen || hasLocalHeader) ? 0 : contentTopMargin);
@@ -282,6 +289,7 @@ public class MainActivity extends AppCompatActivity {
 
                 Prefs.clearAuth(this);
                 FirebaseAuth.getInstance().signOut();
+                clearGoogleSignInCache();
                 clearScopedViewModelCaches();
                 LocalRepository.invalidateDataVersion();
 
@@ -298,6 +306,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return false;
+    }
+
+    private void clearGoogleSignInCache() {
+        GoogleSignInOptions options = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        GoogleSignIn.getClient(this, options).signOut();
     }
 
     private void clearScopedViewModelCaches() {
@@ -553,7 +569,8 @@ public class MainActivity extends AppCompatActivity {
         if (dest == null) return;
         int destId = dest.getId();
         if (destId == R.id.nav_pin_lock || destId == R.id.nav_login
-                || destId == R.id.nav_register || destId == R.id.nav_welcome || destId == R.id.nav_pin_setup) {
+                || destId == R.id.nav_register || destId == R.id.nav_welcome
+                || destId == R.id.nav_email_verification || destId == R.id.nav_pin_setup) {
             return;
         }
         navController.navigate(R.id.nav_pin_lock);

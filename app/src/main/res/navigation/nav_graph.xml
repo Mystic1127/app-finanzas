@@ -40,6 +40,11 @@
     </fragment>
 
     <fragment
+        android:id="@+id/nav_email_verification"
+        android:name="com.example.finanzas.ui.EmailVerificationFragment"
+        android:label="Verifica tu correo" />
+
+    <fragment
         android:id="@+id/nav_home"
         android:name="com.example.finanzas.ui.HomeFragment"
         android:label="@string/nav_home_title"
@@ -91,6 +96,21 @@
         android:name="com.example.finanzas.ui.SettingsFragment"
         android:label="@string/nav_settings_title"
         tools:layout="@layout/fragment_settings" />
+
+    <fragment
+        android:id="@+id/nav_recurring_settings"
+        android:name="com.example.finanzas.ui.RecurringSettingsFragment"
+        android:label="Gastos recurrentes" />
+
+    <fragment
+        android:id="@+id/nav_recurring_rule"
+        android:name="com.example.finanzas.ui.RecurringRuleFragment"
+        android:label="Recurrente" />
+
+    <fragment
+        android:id="@+id/nav_device_accounts"
+        android:name="com.example.finanzas.ui.DeviceAccountsFragment"
+        android:label="Cuentas del dispositivo" />
 
     <fragment
         android:id="@+id/nav_categories"

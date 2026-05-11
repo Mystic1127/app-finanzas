@@ -4,7 +4,9 @@ import android.content.Context
 import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.util.Prefs
+import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -42,10 +44,19 @@ object AuthService {
             null
         } ?: return@withContext null
 
+        runCatching { firebaseUser.reload().await() }
+        if (!firebaseUser.isEmailVerified) {
+            return@withContext AuthResult(
+                token = "",
+                userId = -1,
+                nombre = firebaseUser.displayName ?: firebaseUser.email?.substringBefore('@'),
+                email = firebaseUser.email ?: email.trim(),
+                emailVerified = false
+            )
+        }
+
         val cleanEmail = firebaseUser.email ?: email.trim()
-        val repo = LocalRepository.getInstance(ctx)
-        val localUser = repo.getUserByEmail(cleanEmail)
-            ?: repo.ensureCloudUser(firebaseUser.displayName, cleanEmail, firebaseUser.uid)
+        val localUser = getOrCreateFirebaseLocalUser(ctx, firebaseUser, cleanEmail)
         Prefs.setFirebaseLink(ctx.applicationContext, localUser.id.toLong(), firebaseUser.uid, cleanEmail)
         AuthResult(
             token = "firebase:${firebaseUser.uid}",
@@ -83,10 +94,6 @@ object AuthService {
 
     suspend fun register(ctx: Context, nombre: String, email: String, pass: String): AuthResult? = withContext(Dispatchers.IO) {
         val cleanEmail = email.trim()
-        val repo = LocalRepository.getInstance(ctx)
-        if (repo.getUserByEmail(cleanEmail) != null) {
-            throw AuthFailure(duplicateAccountMessage(cleanEmail))
-        }
 
         val firebaseUser = try {
             FirebaseAuth.getInstance().createUserWithEmailAndPassword(cleanEmail, pass).await().user
@@ -96,18 +103,19 @@ object AuthService {
             throw AuthFailure("Usa una contrasena mas segura.")
         } catch (_: FirebaseAuthInvalidCredentialsException) {
             throw AuthFailure("Ingresa un correo valido.")
-        } catch (_: Exception) {
-            throw AuthFailure("No se pudo registrar. Revisa tu conexion e intenta otra vez.")
+        } catch (_: FirebaseNetworkException) {
+            throw AuthFailure("No se pudo conectar con Firebase. Revisa tu conexion e intenta otra vez.")
+        } catch (error: FirebaseAuthException) {
+            throw AuthFailure(registerErrorMessage(error))
+        } catch (error: Exception) {
+            throw AuthFailure(error.message?.takeIf { it.isNotBlank() }
+                ?: "No se pudo registrar. Revisa tu conexion e intenta otra vez.")
         } ?: throw AuthFailure("No se pudo registrar. Revisa tu conexion e intenta otra vez.")
 
         val verificationSent = runCatching { firebaseUser.sendEmailVerification().await() }.isSuccess
-        val outId = IntArray(1)
-        val ok = repo.registerUser(nombre, cleanEmail, pass, outId)
-        if (!ok) return@withContext null
-        Prefs.setFirebaseLink(ctx.applicationContext, outId[0].toLong(), firebaseUser.uid, cleanEmail)
         AuthResult(
-            token = "firebase:${firebaseUser.uid}",
-            userId = outId[0],
+            token = "",
+            userId = -1,
             nombre = nombre,
             email = cleanEmail,
             isNewUser = true,
@@ -122,14 +130,38 @@ object AuthService {
         val repo = LocalRepository.getInstance(ctx)
         val linkedUserId = Prefs.getLinkedUserIdForFirebaseUid(appContext, firebaseUser.uid)
         val linkedUser = if (linkedUserId > 0) {
-            repo.listUsers().firstOrNull { it.id == linkedUserId.toInt() }
+            repo.getUserById(linkedUserId.toInt())
         } else {
             null
         }
-        val existing = linkedUser ?: repo.getUserByEmail(email)
-        val localUser = existing ?: repo.ensureCloudUser(firebaseUser.displayName, email, firebaseUser.uid)
+        val localUser = linkedUser ?: repo.createFirebaseUserForUid(firebaseUser.displayName, email, firebaseUser.uid)
         Prefs.setFirebaseLink(appContext, localUser.id.toLong(), firebaseUser.uid, email)
-        AuthResult("firebase:${firebaseUser.uid}", localUser.id, localUser.nombre, localUser.email, existing == null)
+        AuthResult("firebase:${firebaseUser.uid}", localUser.id, localUser.nombre, email, linkedUser == null)
+    }
+
+    suspend fun completeVerifiedEmailSession(ctx: Context, fallbackName: String? = null): AuthResult? = withContext(Dispatchers.IO) {
+        val firebaseUser = FirebaseAuth.getInstance().currentUser ?: return@withContext null
+        runCatching { firebaseUser.reload().await() }
+        if (!firebaseUser.isEmailVerified) {
+            return@withContext AuthResult(
+                token = "",
+                userId = -1,
+                nombre = fallbackName ?: firebaseUser.displayName ?: firebaseUser.email?.substringBefore('@'),
+                email = firebaseUser.email,
+                emailVerified = false
+            )
+        }
+        val cleanEmail = firebaseUser.email ?: return@withContext null
+        val localUser = getOrCreateFirebaseLocalUser(ctx, firebaseUser, cleanEmail, fallbackName)
+        Prefs.setFirebaseLink(ctx.applicationContext, localUser.id.toLong(), firebaseUser.uid, cleanEmail)
+        AuthResult(
+            token = "firebase:${firebaseUser.uid}",
+            userId = localUser.id,
+            nombre = localUser.nombre,
+            email = cleanEmail,
+            isNewUser = false,
+            emailVerified = true
+        )
     }
 
     suspend fun syncGoogleAccount(ctx: Context): CloudSyncService.Result =
@@ -203,6 +235,35 @@ object AuthService {
             "Este correo ya esta vinculado con Google. Usa Continuar con Google."
         } else {
             "Este correo ya esta registrado. Inicia sesion o recupera tu contrasena."
+        }
+    }
+
+    private suspend fun getOrCreateFirebaseLocalUser(
+        ctx: Context,
+        firebaseUser: FirebaseUser,
+        email: String,
+        fallbackName: String? = null
+    ): com.example.finanzas.data.model.User {
+        val appContext = ctx.applicationContext
+        val repo = LocalRepository.getInstance(appContext)
+        val linkedUserId = Prefs.getLinkedUserIdForFirebaseUid(appContext, firebaseUser.uid)
+        val linkedUser = if (linkedUserId > 0) repo.getUserById(linkedUserId.toInt()) else null
+        return linkedUser ?: repo.createFirebaseUserForUid(
+            fallbackName ?: firebaseUser.displayName,
+            email,
+            firebaseUser.uid
+        )
+    }
+
+    private fun registerErrorMessage(error: FirebaseAuthException): String {
+        return when (error.errorCode) {
+            "ERROR_EMAIL_ALREADY_IN_USE" -> "Este correo ya esta registrado. Inicia sesion o recupera tu contrasena."
+            "ERROR_INVALID_EMAIL" -> "Ingresa un correo valido."
+            "ERROR_WEAK_PASSWORD" -> "Usa una contrasena mas segura."
+            "ERROR_OPERATION_NOT_ALLOWED" -> "El registro con correo y contrasena no esta habilitado en Firebase."
+            "ERROR_NETWORK_REQUEST_FAILED" -> "No se pudo conectar con Firebase. Revisa tu conexion e intenta otra vez."
+            else -> error.localizedMessage?.takeIf { it.isNotBlank() }
+                ?: "No se pudo registrar. Revisa tu conexion e intenta otra vez."
         }
     }
 }

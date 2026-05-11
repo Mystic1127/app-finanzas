@@ -191,6 +191,11 @@ class LocalRepository private constructor(
         db.userDao().findByEmail(email)?.let { User(it.id, it.nombre, it.email) }
     }
 
+    suspend fun getUserById(id: Int): User? = withContext(Dispatchers.IO) {
+        if (id <= 0) return@withContext null
+        db.userDao().listAll().firstOrNull { it.id == id }?.let { User(it.id, it.nombre, it.email) }
+    }
+
     suspend fun ensureCloudUser(nombre: String?, email: String, firebaseUid: String): User = withContext(Dispatchers.IO) {
         val cleanEmail = email.trim()
         val cleanName = nombre?.trim().takeUnless { it.isNullOrEmpty() } ?: cleanEmail.substringBefore('@')
@@ -206,6 +211,37 @@ class LocalRepository private constructor(
             )
         ).toInt()
         User(id, cleanName, cleanEmail)
+    }
+
+    suspend fun createFirebaseUserForUid(nombre: String?, email: String, firebaseUid: String): User = withContext(Dispatchers.IO) {
+        val cleanEmail = email.trim()
+        val cleanName = nombre?.trim().takeUnless { it.isNullOrEmpty() } ?: cleanEmail.substringBefore('@')
+        val privateEmail = "firebase-${firebaseUid}@spendly.firebase.local"
+        db.userDao().findByEmail(privateEmail)?.let {
+            return@withContext User(it.id, cleanName, cleanEmail)
+        }
+        val inserted = db.userDao().insert(
+            UserEntity(
+                nombre = cleanName,
+                email = privateEmail,
+                password = PasswordSecurity.hashPassword("firebase:$firebaseUid")
+            )
+        )
+        if (inserted > 0) {
+            return@withContext User(inserted.toInt(), cleanName, cleanEmail)
+        }
+        db.userDao().findByEmail(privateEmail)?.let {
+            return@withContext User(it.id, cleanName, cleanEmail)
+        }
+        val fallbackEmail = "firebase-${firebaseUid}-${System.currentTimeMillis()}@spendly.firebase.local"
+        val fallbackId = db.userDao().insert(
+            UserEntity(
+                nombre = cleanName,
+                email = fallbackEmail,
+                password = PasswordSecurity.hashPassword("firebase:$firebaseUid")
+            )
+        ).toInt()
+        User(fallbackId, cleanName, cleanEmail)
     }
 
     suspend fun listUsers(): List<User> = withContext(Dispatchers.IO) {

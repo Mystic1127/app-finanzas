@@ -90,7 +90,7 @@
     <string name="auth_recovery_title">Recuperar contraseña</string>
     <string name="auth_recovery_email_required">Ingresa tu correo para recuperar acceso.</string>
     <string name="auth_recovery_options_title">Recuperar contraseña de tu cuenta</string>
-    <string name="auth_recovery_options_message">Primero puedes verificarte con la seguridad de este dispositivo para cambiar tu contraseña local. También puedes recuperar por correo si tu cuenta está vinculada a Firebase.</string>
+    <string name="auth_recovery_options_message">Primero puedes verificarte con la seguridad de este dispositivo para cambiar tu contraseña local. También puedes recuperar el acceso por correo si tienes una cuenta vinculada.</string>
     <string name="auth_recovery_device_action">Usar seguridad del dispositivo</string>
     <string name="auth_recovery_email_action">Recuperar por correo</string>
     <string name="auth_email_verification_title">Verifica tu correo</string>
@@ -634,9 +634,12 @@
     <string name="profile_account_current">Cuenta actual</string>
     <string name="profile_account_switch">Cambiar</string>
     <string name="perfil_google_link_title">Google y nube</string>
-    <string name="perfil_google_link_subtitle">Vincula esta cuenta local para guardar tus datos en Firebase.</string>
+    <string name="perfil_google_link_subtitle">Vincula esta cuenta para respaldar tus datos y acceder a ellos desde otros dispositivos.</string>
     <string name="perfil_google_link_button">Vincular con Google</string>
-    <string name="perfil_google_link_retry">Reintentar subida</string>
+    <string name="perfil_google_link_retry">Sincronizar ahora</string>
+    <string name="perfil_google_syncing">Sincronizando...</string>
+    <string name="perfil_google_sync_success">Datos sincronizados con la cuenta vinculada</string>
+    <string name="perfil_google_sync_login_required">Para sincronizar, inicia sesión con Google desde la pantalla de acceso.</string>
     <string name="perfil_google_linking">Vinculando...</string>
     <string name="perfil_google_linked">Cuenta vinculada con Google</string>
     <string name="perfil_google_link_success">Cuenta vinculada y datos subidos a la nube</string>

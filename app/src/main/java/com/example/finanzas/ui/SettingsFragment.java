@@ -37,8 +37,11 @@ import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.NavigationAnimations;
 import com.example.finanzas.util.Prefs;
 import com.example.finanzas.util.PinSession;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,6 +72,8 @@ public class SettingsFragment extends Fragment {
         addRow(accountSection, R.drawable.ic_reports, "Reportes financieros", null, () -> navigate(R.id.nav_reports));
         addRow(accountSection, R.drawable.ic_upload, "Importaciones", null, () -> navigate(R.id.nav_imports));
         addRow(accountSection, R.drawable.ic_profile, "Perfil", null, () -> navigate(R.id.nav_perfil));
+        addRow(accountSection, R.drawable.ic_repeat, "Gastos recurrentes", "Gestiona reglas automaticas", () -> navigate(R.id.nav_recurring_settings));
+        addRow(accountSection, R.drawable.ic_group_24, "Cuentas del dispositivo", "Quita cuentas guardadas de forma segura", () -> navigate(R.id.nav_device_accounts));
         addRow(accountSection, R.drawable.ic_logout, "Cerrar sesión", null, this::confirmLogout);
 
         addRow(prefsSection, R.drawable.ic_category, getString(R.string.categories_title), getString(R.string.categories_subtitle), () -> navigate(R.id.nav_categories));
@@ -436,6 +441,8 @@ public class SettingsFragment extends Fragment {
 
     private void logout() {
         Prefs.clearAuth(requireContext());
+        FirebaseAuth.getInstance().signOut();
+        clearGoogleSignInCache();
         clearScopedViewModelCaches();
         LocalRepository.invalidateDataVersion();
         PinSession.lock();
@@ -444,6 +451,14 @@ public class SettingsFragment extends Fragment {
                 .setPopUpTo(R.id.nav_graph, true)
                 .build();
         NavHostFragment.findNavController(this).navigate(R.id.nav_welcome, null, out);
+    }
+
+    private void clearGoogleSignInCache() {
+        GoogleSignInOptions options = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        GoogleSignIn.getClient(requireActivity(), options).signOut();
     }
 
     private void clearScopedViewModelCaches() {

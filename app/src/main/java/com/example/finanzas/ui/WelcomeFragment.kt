@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -22,9 +21,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,7 +64,6 @@ import com.example.finanzas.ui.compose.SpendlySimpleDot
 import com.example.finanzas.ui.compose.spendlyAuthColors
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.RecurringTransactionStore
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
 class WelcomeFragment : Fragment() {
@@ -68,7 +77,7 @@ class WelcomeFragment : Fragment() {
             SpendlyComposeTheme {
                 WelcomeScreen(
                     onAuthClick = { findNavController().navigate(R.id.nav_login) },
-                    onContinueLocalClick = { showLocalNameDialog() }
+                    onContinueLocal = { name -> continueWithoutAccount(name) }
                 )
             }
         }
@@ -81,22 +90,6 @@ class WelcomeFragment : Fragment() {
             val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
             findNavController().navigate(R.id.nav_home, null, opts)
         }
-    }
-
-    private fun showLocalNameDialog() {
-        val input = EditText(requireContext()).apply {
-            hint = getString(R.string.welcome_local_name_hint)
-            setSingleLine(true)
-        }
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.welcome_continue_local)
-            .setMessage(R.string.welcome_local_notice)
-            .setView(input)
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.welcome_continue_local) { _, _ ->
-                continueWithoutAccount(input.text?.toString().orEmpty())
-            }
-            .show()
     }
 
     private fun continueWithoutAccount(name: String) {
@@ -127,9 +120,10 @@ class WelcomeFragment : Fragment() {
 @Composable
 private fun WelcomeScreen(
     onAuthClick: () -> Unit,
-    onContinueLocalClick: () -> Unit
+    onContinueLocal: (String) -> Unit
 ) {
     val colors = spendlyAuthColors()
+    var showLocalDialog by remember { mutableStateOf(false) }
     SpendlyAuthBackground {
         Column(
             modifier = Modifier
@@ -195,7 +189,7 @@ private fun WelcomeScreen(
 
             SpendlyOutlinedButton(
                 text = stringResource(R.string.welcome_continue_local),
-                onClick = onContinueLocalClick
+                onClick = { showLocalDialog = true }
             )
 
             Text(
@@ -217,7 +211,114 @@ private fun WelcomeScreen(
                 modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
             )
         }
+
+        if (showLocalDialog) {
+            LocalAccessDialog(
+                onDismiss = { showLocalDialog = false },
+                onConfirm = { name ->
+                    showLocalDialog = false
+                    onContinueLocal(name)
+                }
+            )
+        }
     }
+}
+
+@Composable
+private fun LocalAccessDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val colors = spendlyAuthColors()
+    var name by rememberSaveable { mutableStateOf("") }
+    val dialogSurface = if (colors.dark) Color(0xFF0A1320) else colors.surface
+    val fieldSurface = if (colors.dark) Color(0xFF101C2A) else colors.field
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = dialogSurface,
+        shape = RoundedCornerShape(26.dp),
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(colors.accent.copy(alpha = if (colors.dark) 0.20f else 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_person),
+                    contentDescription = null,
+                    tint = colors.accent,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.welcome_continue_local),
+                color = colors.text,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    text = stringResource(R.string.welcome_local_notice),
+                    color = colors.muted,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.welcome_local_name_hint)) },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_person),
+                            contentDescription = null,
+                            tint = colors.accent
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colors.text,
+                        unfocusedTextColor = colors.text,
+                        focusedContainerColor = fieldSurface,
+                        unfocusedContainerColor = fieldSurface,
+                        focusedBorderColor = colors.accent,
+                        unfocusedBorderColor = colors.border,
+                        focusedLabelColor = colors.accent,
+                        unfocusedLabelColor = colors.muted,
+                        cursorColor = colors.accent
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name) },
+                enabled = name.trim().isNotBlank()
+            ) {
+                Text(
+                    text = stringResource(R.string.welcome_continue_local),
+                    color = colors.accent,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancelar", color = colors.muted)
+            }
+        }
+    )
 }
 
 @Composable

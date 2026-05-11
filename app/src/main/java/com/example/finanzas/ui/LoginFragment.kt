@@ -50,6 +50,7 @@ import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyDividerDot
 import com.example.finanzas.ui.compose.SpendlyGoogleButton
 import com.example.finanzas.ui.compose.SpendlyLogoMark
+import com.example.finanzas.ui.compose.SpendlyOutlinedButton
 import com.example.finanzas.ui.compose.SpendlyPasswordField
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.compose.SpendlyTopBar
@@ -70,6 +71,7 @@ import kotlinx.coroutines.withContext
 
 class LoginFragment : Fragment() {
     private var googleLoading: ((Boolean) -> Unit)? = null
+    private var quickAccounts by mutableStateOf<List<QuickAccount>>(emptyList())
 
     private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val setLoading = googleLoading
@@ -112,6 +114,8 @@ class LoginFragment : Fragment() {
                     onGoogleLogin = { setLoading ->
                         loginWithGoogle(setLoading)
                     },
+                    quickAccounts = quickAccounts,
+                    onQuickAccessClick = ::startQuickAccess,
                     onRegisterClick = {
                         findNavController().navigate(R.id.nav_register)
                     }
@@ -126,6 +130,15 @@ class LoginFragment : Fragment() {
         if (Prefs.isLoggedIn(requireContext())) {
             val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
             findNavController().navigate(R.id.nav_home, null, opts)
+        } else {
+            loadQuickAccounts()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (isAdded && !Prefs.isLoggedIn(requireContext())) {
+            loadQuickAccounts()
         }
     }
 
@@ -155,6 +168,11 @@ class LoginFragment : Fragment() {
             if (!isAdded) return@launch
 
             if (result != null) {
+                if (!result.emailVerified) {
+                    setLoading(false)
+                    navigateEmailVerification(result.email, result.nombre)
+                    return@launch
+                }
                 Prefs.setToken(requireContext(), result.token)
                 Prefs.setUserSession(
                     requireContext(),
@@ -196,7 +214,15 @@ class LoginFragment : Fragment() {
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
-        googleSignInLauncher.launch(GoogleSignIn.getClient(requireActivity(), options).signInIntent)
+        val googleClient = GoogleSignIn.getClient(requireActivity(), options)
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching { googleClient.signOut().await() }
+            if (!isAdded) {
+                setLoading(false)
+                return@launch
+            }
+            googleSignInLauncher.launch(googleClient.signInIntent)
+        }
     }
 
     private suspend fun completeGoogleLogin(
@@ -255,6 +281,90 @@ class LoginFragment : Fragment() {
         }
     }
 
+    private fun loadQuickAccounts() {
+        val appContext = requireContext().applicationContext
+        val canUseDeviceAuth = DeviceAuthHelper.canAuthenticate(appContext)
+        if (!canUseDeviceAuth) {
+            quickAccounts = emptyList()
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val rememberedIds = Prefs.getRememberedUserIds(appContext)
+            val accounts = LocalRepository.getInstance(appContext)
+                .listUsers()
+                .filter { rememberedIds.contains(it.id.toLong()) }
+                .map { QuickAccount(it.id.toLong(), it.nombre.orEmpty(), it.email.orEmpty()) }
+            withContext(Dispatchers.Main) {
+                if (isAdded) quickAccounts = accounts
+            }
+        }
+    }
+
+    private fun navigateEmailVerification(email: String?, name: String?) {
+        findNavController().navigate(
+            R.id.nav_email_verification,
+            Bundle().apply {
+                putString(EmailVerificationFragment.ARG_EMAIL, email.orEmpty())
+                putString(EmailVerificationFragment.ARG_NAME, name.orEmpty())
+            }
+        )
+    }
+
+    private fun startQuickAccess() {
+        val accounts = quickAccounts
+        if (accounts.isEmpty()) return
+        if (accounts.size == 1) {
+            authenticateQuickAccount(accounts.first())
+            return
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Elegir cuenta")
+            .setItems(accounts.map { it.label }.toTypedArray()) { _, which ->
+                authenticateQuickAccount(accounts[which])
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun authenticateQuickAccount(account: QuickAccount) {
+        DeviceAuthHelper.authenticate(
+            fragment = this,
+            onSuccess = { restoreQuickAccount(account) },
+            onCancel = {
+                Toast.makeText(requireContext(), R.string.device_auth_cancelled, Toast.LENGTH_SHORT).show()
+            },
+            onFailure = {
+                Toast.makeText(requireContext(), R.string.device_auth_failed, Toast.LENGTH_SHORT).show()
+            },
+            onNoDeviceLock = {
+                Toast.makeText(requireContext(), R.string.device_auth_no_lock, Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+
+    private fun restoreQuickAccount(account: QuickAccount) {
+        val ctx = requireContext().applicationContext
+        val linkedUid = Prefs.getFirebaseUidForUser(ctx, account.id)
+        val firebaseUser = FirebaseAuth.getInstance().currentUser
+        val firebaseUid = firebaseUser?.uid
+        val passwordUnverified = firebaseUser?.providerData?.any { it.providerId == "password" } == true &&
+            firebaseUser.isEmailVerified.not()
+        val token = if (!passwordUnverified && !linkedUid.isNullOrBlank() && linkedUid == firebaseUid) {
+            "firebase:$linkedUid"
+        } else {
+            "local-token"
+        }
+        Prefs.setToken(ctx, token)
+        Prefs.setUserSession(ctx, account.id, account.email, account.name)
+        RecurringTransactionStore.processDueAsync(ctx)
+        if (token.startsWith("firebase:")) {
+            CloudSyncService.scheduleSync(ctx)
+        }
+        Toast.makeText(requireContext(), "Acceso rápido activado", Toast.LENGTH_SHORT).show()
+        val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
+        findNavController().navigate(R.id.nav_home, null, opts)
+    }
+
     private fun recoverLocalPasswordWithDevice(email: String) {
         DeviceAuthHelper.authenticate(
             fragment = this@LoginFragment,
@@ -306,6 +416,8 @@ private fun LoginScreen(
     onForgotPasswordClick: (String) -> Unit,
     onLogin: (String, String, (Boolean) -> Unit) -> Unit,
     onGoogleLogin: ((Boolean) -> Unit) -> Unit,
+    quickAccounts: List<QuickAccount>,
+    onQuickAccessClick: () -> Unit,
     onRegisterClick: () -> Unit
 ) {
     var email by rememberSaveable { mutableStateOf("") }
@@ -314,15 +426,19 @@ private fun LoginScreen(
     var loading by remember { mutableStateOf(false) }
     val colors = spendlyAuthColors()
 
-    SpendlyAuthScreenContainer {
+    SpendlyAuthScreenContainer(
+        scrollEnabled = false,
+        scrollWhenImeVisible = true,
+        verticalPadding = 12.dp
+    ) {
         SpendlyTopBar(
             title = stringResource(R.string.auth_titulo_login),
             onBackClick = onBackClick
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        SpendlyLogoMark(markSize = 72.dp)
+        SpendlyLogoMark(markSize = 64.dp)
 
         Spacer(modifier = Modifier.height(2.dp))
 
@@ -337,9 +453,13 @@ private fun LoginScreen(
             modifier = Modifier.padding(top = 4.dp)
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        SpendlyAuthCard {
+        SpendlyAuthCard(
+            horizontalPadding = 18.dp,
+            verticalPadding = 18.dp,
+            cornerRadius = 24.dp
+        ) {
             SpendlyAuthField(
                 value = email,
                 onValueChange = { email = it },
@@ -349,7 +469,7 @@ private fun LoginScreen(
                 keyboardType = KeyboardType.Email
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             SpendlyPasswordField(
                 value = password,
@@ -368,12 +488,12 @@ private fun LoginScreen(
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
-                    .padding(top = 18.dp)
+                    .padding(top = 12.dp)
                     .align(Alignment.CenterHorizontally)
                     .clickable(enabled = !loading) { onForgotPasswordClick(email) }
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             SpendlyPrimaryButton(
                 text = stringResource(R.string.auth_btn_login),
@@ -390,6 +510,14 @@ private fun LoginScreen(
                 enabled = !loading,
                 onClick = { onGoogleLogin { loading = it } },
             )
+
+            if (quickAccounts.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                SpendlyOutlinedButton(
+                    text = if (quickAccounts.size == 1) "Acceso rápido: ${quickAccounts.first().displayName}" else "Acceso rápido en este dispositivo",
+                    onClick = onQuickAccessClick
+                )
+            }
 
             SpendlyDividerDot()
 
@@ -410,6 +538,18 @@ private fun LoginScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
+}
+
+private data class QuickAccount(
+    val id: Long,
+    val name: String,
+    val email: String
+) {
+    val displayName: String
+        get() = name.ifBlank { email.ifBlank { "Cuenta guardada" } }
+
+    val label: String
+        get() = if (email.isBlank()) displayName else "$displayName\n$email"
 }

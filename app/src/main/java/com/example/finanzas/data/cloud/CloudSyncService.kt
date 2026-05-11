@@ -103,8 +103,21 @@ object CloudSyncService {
             if (remote.exists() && remoteUpdatedAt > 0L && (!localHasData || (!localDirty && remoteUpdatedAt > lastRemote))) {
                 val payload = remote.getString(FIELD_PAYLOAD).orEmpty()
                 if (payload.isNotBlank()) {
-                    val showNotice = shouldShowRestoreNotice(syncPrefs, uid, remoteUpdatedAt)
-                    repo.importCurrentUserSyncSnapshot(JSONObject(decode(payload)))
+                    val remoteSnapshot = JSONObject(decode(payload))
+                    val localSnapshot = repo.exportCurrentUserSyncSnapshot()
+                    val hasLocalChanges = snapshotsDiffer(localSnapshot, remoteSnapshot)
+                    if (!hasLocalChanges) {
+                        syncPrefs.edit()
+                            .putLong(lastRemoteKey(uid), remoteUpdatedAt)
+                            .putLong(lastVersionKey(uid), LocalRepository.getDataVersion())
+                            .putBoolean(dirtyKey(uid), false)
+                            .apply()
+                        Log.d(TAG, "Sync remote unchanged uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+                        return@withContext Result(true, message = "Datos locales al dia")
+                    }
+                    val remoteDeviceId = remote.getString(FIELD_DEVICE_ID).orEmpty()
+                    val showNotice = shouldShowRestoreNotice(syncPrefs, uid, remoteUpdatedAt, lastRemote, remoteDeviceId, deviceId(appContext))
+                    repo.importCurrentUserSyncSnapshot(remoteSnapshot)
                     syncPrefs.edit()
                         .putLong(lastRemoteKey(uid), remoteUpdatedAt)
                         .putLong(restoreNoticeRemoteKey(uid), if (showNotice) remoteUpdatedAt else syncPrefs.getLong(restoreNoticeRemoteKey(uid), 0L))
@@ -254,15 +267,56 @@ object CloudSyncService {
 
     private fun restoreNoticeRemoteKey(uid: String) = KEY_RESTORE_NOTICE_REMOTE_PREFIX + uid
 
-    private fun shouldShowRestoreNotice(syncPrefs: android.content.SharedPreferences, uid: String, remoteUpdatedAt: Long): Boolean {
+    private fun shouldShowRestoreNotice(
+        syncPrefs: android.content.SharedPreferences,
+        uid: String,
+        remoteUpdatedAt: Long,
+        lastRemote: Long,
+        remoteDeviceId: String,
+        localDeviceId: String
+    ): Boolean {
         if (remoteUpdatedAt <= 0L) return false
-        return remoteUpdatedAt > syncPrefs.getLong(restoreNoticeRemoteKey(uid), 0L)
+        if (remoteUpdatedAt <= syncPrefs.getLong(restoreNoticeRemoteKey(uid), 0L)) return false
+        return lastRemote <= 0L || remoteDeviceId.isBlank() || remoteDeviceId != localDeviceId
+    }
+
+    private fun snapshotsDiffer(local: JSONObject, remote: JSONObject): Boolean {
+        local.remove("exportedAt")
+        remote.remove("exportedAt")
+        return canonical(local) != canonical(remote)
+    }
+
+    private fun canonical(value: Any?): String {
+        return when (value) {
+            null -> "null"
+            JSONObject.NULL -> "null"
+            is JSONObject -> {
+                val keys = value.keys().asSequence().toList().sorted()
+                keys.joinToString(prefix = "{", postfix = "}") { key ->
+                    "\"$key\":${canonical(value.opt(key))}"
+                }
+            }
+            is JSONArray -> {
+                (0 until value.length()).joinToString(prefix = "[", postfix = "]") { index ->
+                    canonical(value.opt(index))
+                }
+            }
+            is String -> JSONObject.quote(value)
+            is Number, is Boolean -> value.toString()
+            else -> JSONObject.quote(value.toString())
+        }
     }
 
     private fun activeFirebaseUid(context: Context): String? {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return null
+        val user = FirebaseAuth.getInstance().currentUser ?: return null
+        val uid = user.uid
+        val usesPasswordProvider = user.providerData.any { it.providerId == "password" }
+        if (usesPasswordProvider && !user.isEmailVerified) return null
         val token = Prefs.getToken(context.applicationContext) ?: return null
-        return if (token == "firebase:$uid") uid else null
+        val localUserId = Prefs.getCurrentUserId(context.applicationContext)
+        if (localUserId <= 0) return null
+        val linkedUid = Prefs.getFirebaseUidForUser(context.applicationContext, localUserId)
+        return if (token == "firebase:$uid" && linkedUid == uid) uid else null
     }
 
     private fun remoteSnapshotHasSyncableData(payload: String): Boolean {

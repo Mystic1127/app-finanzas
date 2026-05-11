@@ -27,6 +27,7 @@ object Prefs {
     private const val KEY_FIREBASE_UID_FOR_USER_PREFIX = "firebase_uid_user_"
     private const val KEY_FIREBASE_EMAIL_FOR_USER_PREFIX = "firebase_email_user_"
     private const val KEY_USER_ID_FOR_FIREBASE_UID_PREFIX = "firebase_uid_owner_"
+    private const val KEY_REMEMBERED_USER_IDS = "remembered_user_ids"
 
     private const val TOKEN_MAX_AGE_MS = 30L * 24 * 60 * 60 * 1000 // 30 días
 
@@ -72,11 +73,15 @@ object Prefs {
 
     @JvmStatic
     fun setUserSession(ctx: Context, userId: Long, email: String?, name: String?) {
-        prefs(ctx).edit()
+        val sp = prefs(ctx)
+        val editor = sp.edit()
             .putLong(KEY_USER_ID, if (userId > 0) userId else -1L)
             .putString(KEY_USER_EMAIL, email ?: "")
             .putString(KEY_USER_NAME, name ?: "")
-            .apply()
+        if (userId > 0) {
+            editor.putStringSet(KEY_REMEMBERED_USER_IDS, rememberedUserIds(sp) + userId.toString())
+        }
+        editor.apply()
     }
 
     @JvmStatic
@@ -140,6 +145,20 @@ object Prefs {
     fun getLinkedUserIdForFirebaseUid(ctx: Context, uid: String): Long {
         if (uid.isBlank()) return -1L
         return prefs(ctx).getLong(userIdForFirebaseUidKey(uid), -1L)
+    }
+
+    @JvmStatic
+    fun getRememberedUserIds(ctx: Context): Set<Long> {
+        return rememberedUserIds(prefs(ctx)).mapNotNull { it.toLongOrNull() }.filter { it > 0 }.toSet()
+    }
+
+    @JvmStatic
+    fun forgetRememberedUser(ctx: Context, userId: Long) {
+        if (userId <= 0) return
+        val sp = prefs(ctx)
+        sp.edit()
+            .putStringSet(KEY_REMEMBERED_USER_IDS, rememberedUserIds(sp) - userId.toString())
+            .apply()
     }
 
     @JvmStatic
@@ -261,6 +280,10 @@ object Prefs {
     private fun firebaseEmailForUserKey(userId: Long): String = KEY_FIREBASE_EMAIL_FOR_USER_PREFIX + userId
 
     private fun userIdForFirebaseUidKey(uid: String): String = KEY_USER_ID_FOR_FIREBASE_UID_PREFIX + uid
+
+    private fun rememberedUserIds(sp: SharedPreferences): Set<String> {
+        return sp.getStringSet(KEY_REMEMBERED_USER_IDS, emptySet()).orEmpty()
+    }
 
     private fun prefs(ctx: Context): SharedPreferences {
         cachedPrefs?.let { return it }

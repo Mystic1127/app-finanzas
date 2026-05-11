@@ -161,6 +161,11 @@ class RegisterFragment : Fragment() {
             if (!isAdded) return@launch
 
             if (result != null) {
+                if (!result.emailVerified) {
+                    setLoading(false)
+                    navigateEmailVerification(result.email, nombre)
+                    return@launch
+                }
                 Prefs.setToken(requireContext(), result.token)
                 Prefs.setUserSession(
                     requireContext(),
@@ -194,6 +199,16 @@ class RegisterFragment : Fragment() {
         }
     }
 
+    private fun navigateEmailVerification(email: String?, name: String?) {
+        findNavController().navigate(
+            R.id.nav_email_verification,
+            Bundle().apply {
+                putString(EmailVerificationFragment.ARG_EMAIL, email.orEmpty())
+                putString(EmailVerificationFragment.ARG_NAME, name.orEmpty())
+            }
+        )
+    }
+
     private fun registerWithGoogle(setLoading: (Boolean) -> Unit) {
         if (!hasInternet()) {
             Toast.makeText(requireContext(), R.string.auth_internet_required, Toast.LENGTH_SHORT).show()
@@ -206,7 +221,15 @@ class RegisterFragment : Fragment() {
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
-        googleSignInLauncher.launch(GoogleSignIn.getClient(requireActivity(), options).signInIntent)
+        val googleClient = GoogleSignIn.getClient(requireActivity(), options)
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching { googleClient.signOut().await() }
+            if (!isAdded) {
+                setLoading(false)
+                return@launch
+            }
+            googleSignInLauncher.launch(googleClient.signInIntent)
+        }
     }
 
     private suspend fun completeGoogleRegistration(
@@ -280,15 +303,19 @@ private fun RegisterScreen(
     var loading by remember { mutableStateOf(false) }
     val colors = spendlyAuthColors()
 
-    SpendlyAuthScreenContainer {
+    SpendlyAuthScreenContainer(
+        scrollEnabled = false,
+        scrollWhenImeVisible = true,
+        verticalPadding = 12.dp
+    ) {
         SpendlyTopBar(
             title = stringResource(R.string.auth_titulo_registro),
             onBackClick = onBackClick
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        SpendlyLogoMark(markSize = 72.dp)
+        SpendlyLogoMark(markSize = 60.dp)
 
         Spacer(modifier = Modifier.height(2.dp))
 
@@ -302,9 +329,13 @@ private fun RegisterScreen(
             centered = true
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        SpendlyAuthCard {
+        SpendlyAuthCard(
+            horizontalPadding = 18.dp,
+            verticalPadding = 16.dp,
+            cornerRadius = 24.dp
+        ) {
             SpendlyAuthField(
                 value = nombre,
                 onValueChange = { nombre = it },
@@ -314,7 +345,7 @@ private fun RegisterScreen(
                 keyboardType = KeyboardType.Text
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             SpendlyAuthField(
                 value = email,
@@ -325,7 +356,7 @@ private fun RegisterScreen(
                 keyboardType = KeyboardType.Email
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             SpendlyPasswordField(
                 value = password,
@@ -336,7 +367,7 @@ private fun RegisterScreen(
                 enabled = !loading
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             SpendlyPasswordField(
                 value = confirmPassword,
@@ -349,7 +380,7 @@ private fun RegisterScreen(
                 onImeAction = { onRegister(nombre, email, password, confirmPassword) { loading = it } }
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             SpendlyPrimaryButton(
                 text = stringResource(R.string.auth_btn_registrarse),
@@ -358,7 +389,7 @@ private fun RegisterScreen(
                 onClick = { onRegister(nombre, email, password, confirmPassword) { loading = it } },
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             SpendlyGoogleButton(
                 text = "Continuar con Google",
@@ -380,11 +411,11 @@ private fun RegisterScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 18.dp)
+                    .padding(top = 12.dp)
                     .clickable(enabled = !loading, onClick = onLoginClick)
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }

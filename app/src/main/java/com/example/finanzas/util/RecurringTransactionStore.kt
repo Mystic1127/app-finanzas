@@ -26,6 +26,7 @@ import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import kotlin.random.Random
 
 object RecurringTransactionStore {
     private const val PREFS = "finanzas_settings"
@@ -112,6 +113,130 @@ object RecurringTransactionStore {
         val userId = Prefs.getCurrentUserId(appContext).toInt()
         if (userId <= 0 || sourceTransactionId <= 0) return null
         return LocalDatabase.getInstance(appContext).room.recurringTransactionDao().findBySource(userId, sourceTransactionId)
+    }
+
+    @JvmStatic
+    fun listTemplates(context: Context): List<RecurringTransactionEntity> {
+        val appContext = context.applicationContext
+        val userId = Prefs.getCurrentUserId(appContext).toInt()
+        if (userId <= 0) return emptyList()
+        migrateLegacyPrefs(appContext, userId)
+        return LocalDatabase.getInstance(appContext).room.recurringTransactionDao().listAll(userId)
+    }
+
+    @JvmStatic
+    fun setTemplateActive(context: Context, templateId: Int, active: Boolean): Boolean {
+        val appContext = context.applicationContext
+        val userId = Prefs.getCurrentUserId(appContext).toInt()
+        if (userId <= 0 || templateId <= 0) return false
+        val dao = LocalDatabase.getInstance(appContext).room.recurringTransactionDao()
+        val item = dao.listAll(userId).firstOrNull { it.id == templateId } ?: return false
+        val changed = dao.setActive(templateId, userId, if (active) 1 else 0) > 0
+        if (changed) {
+            if (active) {
+                dao.listAll(userId).firstOrNull { it.id == templateId }?.let { scheduleNext(appContext, it) }
+            } else {
+                cancelAlarm(appContext, item)
+            }
+        }
+        return changed
+    }
+
+    @JvmStatic
+    fun deleteTemplate(context: Context, templateId: Int): Boolean {
+        val appContext = context.applicationContext
+        val userId = Prefs.getCurrentUserId(appContext).toInt()
+        if (userId <= 0 || templateId <= 0) return false
+        val item = LocalDatabase.getInstance(appContext).room.recurringTransactionDao()
+            .listAll(userId)
+            .firstOrNull { it.id == templateId } ?: return false
+        cancelAlarm(appContext, item)
+        return LocalDatabase.getInstance(appContext).room.recurringTransactionDao()
+            .deleteBySource(userId, item.sourceTransactionId) > 0
+    }
+
+    @JvmStatic
+    fun nextTriggerAtMillis(item: RecurringTransactionEntity): Long? = nextTriggerAt(item)
+
+    @JvmStatic
+    fun findTemplate(context: Context, templateId: Int): RecurringTransactionEntity? {
+        val appContext = context.applicationContext
+        val userId = Prefs.getCurrentUserId(appContext).toInt()
+        if (userId <= 0 || templateId <= 0) return null
+        return LocalDatabase.getInstance(appContext).room.recurringTransactionDao()
+            .listAll(userId)
+            .firstOrNull { it.id == templateId }
+    }
+
+    @JvmStatic
+    fun saveRule(
+        context: Context,
+        templateId: Int?,
+        sourceTransactionId: Int?,
+        frequency: String?,
+        daysMask: Int,
+        isActive: Boolean,
+        isTransfer: Boolean,
+        categoryId: Int,
+        isIncome: Boolean,
+        amount: Double,
+        note: String?,
+        firstDate: Long,
+        currency: String,
+        accountType: String,
+        destinationAccountType: String?
+    ): Boolean {
+        val cleanFrequency = normalizeFrequency(frequency) ?: return false
+        val cleanDaysMask = normalizeDaysMask(cleanFrequency, daysMask)
+        if (cleanFrequency == FREQUENCY_CUSTOM && cleanDaysMask == 0) return false
+        val appContext = context.applicationContext
+        val userId = Prefs.getCurrentUserId(appContext).toInt()
+        if (userId <= 0 || amount <= 0.0) return false
+        val dao = LocalDatabase.getInstance(appContext).room.recurringTransactionDao()
+        val existing = templateId?.takeIf { it > 0 }?.let { id ->
+            dao.listAll(userId).firstOrNull { it.id == id }
+        }
+        val sourceId = existing?.sourceTransactionId
+            ?: sourceTransactionId?.takeIf { it != 0 }
+            ?: generateStandaloneSourceId(dao.listAll(userId))
+        val entity = RecurringTransactionEntity(
+            id = existing?.id ?: 0,
+            userId = userId,
+            sourceTransactionId = sourceId,
+            frequency = cleanFrequency,
+            daysMask = cleanDaysMask,
+            isActive = if (isActive) 1 else 0,
+            isTransfer = if (isTransfer) 1 else 0,
+            categoryId = if (isTransfer) 0 else categoryId,
+            isIncome = if (isIncome) 1 else 0,
+            amount = amount,
+            currency = CurrencyConverter.normalize(currency),
+            accountType = SettingsService.normalizeAccountType(accountType),
+            destinationAccountType = if (isTransfer) {
+                SettingsService.normalizeAccountType(destinationAccountType ?: "CASH")
+            } else {
+                null
+            },
+            note = note.orEmpty(),
+            labelId = existing?.labelId,
+            firstDate = firstDate,
+            lastGeneratedDay = existing?.lastGeneratedDay
+        )
+        val id = dao.upsert(entity)
+        val saved = if (id > 0) dao.listAll(userId).firstOrNull { it.id == id.toInt() } else dao.findBySource(userId, sourceId)
+        if (saved != null) {
+            if (saved.isActive == 1) scheduleNext(appContext, saved) else cancelAlarm(appContext, saved)
+        }
+        return true
+    }
+
+    private fun generateStandaloneSourceId(existing: List<RecurringTransactionEntity>): Int {
+        val used = existing.map { it.sourceTransactionId }.toSet()
+        repeat(12) {
+            val candidate = -Random.nextInt(1_000_000, Int.MAX_VALUE)
+            if (candidate !in used) return candidate
+        }
+        return (existing.minOfOrNull { it.sourceTransactionId } ?: 0).coerceAtMost(0) - 1
     }
 
     @JvmStatic

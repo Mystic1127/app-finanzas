@@ -2,6 +2,7 @@ package com.example.finanzas.util
 
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.example.finanzas.R
@@ -10,6 +11,10 @@ object DeviceAuthHelper {
     private const val AUTHENTICATORS =
         BiometricManager.Authenticators.BIOMETRIC_STRONG or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+    fun canAuthenticate(context: Context): Boolean {
+        return BiometricManager.from(context).canAuthenticate(AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS
+    }
 
     fun authenticate(
         fragment: Fragment,

@@ -196,7 +196,9 @@ class PerfilFragment : Fragment() {
                         googleLinkEmail = googleLinkEmail,
                         googleLinking = googleLinking,
                         googleLinkMessage = googleLinkMessage,
-                        onLinkGoogle = { startGoogleLink() },
+                        onLinkGoogle = {
+                            if (googleLinked) syncLinkedGoogleNow() else startGoogleLink()
+                        },
                         onSwitchAccount = { switchAccount(it) },
                         onBack = { findNavController().popBackStack() },
                         onChangePassword = {
@@ -261,12 +263,14 @@ class PerfilFragment : Fragment() {
     private fun loadAccounts() {
         val appContext = requireContext().applicationContext
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val remembered = Prefs.getRememberedUserIds(appContext)
             val users = LocalRepository.getInstance(appContext).listUsers()
-            val mapped = users.map {
+            val mapped = users.filter { remembered.contains(it.id.toLong()) }.map {
+                val firebaseEmail = Prefs.getFirebaseEmailForUser(appContext, it.id.toLong())
                 AccountUi(
                     id = it.id.toLong(),
                     name = it.nombre ?: "",
-                    email = it.email ?: ""
+                    email = firebaseEmail.ifBlank { it.email ?: "" }
                 )
             }
             withContext(Dispatchers.Main) {
@@ -316,6 +320,35 @@ class PerfilFragment : Fragment() {
                     googleLinkMessage = getString(R.string.perfil_google_link_error)
                     if (isAdded) Toast.makeText(requireContext(), R.string.perfil_google_link_error, Toast.LENGTH_SHORT).show()
                 }
+        }
+    }
+
+    private fun syncLinkedGoogleNow() {
+        if (googleLinking) return
+        val appContext = requireContext().applicationContext
+        val userId = Prefs.getCurrentUserId(appContext)
+        val linkedUid = Prefs.getFirebaseUidForUser(appContext, userId)
+        val currentFirebaseUid = FirebaseAuth.getInstance().currentUser?.uid
+        if (linkedUid.isNullOrBlank() || linkedUid != currentFirebaseUid) {
+            googleLinkMessage = getString(R.string.perfil_google_sync_login_required)
+            Toast.makeText(requireContext(), R.string.perfil_google_sync_login_required, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        googleLinking = true
+        googleLinkMessage = null
+        Prefs.setToken(appContext, "firebase:$linkedUid")
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = runCatching { CloudSyncService.uploadNow(appContext) }
+                .getOrElse { CloudSyncService.Result(false, message = it.message.orEmpty()) }
+            if (!isAdded) return@launch
+            googleLinking = false
+            googleLinkMessage = if (result.ok) {
+                getString(R.string.perfil_google_sync_success)
+            } else {
+                result.message.ifBlank { getString(R.string.perfil_google_link_error) }
+            }
+            Toast.makeText(requireContext(), googleLinkMessage, if (result.ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
         }
     }
 
@@ -778,6 +811,7 @@ private fun ProfileScreen(
                 ) {
                     Text(
                         when {
+                            googleLinking && googleLinked -> stringResource(R.string.perfil_google_syncing)
                             googleLinking -> stringResource(R.string.perfil_google_linking)
                             googleLinked -> stringResource(R.string.perfil_google_link_retry)
                             else -> stringResource(R.string.perfil_google_link_button)
