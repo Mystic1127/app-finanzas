@@ -24,6 +24,9 @@ object Prefs {
     private const val KEY_TRANS_YEAR_PREFIX = "trans_period_year_"
     private const val KEY_TRANS_MONTH_PREFIX = "trans_period_month_"
     private const val KEY_TESTER_THANKS_PREFIX = "tester_thanks_seen_"
+    private const val KEY_FIREBASE_UID_FOR_USER_PREFIX = "firebase_uid_user_"
+    private const val KEY_FIREBASE_EMAIL_FOR_USER_PREFIX = "firebase_email_user_"
+    private const val KEY_USER_ID_FOR_FIREBASE_UID_PREFIX = "firebase_uid_owner_"
 
     private const val TOKEN_MAX_AGE_MS = 30L * 24 * 60 * 60 * 1000 // 30 días
 
@@ -55,6 +58,9 @@ object Prefs {
         val token = sp.getString(KEY_TOKEN, null) ?: return null
         val issuedAt = sp.getLong(KEY_TOKEN_ISSUED_AT, 0L)
         if (issuedAt <= 0L) {
+            return token
+        }
+        if (token.startsWith("firebase:")) {
             return token
         }
         if ((System.currentTimeMillis() - issuedAt) > TOKEN_MAX_AGE_MS) {
@@ -100,6 +106,40 @@ object Prefs {
             .remove(KEY_USER_EMAIL)
             .remove(KEY_USER_NAME)
             .apply()
+    }
+
+    @JvmStatic
+    fun setFirebaseLink(ctx: Context, userId: Long, uid: String, email: String?) {
+        if (userId <= 0 || uid.isBlank()) return
+        prefs(ctx).edit()
+            .putString(firebaseUidForUserKey(userId), uid)
+            .putString(firebaseEmailForUserKey(userId), email ?: "")
+            .putLong(userIdForFirebaseUidKey(uid), userId)
+            .apply()
+    }
+
+    @JvmStatic
+    fun getFirebaseUidForCurrentUser(ctx: Context): String? {
+        val userId = getCurrentUserId(ctx)
+        return if (userId > 0) getFirebaseUidForUser(ctx, userId) else null
+    }
+
+    @JvmStatic
+    fun getFirebaseUidForUser(ctx: Context, userId: Long): String? {
+        if (userId <= 0) return null
+        return prefs(ctx).getString(firebaseUidForUserKey(userId), null)?.takeIf { it.isNotBlank() }
+    }
+
+    @JvmStatic
+    fun getFirebaseEmailForUser(ctx: Context, userId: Long): String {
+        if (userId <= 0) return ""
+        return prefs(ctx).getString(firebaseEmailForUserKey(userId), "") ?: ""
+    }
+
+    @JvmStatic
+    fun getLinkedUserIdForFirebaseUid(ctx: Context, uid: String): Long {
+        if (uid.isBlank()) return -1L
+        return prefs(ctx).getLong(userIdForFirebaseUidKey(uid), -1L)
     }
 
     @JvmStatic
@@ -215,6 +255,12 @@ object Prefs {
     private fun pinHashKey(userId: Long): String = KEY_PIN_HASH_PREFIX + userId
 
     private fun pinEnabledKey(userId: Long): String = KEY_PIN_ENABLED_PREFIX + userId
+
+    private fun firebaseUidForUserKey(userId: Long): String = KEY_FIREBASE_UID_FOR_USER_PREFIX + userId
+
+    private fun firebaseEmailForUserKey(userId: Long): String = KEY_FIREBASE_EMAIL_FOR_USER_PREFIX + userId
+
+    private fun userIdForFirebaseUidKey(uid: String): String = KEY_USER_ID_FOR_FIREBASE_UID_PREFIX + uid
 
     private fun prefs(ctx: Context): SharedPreferences {
         cachedPrefs?.let { return it }

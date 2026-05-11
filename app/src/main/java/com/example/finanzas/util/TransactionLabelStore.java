@@ -8,6 +8,8 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.example.finanzas.data.cloud.CloudSyncService;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -153,6 +155,34 @@ public final class TransactionLabelStore {
     }
 
     @NonNull
+    public static JSONObject exportSyncData(@NonNull Context context) {
+        JSONObject body = new JSONObject();
+        try {
+            body.put("labels", new JSONArray(prefs(context).getString(labelsKey(context), "[]")));
+            body.put("assignments", new JSONObject(prefs(context).getString(assignmentsKey(context), "{}")));
+        } catch (Exception ignored) { }
+        return body;
+    }
+
+    public static void importSyncData(@NonNull Context context, @Nullable JSONObject body) {
+        if (body == null) return;
+        try {
+            prefs(context).edit()
+                    .putString(labelsKey(context), body.optJSONArray("labels") == null ? "[]" : body.optJSONArray("labels").toString())
+                    .putString(assignmentsKey(context), body.optJSONObject("assignments") == null ? "{}" : body.optJSONObject("assignments").toString())
+                    .apply();
+        } catch (Exception ignored) { }
+    }
+
+    public static void clearForCurrentUser(@NonNull Context context) {
+        prefs(context).edit()
+                .remove(labelsKey(context))
+                .remove(assignmentsKey(context))
+                .apply();
+        CloudSyncService.scheduleUpload(context);
+    }
+
+    @NonNull
     public static Map<Integer, String> listAssignments(@NonNull Context context) {
         Map<Integer, String> out = new LinkedHashMap<>();
         try {
@@ -209,6 +239,7 @@ public final class TransactionLabelStore {
             } catch (Exception ignored) { }
         }
         prefs(context).edit().putString(labelsKey(context), array.toString()).apply();
+        CloudSyncService.scheduleUpload(context);
     }
 
     private static void saveAssignments(Context context, Map<Integer, String> assignments) {
@@ -219,6 +250,7 @@ public final class TransactionLabelStore {
             } catch (Exception ignored) { }
         }
         prefs(context).edit().putString(assignmentsKey(context), object.toString()).apply();
+        CloudSyncService.scheduleUpload(context);
     }
 
     private static SharedPreferences prefs(Context context) {

@@ -5,10 +5,13 @@ import android.content.SharedPreferences;
 
 import androidx.appcompat.app.AppCompatDelegate;
 
+import com.example.finanzas.data.cloud.CloudSyncService;
 import com.example.finanzas.data.local.LocalRepository;
 import com.example.finanzas.data.model.FinancialAccount;
+import com.example.finanzas.util.CategoryPrefs;
 import com.example.finanzas.util.CurrencyConverter;
 import com.example.finanzas.util.Prefs;
+import com.example.finanzas.util.TransactionLabelStore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -133,6 +136,7 @@ public class SettingsService {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().putString(initialBalancesKey(currentUserId(ctx)), body.toString()).apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
         } catch (Exception ignored) {
         }
     }
@@ -142,6 +146,7 @@ public class SettingsService {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().remove(initialBalancesKey(currentUserId(ctx))).apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
         } catch (Exception ignored) {
         }
     }
@@ -303,6 +308,7 @@ public class SettingsService {
             }
             sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
         } catch (Exception ignored) {
         }
     }
@@ -331,6 +337,7 @@ public class SettingsService {
             sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
             if (removedVisible) setVisibleCardAccount(ctx, "CARD");
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
         } catch (Exception ignored) {
         }
     }
@@ -363,6 +370,7 @@ public class SettingsService {
             body.put("accounts", accounts);
             sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
             return new FinancialAccount(id, name, now, cleanLast4(rawLast4), true, false, true);
         } catch (Exception e) {
             throw new IllegalStateException("No se pudo guardar la cuenta", e);
@@ -388,6 +396,7 @@ public class SettingsService {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().remove(financialAccountsKey(currentUserId(ctx))).apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
         } catch (Exception ignored) {
         }
     }
@@ -423,6 +432,7 @@ public class SettingsService {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().putString(initialBalancesKey(currentUserId(ctx)), body.toString()).apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
             cb.onSuccess();
         } catch (Exception e) {
             cb.onFail();
@@ -433,6 +443,7 @@ public class SettingsService {
         try {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().putString(dashboardKey(currentUserId(ctx)), body != null ? body.toString() : "{}").apply();
+            CloudSyncService.scheduleUpload(ctx);
             cb.onSuccess();
         } catch (Exception e) {
             cb.onFail();
@@ -444,6 +455,7 @@ public class SettingsService {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().putString(travelKey(currentUserId(ctx)), body != null ? body.toString() : "{}").apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
             cb.onSuccess();
         } catch (Exception e) {
             cb.onFail();
@@ -480,6 +492,8 @@ public class SettingsService {
             body.put("financialAccounts", sp.getString(financialAccountsKey(userId), "{}"));
             body.put("lastTransactionAccount", sp.getString(lastTransactionAccountKey(userId), "CARD"));
             body.put("lastTransactionDestination", sp.getString(lastTransactionDestinationKey(userId), "CASH"));
+            body.put("categoryMeta", CategoryPrefs.exportSyncMeta(ctx));
+            body.put("transactionLabels", TransactionLabelStore.exportSyncData(ctx));
             body.put("themeMode", getThemeMode(ctx));
         } catch (Exception ignored) {
         }
@@ -499,6 +513,8 @@ public class SettingsService {
             editor.putString(lastTransactionDestinationKey(userId), normalizeAccountType(body.optString("lastTransactionDestination", "CASH")));
             editor.putString(themeModeKey(userId), normalizeThemeMode(body.optString("themeMode", THEME_SYSTEM)));
             editor.apply();
+            CategoryPrefs.importSyncMeta(ctx, body.optJSONObject("categoryMeta"));
+            TransactionLabelStore.importSyncData(ctx, body.optJSONObject("transactionLabels"));
             applyThemeMode(ctx);
         } catch (Exception ignored) {
         }
@@ -568,6 +584,7 @@ public class SettingsService {
             }
             sp.edit().putString(financialAccountsKey(currentUserId(ctx)), body.toString()).apply();
             LocalRepository.invalidateDataVersion();
+            CloudSyncService.scheduleUpload(ctx);
         } catch (Exception ignored) {
         }
     }
@@ -575,15 +592,20 @@ public class SettingsService {
     private static void ensureSingleVisibleCard(Context ctx, List<FinancialAccount> cards) {
         if (cards == null || cards.isEmpty()) return;
         int visible = 0;
-        FinancialAccount firstVisible = null;
+        FinancialAccount selected = null;
         for (FinancialAccount account : cards) {
             if (account.isVisibleInHome()) {
                 visible++;
-                if (firstVisible == null) firstVisible = account;
+                if (selected == null) selected = account;
             }
         }
         if (visible == 1) return;
-        setVisibleCardAccount(ctx, firstVisible != null ? firstVisible.getId() : cards.get(0).getId());
+        if (selected == null) selected = cards.get(0);
+        for (FinancialAccount account : cards) {
+            boolean isSelected = normalizeAccountType(account.getId()).equals(normalizeAccountType(selected.getId()));
+            account.setVisibleInHome(isSelected);
+            if (isSelected) account.setIncludedInTotal(true);
+        }
     }
 
     private static String cleanLast4(String raw) {
@@ -633,6 +655,7 @@ public class SettingsService {
             editor.putString(KEY_THEME_MODE, normalizeThemeMode(mode));
         }
         editor.apply();
+        CloudSyncService.scheduleUpload(ctx);
     }
 
     public static void applyThemeMode(Context ctx) {

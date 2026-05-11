@@ -30,8 +30,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
+import com.example.finanzas.data.api.AuthService
 import com.example.finanzas.ui.compose.SpendlyAuthCard
 import com.example.finanzas.ui.compose.SpendlyAuthHeader
 import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
@@ -43,6 +45,7 @@ import com.example.finanzas.ui.compose.spendlyBringFocusedFieldIntoView
 import com.example.finanzas.util.DeviceAuthHelper
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.PinSession
+import kotlinx.coroutines.launch
 
 class PinLockFragment : Fragment() {
 
@@ -56,7 +59,8 @@ class PinLockFragment : Fragment() {
             SpendlyComposeTheme {
                 PinLockScreen(
                     onUnlock = ::unlockWithPin,
-                    onForgotPin = ::confirmClearPin
+                    onForgotPin = ::confirmClearPin,
+                    onRecoverPinByEmail = ::recoverPinByEmail
                 )
             }
         }
@@ -112,12 +116,34 @@ class PinLockFragment : Fragment() {
             }
         )
     }
+
+    private fun recoverPinByEmail() {
+        val ctx = requireContext().applicationContext
+        val linkedUid = Prefs.getFirebaseUidForCurrentUser(ctx)
+        val email = Prefs.getFirebaseEmailForUser(ctx, Prefs.getCurrentUserId(ctx))
+            .ifBlank { Prefs.getCurrentUserEmail(ctx) }
+        if (linkedUid.isNullOrBlank() || email.isBlank()) {
+            Toast.makeText(requireContext(), R.string.pin_lock_email_recovery_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = AuthService.sendPasswordResetEmail(email)
+            if (!isAdded) return@launch
+            val message = if (result.ok) {
+                getString(R.string.pin_lock_email_recovery_sent)
+            } else {
+                result.message
+            }
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        }
+    }
 }
 
 @Composable
 private fun PinLockScreen(
     onUnlock: (String) -> String?,
-    onForgotPin: () -> Unit
+    onForgotPin: () -> Unit,
+    onRecoverPinByEmail: () -> Unit
 ) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -177,6 +203,12 @@ private fun PinLockScreen(
                 text = stringResource(R.string.pin_lock_forgot),
                 enabled = true,
                 onClick = onForgotPin
+            )
+
+            SpendlySecondaryTextButton(
+                text = stringResource(R.string.pin_lock_recover_email),
+                enabled = true,
+                onClick = onRecoverPinByEmail
             )
         }
     }

@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ object BudgetService {
 
     suspend fun set(ctx: Context, anio: Int, mes: Int, monto: Double, moneda: String) = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).setPresupuesto(anio, mes, monto, moneda)
+        CloudSyncService.scheduleUpload(ctx)
     }
 
     @JvmStatic

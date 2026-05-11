@@ -1,6 +1,8 @@
 package com.example.finanzas.ui
 
 import android.os.Bundle
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -46,6 +48,7 @@ import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
 import com.example.finanzas.ui.compose.SpendlyBrandTitle
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyDividerDot
+import com.example.finanzas.ui.compose.SpendlyGoogleButton
 import com.example.finanzas.ui.compose.SpendlyLogoMark
 import com.example.finanzas.ui.compose.SpendlyPasswordField
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
@@ -54,9 +57,11 @@ import com.example.finanzas.ui.compose.spendlyAuthColors
 import com.example.finanzas.util.DeviceAuthHelper
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.RecurringTransactionStore
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,9 +81,16 @@ class LoginFragment : Fragment() {
                     ?: error("Firebase no devolvió usuario")
             }.onSuccess { user ->
                 completeGoogleLogin(user, setLoading)
-            }.onFailure {
+            }.onFailure { error ->
                 setLoading?.invoke(false)
-                if (isAdded) Toast.makeText(requireContext(), "No se pudo iniciar sesión con Google", Toast.LENGTH_SHORT).show()
+                if (isAdded) {
+                    val message = if (error is FirebaseAuthUserCollisionException) {
+                        "Este correo ya esta registrado. Inicia sesion con correo y contrasena."
+                    } else {
+                        "No se pudo iniciar sesion con Google"
+                    }
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -125,6 +137,11 @@ class LoginFragment : Fragment() {
         val email = emailRaw.trim()
         val pass = passRaw.trim()
 
+        if (!hasInternet()) {
+            Toast.makeText(requireContext(), R.string.auth_internet_required, Toast.LENGTH_SHORT).show()
+            setLoading(false)
+            return
+        }
         if (email.isEmpty() || pass.isEmpty()) {
             Toast.makeText(requireContext(), "Completa email y contraseña", Toast.LENGTH_SHORT).show()
             setLoading(false)
@@ -146,6 +163,12 @@ class LoginFragment : Fragment() {
                     result.nombre
                 )
                 RecurringTransactionStore.processDueAsync(requireContext())
+                if (result.token.startsWith("firebase:")) {
+                    CloudSyncService.scheduleSync(requireContext())
+                }
+                if (!result.emailVerified) {
+                    Toast.makeText(requireContext(), R.string.auth_email_verification_pending, Toast.LENGTH_LONG).show()
+                }
 
                 Toast.makeText(requireContext(), "¡Bienvenido, ${result.nombre}!", Toast.LENGTH_SHORT).show()
                 val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
@@ -162,6 +185,11 @@ class LoginFragment : Fragment() {
     }
 
     private fun loginWithGoogle(setLoading: (Boolean) -> Unit) {
+        if (!hasInternet()) {
+            Toast.makeText(requireContext(), R.string.auth_internet_required, Toast.LENGTH_SHORT).show()
+            setLoading(false)
+            return
+        }
         setLoading(true)
         googleLoading = setLoading
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -198,7 +226,7 @@ class LoginFragment : Fragment() {
     private fun recoverPassword(emailRaw: String) {
         val email = emailRaw.trim()
         if (email.isEmpty()) {
-            Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), R.string.auth_recovery_email_required, Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -209,33 +237,66 @@ class LoginFragment : Fragment() {
             }
             if (!isAdded) return@launch
             if (user == null) {
-                Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+                sendPasswordResetEmail(email)
                 return@launch
             }
 
-            DeviceAuthHelper.authenticate(
-                fragment = this@LoginFragment,
-                onSuccess = {
-                    Toast.makeText(requireContext(), R.string.device_auth_verified, Toast.LENGTH_SHORT).show()
-                    findNavController().navigate(
-                        R.id.nav_change_password,
-                        Bundle().apply {
-                            putBoolean(ChangePasswordFragment.ARG_RECOVERY_MODE, true)
-                            putString(ChangePasswordFragment.ARG_RECOVERY_EMAIL, email)
-                        }
-                    )
-                },
-                onCancel = {
-                    Toast.makeText(requireContext(), R.string.device_auth_cancelled, Toast.LENGTH_SHORT).show()
-                },
-                onFailure = {
-                    Toast.makeText(requireContext(), R.string.device_auth_failed, Toast.LENGTH_SHORT).show()
-                },
-                onNoDeviceLock = {
-                    Toast.makeText(requireContext(), R.string.device_auth_no_lock, Toast.LENGTH_LONG).show()
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.auth_recovery_options_title)
+                .setMessage(R.string.auth_recovery_options_message)
+                .setPositiveButton(R.string.auth_recovery_device_action) { _, _ ->
+                    recoverLocalPasswordWithDevice(email)
                 }
-            )
+                .setNegativeButton(R.string.auth_recovery_email_action) { _, _ ->
+                    sendPasswordResetEmail(email)
+                }
+                .setNeutralButton(android.R.string.cancel, null)
+                .show()
         }
+    }
+
+    private fun recoverLocalPasswordWithDevice(email: String) {
+        DeviceAuthHelper.authenticate(
+            fragment = this@LoginFragment,
+            onSuccess = {
+                Toast.makeText(requireContext(), R.string.device_auth_verified, Toast.LENGTH_SHORT).show()
+                findNavController().navigate(
+                    R.id.nav_change_password,
+                    Bundle().apply {
+                        putBoolean(ChangePasswordFragment.ARG_RECOVERY_MODE, true)
+                        putString(ChangePasswordFragment.ARG_RECOVERY_EMAIL, email)
+                    }
+                )
+            },
+            onCancel = {
+                Toast.makeText(requireContext(), R.string.device_auth_cancelled, Toast.LENGTH_SHORT).show()
+            },
+            onFailure = {
+                Toast.makeText(requireContext(), R.string.device_auth_failed, Toast.LENGTH_SHORT).show()
+            },
+            onNoDeviceLock = {
+                Toast.makeText(requireContext(), R.string.device_auth_no_lock, Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+
+    private fun sendPasswordResetEmail(email: String) {
+        if (!hasInternet()) {
+            Toast.makeText(requireContext(), R.string.auth_internet_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = AuthService.sendPasswordResetEmail(email)
+            if (!isAdded) return@launch
+            Toast.makeText(requireContext(), result.message, if (result.ok) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun hasInternet(): Boolean {
+        val manager = requireContext().getSystemService(ConnectivityManager::class.java) ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 }
 
@@ -323,7 +384,7 @@ private fun LoginScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            SpendlyPrimaryButton(
+            SpendlyGoogleButton(
                 text = "Continuar con Google",
                 loading = false,
                 enabled = !loading,

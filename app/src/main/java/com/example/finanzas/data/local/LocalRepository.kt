@@ -9,6 +9,7 @@ import com.example.finanzas.util.CurrencyConverter
 import com.example.finanzas.util.PasswordSecurity
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.ReminderScheduler
+import com.example.finanzas.util.TransactionLabelStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -1215,6 +1216,7 @@ class LocalRepository private constructor(
         }
         SettingsService.clearInitialBalances(appContext)
         SettingsService.clearFinancialAccounts(appContext)
+        TransactionLabelStore.clearForCurrentUser(appContext)
         Prefs.clearLastTransactionsPeriod(appContext)
         bumpDataVersion()
         true

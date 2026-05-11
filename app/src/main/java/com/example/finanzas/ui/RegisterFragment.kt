@@ -1,6 +1,8 @@
 package com.example.finanzas.ui
 
 import android.os.Bundle
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.View
@@ -37,6 +39,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
+import com.example.finanzas.data.api.AuthFailure
 import com.example.finanzas.data.api.AuthService
 import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.api.SettingsService
@@ -46,6 +49,7 @@ import com.example.finanzas.ui.compose.SpendlyAuthField
 import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
 import com.example.finanzas.ui.compose.SpendlyBrandTitle
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
+import com.example.finanzas.ui.compose.SpendlyGoogleButton
 import com.example.finanzas.ui.compose.SpendlyLogoMark
 import com.example.finanzas.ui.compose.SpendlyPasswordField
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
@@ -53,9 +57,11 @@ import com.example.finanzas.ui.compose.SpendlyTopBar
 import com.example.finanzas.ui.compose.spendlyAuthColors
 import com.example.finanzas.util.Prefs
 import com.example.finanzas.util.RecurringTransactionStore
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -73,9 +79,16 @@ class RegisterFragment : Fragment() {
                     ?: error("Firebase no devolvió usuario")
             }.onSuccess { user ->
                 completeGoogleRegistration(user, setLoading)
-            }.onFailure {
+            }.onFailure { error ->
                 setLoading?.invoke(false)
-                if (isAdded) Toast.makeText(requireContext(), "No se pudo continuar con Google", Toast.LENGTH_SHORT).show()
+                if (isAdded) {
+                    val message = if (error is FirebaseAuthUserCollisionException) {
+                        "Este correo ya esta registrado. Inicia sesion con correo y contrasena."
+                    } else {
+                        "No se pudo continuar con Google"
+                    }
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -117,6 +130,11 @@ class RegisterFragment : Fragment() {
         val pass = passRaw.trim()
         val conf = confRaw.trim()
 
+        if (!hasInternet()) {
+            Toast.makeText(requireContext(), R.string.auth_internet_required, Toast.LENGTH_SHORT).show()
+            setLoading(false)
+            return
+        }
         if (TextUtils.isEmpty(nombre) || TextUtils.isEmpty(email) ||
             TextUtils.isEmpty(pass) || TextUtils.isEmpty(conf)
         ) {
@@ -133,7 +151,13 @@ class RegisterFragment : Fragment() {
         setLoading(true)
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val result = AuthService.register(requireContext(), nombre, email, pass)
+            val result = try {
+                AuthService.register(requireContext(), nombre, email, pass)
+            } catch (failure: AuthFailure) {
+                if (isAdded) Toast.makeText(requireContext(), failure.message, Toast.LENGTH_LONG).show()
+                setLoading(false)
+                return@launch
+            }
             if (!isAdded) return@launch
 
             if (result != null) {
@@ -146,6 +170,15 @@ class RegisterFragment : Fragment() {
                 )
                 SettingsService.prepareCurrencySetupForNewUser(requireContext())
                 RecurringTransactionStore.processDueAsync(requireContext())
+                if (result.token.startsWith("firebase:")) {
+                    CloudSyncService.scheduleSync(requireContext())
+                }
+                if (result.emailVerificationSent) {
+                    showEmailVerificationDialog()
+                    return@launch
+                } else {
+                    Toast.makeText(requireContext(), R.string.auth_email_verification_pending, Toast.LENGTH_LONG).show()
+                }
 
                 Toast.makeText(requireContext(), "Cuenta creada. ¡Bienvenido!", Toast.LENGTH_SHORT).show()
                 val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
@@ -162,6 +195,11 @@ class RegisterFragment : Fragment() {
     }
 
     private fun registerWithGoogle(setLoading: (Boolean) -> Unit) {
+        if (!hasInternet()) {
+            Toast.makeText(requireContext(), R.string.auth_internet_required, Toast.LENGTH_SHORT).show()
+            setLoading(false)
+            return
+        }
         setLoading(true)
         googleLoading = setLoading
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -184,12 +222,45 @@ class RegisterFragment : Fragment() {
         }
         Prefs.setToken(requireContext(), result.token)
         Prefs.setUserSession(requireContext(), result.userId.toLong(), result.email, result.nombre)
-        SettingsService.prepareCurrencySetupForNewUser(requireContext())
+        if (result.isNewUser) {
+            SettingsService.prepareCurrencySetupForNewUser(requireContext())
+        }
         RecurringTransactionStore.processDueAsync(requireContext())
         CloudSyncService.scheduleSync(requireContext())
         Toast.makeText(requireContext(), "Cuenta de Google conectada", Toast.LENGTH_SHORT).show()
         val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
         findNavController().navigate(R.id.nav_home, null, opts)
+    }
+
+    private fun showEmailVerificationDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.auth_email_verification_title)
+            .setMessage(R.string.auth_email_verification_message)
+            .setPositiveButton(android.R.string.ok) { _, _ -> navigateHomeAfterRegister() }
+            .setNegativeButton(R.string.auth_email_verification_resend) { _, _ ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val result = AuthService.resendEmailVerification()
+                    if (!isAdded) return@launch
+                    Toast.makeText(requireContext(), result.message, Toast.LENGTH_LONG).show()
+                    navigateHomeAfterRegister()
+                }
+            }
+            .setOnCancelListener { navigateHomeAfterRegister() }
+            .show()
+    }
+
+    private fun navigateHomeAfterRegister() {
+        if (!isAdded) return
+        Toast.makeText(requireContext(), "Cuenta creada.", Toast.LENGTH_SHORT).show()
+        val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
+        findNavController().navigate(R.id.nav_home, null, opts)
+    }
+
+    private fun hasInternet(): Boolean {
+        val manager = requireContext().getSystemService(ConnectivityManager::class.java) ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 }
 
@@ -289,7 +360,7 @@ private fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            SpendlyPrimaryButton(
+            SpendlyGoogleButton(
                 text = "Continuar con Google",
                 loading = false,
                 enabled = !loading,

@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -35,9 +37,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
+import com.example.finanzas.data.api.AuthService
+import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.ui.compose.HighlightedSentence
 import com.example.finanzas.ui.compose.SpendlyAuthBackground
 import com.example.finanzas.ui.compose.SpendlyBrandTitle
@@ -48,6 +53,9 @@ import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.compose.SpendlySimpleDot
 import com.example.finanzas.ui.compose.spendlyAuthColors
 import com.example.finanzas.util.Prefs
+import com.example.finanzas.util.RecurringTransactionStore
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 
 class WelcomeFragment : Fragment() {
     override fun onCreateView(
@@ -59,8 +67,8 @@ class WelcomeFragment : Fragment() {
         setContent {
             SpendlyComposeTheme {
                 WelcomeScreen(
-                    onLoginClick = { findNavController().navigate(R.id.nav_login) },
-                    onRegisterClick = { findNavController().navigate(R.id.nav_register) }
+                    onAuthClick = { findNavController().navigate(R.id.nav_login) },
+                    onContinueLocalClick = { showLocalNameDialog() }
                 )
             }
         }
@@ -74,12 +82,52 @@ class WelcomeFragment : Fragment() {
             findNavController().navigate(R.id.nav_home, null, opts)
         }
     }
+
+    private fun showLocalNameDialog() {
+        val input = EditText(requireContext()).apply {
+            hint = getString(R.string.welcome_local_name_hint)
+            setSingleLine(true)
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.welcome_continue_local)
+            .setMessage(R.string.welcome_local_notice)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.welcome_continue_local) { _, _ ->
+                continueWithoutAccount(input.text?.toString().orEmpty())
+            }
+            .show()
+    }
+
+    private fun continueWithoutAccount(name: String) {
+        if (name.trim().isBlank()) {
+            Toast.makeText(requireContext(), R.string.welcome_local_name_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = AuthService.continueWithoutAccount(requireContext(), name)
+            if (!isAdded) return@launch
+            if (result == null) {
+                Toast.makeText(requireContext(), R.string.welcome_local_error, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            Prefs.setToken(requireContext(), result.token)
+            Prefs.setUserSession(requireContext(), result.userId.toLong(), "", result.nombre)
+            if (result.isNewUser) {
+                SettingsService.prepareCurrencySetupForNewUser(requireContext())
+            }
+            RecurringTransactionStore.processDueAsync(requireContext())
+            Toast.makeText(requireContext(), R.string.welcome_local_ready, Toast.LENGTH_SHORT).show()
+            val opts = NavOptions.Builder().setPopUpTo(R.id.nav_graph, true).build()
+            findNavController().navigate(R.id.nav_home, null, opts)
+        }
+    }
 }
 
 @Composable
 private fun WelcomeScreen(
-    onLoginClick: () -> Unit,
-    onRegisterClick: () -> Unit
+    onAuthClick: () -> Unit,
+    onContinueLocalClick: () -> Unit
 ) {
     val colors = spendlyAuthColors()
     SpendlyAuthBackground {
@@ -139,15 +187,24 @@ private fun WelcomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             SpendlyPrimaryButton(
-                text = stringResource(R.string.welcome_login),
-                onClick = onLoginClick
+                text = stringResource(R.string.welcome_auth),
+                onClick = onAuthClick
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             SpendlyOutlinedButton(
-                text = stringResource(R.string.welcome_register),
-                onClick = onRegisterClick
+                text = stringResource(R.string.welcome_continue_local),
+                onClick = onContinueLocalClick
+            )
+
+            Text(
+                text = stringResource(R.string.welcome_local_short_notice),
+                color = colors.muted,
+                fontSize = 13.sp,
+                lineHeight = 17.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 12.dp)
             )
 
             SpendlySimpleDot(modifier = Modifier.padding(top = 22.dp), size = 8.dp)

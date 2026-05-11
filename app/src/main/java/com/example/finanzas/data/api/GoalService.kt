@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.SavingsGoal
 import kotlinx.coroutines.CoroutineScope
@@ -31,10 +32,12 @@ object GoalService {
         val fecha = body.optString("fecha_objetivo", null)
         val moneda = body.optString("moneda", SettingsService.getCurrencyCode(ctx))
         LocalRepository.getInstance(ctx).saveGoal(id, titulo, objetivo, actual, fecha, moneda)
+            .also { if (it) CloudSyncService.scheduleUpload(ctx) }
     }
 
     suspend fun delete(ctx: Context, id: Int): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).deleteGoal(id)
+            .also { if (it) CloudSyncService.scheduleUpload(ctx) }
     }
 
     suspend fun saveMilestone(ctx: Context, body: JSONObject): Int = withContext(Dispatchers.IO) {
@@ -48,10 +51,12 @@ object GoalService {
         val dias = body.optInt("dias_recordatorio", 0)
         val completado = body.optInt("completado", 0) == 1 || body.optBoolean("completado", false)
         LocalRepository.getInstance(ctx).saveMilestone(id, metaId, titulo, monto, fecha, notificar, dias, completado, moneda)
+            .also { if (it > 0) CloudSyncService.scheduleUpload(ctx) }
     }
 
     suspend fun deleteMilestone(ctx: Context, id: Int): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).deleteMilestone(id)
+            .also { if (it) CloudSyncService.scheduleUpload(ctx) }
     }
 
     @JvmStatic

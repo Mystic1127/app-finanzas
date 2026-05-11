@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.Categoria
 import com.example.finanzas.util.Prefs
@@ -44,6 +45,7 @@ object CategoryStore {
 
     suspend fun create(ctx: Context, nombre: String, esIngreso: Boolean): Categoria = withContext(Dispatchers.IO) {
         val id = LocalRepository.getInstance(ctx).createCategoria(nombre, esIngreso)
+        CloudSyncService.scheduleUpload(ctx)
         Categoria(id, Prefs.getCurrentUserId(ctx).toInt(), nombre, esIngreso, true).also { nueva ->
             val userId = Prefs.getCurrentUserId(ctx)
             synchronized(this@CategoryStore) {
@@ -62,12 +64,22 @@ object CategoryStore {
 
     suspend fun update(ctx: Context, categoria: Categoria): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).updateCategoria(categoria.id, categoria.nombre ?: "", categoria.esIngreso)
-            .also { if (it) clearCache() }
+            .also {
+                if (it) {
+                    clearCache()
+                    CloudSyncService.scheduleUpload(ctx)
+                }
+            }
     }
 
     suspend fun delete(ctx: Context, categoriaId: Int): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).deleteCategoria(categoriaId)
-            .also { if (it) clearCache() }
+            .also {
+                if (it) {
+                    clearCache()
+                    CloudSyncService.scheduleUpload(ctx)
+                }
+            }
     }
 
     @JvmStatic

@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.ImportJob
 import com.example.finanzas.data.model.ImportRule
@@ -32,18 +33,22 @@ object ImportService {
 
     suspend fun create(ctx: Context, tipo: String, nombre: String, lineas: JSONArray?): Int = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).createImport(nombre, tipo, lineas?.toString() ?: "[]")
+            .also { if (it > 0) CloudSyncService.scheduleUpload(ctx) }
     }
 
     suspend fun saveRule(ctx: Context, rule: ImportRule) = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).saveImportRule(rule)
+        CloudSyncService.scheduleUpload(ctx)
     }
 
     suspend fun deleteRule(ctx: Context, ruleId: Int) = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).deleteImportRule(ruleId)
+        CloudSyncService.scheduleUpload(ctx)
     }
 
     suspend fun process(ctx: Context, importId: Int): JSONObject = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).processImport(importId)
+            .also { CloudSyncService.scheduleUpload(ctx) }
     }
 
     @JvmStatic

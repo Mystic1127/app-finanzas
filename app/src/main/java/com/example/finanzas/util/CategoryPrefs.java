@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.finanzas.R;
+import com.example.finanzas.data.cloud.CloudSyncService;
 import com.example.finanzas.data.model.Categoria;
 
 import org.json.JSONObject;
@@ -19,6 +20,7 @@ import java.util.Iterator;
 public final class CategoryPrefs {
     private static final String PREFS = "finanzas_settings";
     private static final String KEY_META = "category_meta";
+    private static final String KEY_META_PREFIX = "category_meta_user_";
 
     public static final String ICON_GROCERIES = "groceries";
     public static final String ICON_TRANSPORT = "transport";
@@ -117,12 +119,22 @@ public final class CategoryPrefs {
             one.put("deleted", deleted);
             all.put(String.valueOf(categoryId), one);
             write(context, all);
+            CloudSyncService.scheduleUpload(context);
         } catch (Exception ignored) { }
     }
 
     public static void setDeleted(@NonNull Context context, @NonNull Categoria categoria, boolean deleted) {
         Meta meta = meta(context, categoria);
         saveMeta(context, categoria.id, meta.iconKey, meta.color, deleted);
+    }
+
+    @NonNull
+    public static JSONObject exportSyncMeta(@NonNull Context context) {
+        return read(context);
+    }
+
+    public static void importSyncMeta(@NonNull Context context, @Nullable JSONObject object) {
+        write(context, object == null ? new JSONObject() : object);
     }
 
     @DrawableRes
@@ -215,7 +227,15 @@ public final class CategoryPrefs {
     }
 
     private static JSONObject read(@NonNull Context context) {
-        String raw = prefs(context).getString(KEY_META, "{}");
+        SharedPreferences sp = prefs(context);
+        String key = metaKey(context);
+        String raw = sp.getString(key, null);
+        if (raw == null) {
+            raw = sp.getString(KEY_META, "{}");
+            if (!KEY_META.equals(key) && raw != null && !"{}".equals(raw)) {
+                sp.edit().putString(key, raw).remove(KEY_META).apply();
+            }
+        }
         try {
             return new JSONObject(raw == null ? "{}" : raw);
         } catch (Exception ignored) {
@@ -224,11 +244,16 @@ public final class CategoryPrefs {
     }
 
     private static void write(@NonNull Context context, @NonNull JSONObject object) {
-        prefs(context).edit().putString(KEY_META, object.toString()).apply();
+        prefs(context).edit().putString(metaKey(context), object.toString()).apply();
     }
 
     private static SharedPreferences prefs(@NonNull Context context) {
         return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private static String metaKey(@NonNull Context context) {
+        long userId = Prefs.getCurrentUserId(context.getApplicationContext());
+        return userId > 0 ? KEY_META_PREFIX + userId : KEY_META;
     }
 
     @ColorInt

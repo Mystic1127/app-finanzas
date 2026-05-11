@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.CategoryBudgetInput
 import com.example.finanzas.data.model.CategoryBudgetSummary
@@ -30,6 +31,7 @@ object CategoryBudgetService {
 
     suspend fun save(ctx: Context, anio: Int, mes: Int, items: List<*>) = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).savePresupuestosCategoria(anio, mes, items)
+        CloudSyncService.scheduleUpload(ctx)
     }
 
     suspend fun savedInputs(ctx: Context, anio: Int, mes: Int): List<CategoryBudgetInput> = withContext(Dispatchers.IO) {

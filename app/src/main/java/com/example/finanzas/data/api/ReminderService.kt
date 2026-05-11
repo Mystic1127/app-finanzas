@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.PaymentReminder
 import kotlinx.coroutines.CoroutineScope
@@ -47,15 +48,20 @@ object ReminderService {
             setGoogleEventId(body.optString("google_event_id", null))
             setNotificationId(body.optString("notification_id", null))
         }
-        if (LocalRepository.getInstance(ctx).saveReminder(reminder)) reminder else null
+        if (LocalRepository.getInstance(ctx).saveReminder(reminder)) {
+            CloudSyncService.scheduleUpload(ctx)
+            reminder
+        } else null
     }
 
     suspend fun marcarPagado(ctx: Context, id: Int, pagado: Boolean): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).markReminderPaid(id, pagado)
+            .also { if (it) CloudSyncService.scheduleUpload(ctx) }
     }
 
     suspend fun delete(ctx: Context, id: Int): Boolean = withContext(Dispatchers.IO) {
         LocalRepository.getInstance(ctx).deleteReminder(id)
+            .also { if (it) CloudSyncService.scheduleUpload(ctx) }
     }
 
     @JvmStatic

@@ -78,11 +78,12 @@ public class MainActivity extends AppCompatActivity {
     private ViewTreeObserver.OnPreDrawListener pendingBottomChromeHideListener;
     private View pendingBottomChromeHideView;
     private FragmentManager.FragmentLifecycleCallbacks pendingBottomChromeHideCallback;
+    private long lastCloudRestoreReloadAt = 0L;
     private final BroadcastReceiver cloudSyncRestoredReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (!CloudSyncService.ACTION_SYNC_RESTORED.equals(intent.getAction())) return;
-            reloadAfterCloudRestore();
+            reloadAfterCloudRestore(intent.getBooleanExtra(CloudSyncService.EXTRA_SHOW_RESTORE_NOTICE, false));
         }
     };
 
@@ -252,7 +253,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        CloudSyncService.scheduleUpload(this);
+        CloudSyncService.scheduleUpload(this, false);
         if (!isChangingConfigurations() && Prefs.hasPin(this)) {
             PinSession.lock();
         }
@@ -307,16 +308,28 @@ public class MainActivity extends AppCompatActivity {
         provider.get(BudgetViewModel.class).clearCache();
     }
 
-    private void reloadAfterCloudRestore() {
+    private void reloadAfterCloudRestore(boolean showNotice) {
+        long now = System.currentTimeMillis();
+        if (now - lastCloudRestoreReloadAt < 1200L) {
+            return;
+        }
+        lastCloudRestoreReloadAt = now;
+        if (navController == null || navController.getCurrentDestination() == null) return;
         clearScopedViewModelCaches();
         LocalRepository.invalidateDataVersion();
-        if (navController == null || navController.getCurrentDestination() == null) return;
-        if (navController.getCurrentDestination().getId() != R.id.nav_home) return;
-        Calendar cal = Calendar.getInstance();
-        new ViewModelProvider(this)
-                .get(HomeViewModel.class)
-                .loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, true);
-        Toast.makeText(this, "Datos restaurados desde la nube", Toast.LENGTH_SHORT).show();
+        if (navController.getCurrentDestination().getId() == R.id.nav_home) {
+            navHostView.postDelayed(() -> {
+                if (navController == null || navController.getCurrentDestination() == null) return;
+                if (navController.getCurrentDestination().getId() != R.id.nav_home) return;
+                Calendar cal = Calendar.getInstance();
+                new ViewModelProvider(this)
+                        .get(HomeViewModel.class)
+                        .loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, true);
+            }, 120L);
+        }
+        if (showNotice) {
+            Toast.makeText(this, "Datos restaurados desde la nube", Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void switchToUser(long userId, String email, String name) {

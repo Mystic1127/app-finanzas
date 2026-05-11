@@ -624,6 +624,53 @@ internal fun SpendlyPrimaryButton(
 }
 
 @Composable
+internal fun SpendlyGoogleButton(
+    text: String,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    onClick: () -> Unit
+) {
+    val borderColor = Color(0xFFDADCE0)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(Color.White)
+            .border(1.dp, borderColor, RoundedCornerShape(28.dp))
+            .clickable(enabled = enabled && !loading, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.dp,
+                color = Color(0xFF3C4043)
+            )
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_google_g),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.size(12.dp))
+                Text(
+                    text = text,
+                    color = Color(0xFF3C4043),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
 internal fun SpendlyOutlinedButton(
     text: String,
     onClick: () -> Unit

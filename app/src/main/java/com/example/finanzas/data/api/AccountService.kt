@@ -1,6 +1,7 @@
 package com.example.finanzas.data.api
 
 import android.content.Context
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.FinancialAccount
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +31,10 @@ object AccountService {
                 withContext(Dispatchers.IO) {
                     LocalRepository.getInstance(appContext).createFinancialAccount(name, initialBalance, currency, last4)
                 }
-            }.onSuccess { cb.onOk(it) }
+            }.onSuccess {
+                CloudSyncService.scheduleUpload(appContext)
+                cb.onOk(it)
+            }
                 .onFailure { cb.onError(it.message) }
         }
     }

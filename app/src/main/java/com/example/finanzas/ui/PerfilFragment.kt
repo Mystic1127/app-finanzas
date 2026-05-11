@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
@@ -63,9 +64,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.finanzas.R
+import com.example.finanzas.data.api.AuthService
 import com.example.finanzas.data.api.CategoryStore
 import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.api.UserService
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable
@@ -78,8 +81,15 @@ import com.example.finanzas.util.NavigationAnimations
 import com.example.finanzas.util.PerfLogger
 import com.example.finanzas.util.Prefs
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
@@ -97,6 +107,10 @@ class PerfilFragment : Fragment() {
     private var hasPin by mutableStateOf(false)
     private var currentUserId by mutableStateOf(-1L)
     private var accounts by mutableStateOf<List<AccountUi>>(emptyList())
+    private var googleLinked by mutableStateOf(false)
+    private var googleLinkEmail by mutableStateOf("")
+    private var googleLinking by mutableStateOf(false)
+    private var googleLinkMessage by mutableStateOf<String?>(null)
 
     private var currencyError by mutableStateOf<String?>(null)
     private var manualRateError by mutableStateOf<String?>(null)
@@ -106,6 +120,26 @@ class PerfilFragment : Fragment() {
     private var perfStartMs = 0L
     private var loadStartMs = 0L
     private var firstRenderLogged = false
+
+    private val googleLinkLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching {
+                GoogleSignIn.getSignedInAccountFromIntent(result.data).await()
+            }.onSuccess { account ->
+                googleLinking = false
+                showGoogleLinkConfirmation(account)
+            }.onFailure {
+                googleLinking = false
+                val messageRes = if (result.data == null) {
+                    R.string.perfil_google_link_cancelled
+                } else {
+                    R.string.perfil_google_link_error
+                }
+                googleLinkMessage = getString(messageRes)
+                if (isAdded) Toast.makeText(requireContext(), messageRes, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -158,6 +192,11 @@ class PerfilFragment : Fragment() {
                         hasPin = hasPin,
                         currentUserId = currentUserId,
                         accounts = accounts,
+                        googleLinked = googleLinked,
+                        googleLinkEmail = googleLinkEmail,
+                        googleLinking = googleLinking,
+                        googleLinkMessage = googleLinkMessage,
+                        onLinkGoogle = { startGoogleLink() },
                         onSwitchAccount = { switchAccount(it) },
                         onBack = { findNavController().popBackStack() },
                         onChangePassword = {
@@ -200,6 +239,7 @@ class PerfilFragment : Fragment() {
         profileEmail = Prefs.getCurrentUserEmail(requireContext()).takeUnless { it.isNullOrEmpty() } ?: "—"
         currentUserId = Prefs.getCurrentUserId(requireContext())
         hasPin = Prefs.hasPin(requireContext())
+        refreshGoogleLinkState()
 
         v.post {
             if (!isAdded) return@post
@@ -212,7 +252,10 @@ class PerfilFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        if (isAdded) hasPin = Prefs.hasPin(requireContext())
+        if (isAdded) {
+            hasPin = Prefs.hasPin(requireContext())
+            refreshGoogleLinkState()
+        }
     }
 
     private fun loadAccounts() {
@@ -229,6 +272,7 @@ class PerfilFragment : Fragment() {
             withContext(Dispatchers.Main) {
                 if (!isAdded) return@withContext
                 currentUserId = Prefs.getCurrentUserId(requireContext())
+                refreshGoogleLinkState()
                 accounts = mapped
             }
         }
@@ -237,6 +281,134 @@ class PerfilFragment : Fragment() {
     private fun switchAccount(account: AccountUi) {
         if (account.id <= 0 || account.id == Prefs.getCurrentUserId(requireContext())) return
         (activity as? MainActivity)?.switchToUser(account.id, account.email, account.name)
+    }
+
+    private fun refreshGoogleLinkState() {
+        if (!isAdded) return
+        val ctx = requireContext().applicationContext
+        val userId = Prefs.getCurrentUserId(ctx)
+        val uid = Prefs.getFirebaseUidForUser(ctx, userId)
+        googleLinked = !uid.isNullOrBlank()
+        googleLinkEmail = Prefs.getFirebaseEmailForUser(ctx, userId)
+    }
+
+    private fun startGoogleLink() {
+        if (googleLinking) return
+        googleLinking = true
+        googleLinkMessage = null
+
+        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        val googleClient = GoogleSignIn.getClient(requireActivity(), options)
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching { googleClient.signOut().await() }
+                .onSuccess {
+                    if (!isAdded) {
+                        googleLinking = false
+                        return@onSuccess
+                    }
+                    googleLinkLauncher.launch(googleClient.signInIntent)
+                }
+                .onFailure {
+                    googleLinking = false
+                    googleLinkMessage = getString(R.string.perfil_google_link_error)
+                    if (isAdded) Toast.makeText(requireContext(), R.string.perfil_google_link_error, Toast.LENGTH_SHORT).show()
+                }
+        }
+    }
+
+    private fun showGoogleLinkConfirmation(account: GoogleSignInAccount) {
+        val email = account.email.orEmpty()
+        if (email.isBlank() || account.idToken.isNullOrBlank()) {
+            googleLinkMessage = getString(R.string.perfil_google_link_error)
+            Toast.makeText(requireContext(), R.string.perfil_google_link_error, Toast.LENGTH_SHORT).show()
+            clearGoogleLinkCache()
+            return
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.perfil_google_link_confirm_title)
+            .setMessage(getString(R.string.perfil_google_link_confirm_message, email))
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                googleLinkMessage = getString(R.string.perfil_google_link_cancelled)
+                clearGoogleLinkCache()
+            }
+            .setPositiveButton(R.string.perfil_google_link_confirm_action) { _, _ ->
+                authenticateConfirmedGoogleAccount(account)
+            }
+            .setOnCancelListener {
+                googleLinkMessage = getString(R.string.perfil_google_link_cancelled)
+                clearGoogleLinkCache()
+            }
+            .show()
+    }
+
+    private fun authenticateConfirmedGoogleAccount(account: GoogleSignInAccount) {
+        val idToken = account.idToken
+        if (idToken.isNullOrBlank()) {
+            googleLinkMessage = getString(R.string.perfil_google_link_error)
+            Toast.makeText(requireContext(), R.string.perfil_google_link_error, Toast.LENGTH_SHORT).show()
+            clearGoogleLinkCache()
+            return
+        }
+        googleLinking = true
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching {
+                val credential = GoogleAuthProvider.getCredential(idToken, null)
+                FirebaseAuth.getInstance().signInWithCredential(credential).await().user
+                    ?: error("Firebase no devolvio usuario")
+            }.onSuccess { firebaseUser ->
+                completeGoogleLink(firebaseUser)
+            }.onFailure {
+                googleLinking = false
+                googleLinkMessage = getString(R.string.perfil_google_link_error)
+                if (isAdded) Toast.makeText(requireContext(), R.string.perfil_google_link_error, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun clearGoogleLinkCache() {
+        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        GoogleSignIn.getClient(requireActivity(), options).signOut()
+    }
+
+    private fun completeGoogleLink(firebaseUser: FirebaseUser) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = runCatching {
+                AuthService.linkCurrentLocalUserWithGoogle(requireContext(), firebaseUser)
+            }.getOrElse {
+                CloudSyncService.Result(false, message = getString(R.string.perfil_google_link_error))
+            }
+            if (!isAdded) return@launch
+            googleLinking = false
+            if (result.ok) {
+                refreshGoogleLinkState()
+                googleLinkMessage = getString(R.string.perfil_google_link_success)
+                Toast.makeText(requireContext(), R.string.perfil_google_link_success, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            if (result.message == CloudSyncService.MESSAGE_REMOTE_HAS_DATA) {
+                googleLinkMessage = getString(R.string.perfil_google_link_cloud_conflict_short)
+                showGoogleCloudConflict()
+            } else {
+                googleLinkMessage = result.message.ifBlank { getString(R.string.perfil_google_link_error) }
+                Toast.makeText(requireContext(), googleLinkMessage, Toast.LENGTH_LONG).show()
+            }
+            refreshGoogleLinkState()
+        }
+    }
+
+    private fun showGoogleCloudConflict() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.perfil_google_link_cloud_conflict_title)
+            .setMessage(R.string.perfil_google_link_cloud_conflict_message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun loadProfileDetails() {
@@ -526,6 +698,11 @@ private fun ProfileScreen(
     hasPin: Boolean,
     currentUserId: Long,
     accounts: List<AccountUi>,
+    googleLinked: Boolean,
+    googleLinkEmail: String,
+    googleLinking: Boolean,
+    googleLinkMessage: String?,
+    onLinkGoogle: () -> Unit,
     onSwitchAccount: (AccountUi) -> Unit,
     onBack: () -> Unit,
     onChangePassword: () -> Unit,
@@ -561,6 +738,52 @@ private fun ProfileScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 14.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                )
+                Text(
+                    text = stringResource(R.string.perfil_google_link_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = if (googleLinked) {
+                        googleLinkEmail.takeIf { it.isNotBlank() } ?: stringResource(R.string.perfil_google_linked)
+                    } else {
+                        stringResource(R.string.perfil_google_link_subtitle)
+                    },
+                    color = if (googleLinked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                googleLinkMessage?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+                OutlinedButton(
+                    onClick = onLinkGoogle,
+                    enabled = !googleLinking,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = profileControlBorder()
+                ) {
+                    Text(
+                        when {
+                            googleLinking -> stringResource(R.string.perfil_google_linking)
+                            googleLinked -> stringResource(R.string.perfil_google_link_retry)
+                            else -> stringResource(R.string.perfil_google_link_button)
+                        }
+                    )
+                }
             }
 
             ProfileSection(title = stringResource(R.string.profile_accounts_title)) {

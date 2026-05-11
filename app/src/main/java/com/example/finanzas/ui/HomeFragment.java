@@ -35,6 +35,7 @@ import com.example.finanzas.R;
 import com.example.finanzas.data.api.AccountService;
 import com.example.finanzas.data.api.CategoryStore;
 import com.example.finanzas.data.api.SettingsService;
+import com.example.finanzas.data.cloud.CloudSyncService;
 import com.example.finanzas.data.model.AccountBalance;
 import com.example.finanzas.data.model.Categoria;
 import com.example.finanzas.data.model.FinancialAccount;
@@ -1102,6 +1103,12 @@ public class HomeFragment extends Fragment {
     }
 
     private void maybeShowInitialCurrencyDialog() {
+        if (CloudSyncService.isSyncInProgress()) {
+            if (getView() != null) {
+                getView().postDelayed(this::maybeShowInitialCurrencyDialog, 700L);
+            }
+            return;
+        }
         if (!isAdded() || SettingsService.hasCurrencyConfigured(requireContext())) {
             maybeShowTesterThanksDialog();
             return;
