@@ -26,6 +26,7 @@ object Prefs {
     private const val KEY_TESTER_THANKS_PREFIX = "tester_thanks_seen_"
     private const val KEY_FIREBASE_UID_FOR_USER_PREFIX = "firebase_uid_user_"
     private const val KEY_FIREBASE_EMAIL_FOR_USER_PREFIX = "firebase_email_user_"
+    private const val KEY_FIREBASE_PROVIDER_FOR_USER_PREFIX = "firebase_provider_user_"
     private const val KEY_USER_ID_FOR_FIREBASE_UID_PREFIX = "firebase_uid_owner_"
     private const val KEY_REMEMBERED_USER_IDS = "remembered_user_ids"
 
@@ -114,13 +115,16 @@ object Prefs {
     }
 
     @JvmStatic
-    fun setFirebaseLink(ctx: Context, userId: Long, uid: String, email: String?) {
+    fun setFirebaseLink(ctx: Context, userId: Long, uid: String, email: String?, provider: String? = null) {
         if (userId <= 0 || uid.isBlank()) return
-        prefs(ctx).edit()
+        val editor = prefs(ctx).edit()
             .putString(firebaseUidForUserKey(userId), uid)
             .putString(firebaseEmailForUserKey(userId), email ?: "")
             .putLong(userIdForFirebaseUidKey(uid), userId)
-            .apply()
+        if (!provider.isNullOrBlank()) {
+            editor.putString(firebaseProviderForUserKey(userId), provider)
+        }
+        editor.apply()
     }
 
     @JvmStatic
@@ -139,6 +143,12 @@ object Prefs {
     fun getFirebaseEmailForUser(ctx: Context, userId: Long): String {
         if (userId <= 0) return ""
         return prefs(ctx).getString(firebaseEmailForUserKey(userId), "") ?: ""
+    }
+
+    @JvmStatic
+    fun getFirebaseProviderForUser(ctx: Context, userId: Long): String {
+        if (userId <= 0) return ""
+        return prefs(ctx).getString(firebaseProviderForUserKey(userId), "") ?: ""
     }
 
     @JvmStatic
@@ -278,6 +288,8 @@ object Prefs {
     private fun firebaseUidForUserKey(userId: Long): String = KEY_FIREBASE_UID_FOR_USER_PREFIX + userId
 
     private fun firebaseEmailForUserKey(userId: Long): String = KEY_FIREBASE_EMAIL_FOR_USER_PREFIX + userId
+
+    private fun firebaseProviderForUserKey(userId: Long): String = KEY_FIREBASE_PROVIDER_FOR_USER_PREFIX + userId
 
     private fun userIdForFirebaseUidKey(uid: String): String = KEY_USER_ID_FOR_FIREBASE_UID_PREFIX + uid
 

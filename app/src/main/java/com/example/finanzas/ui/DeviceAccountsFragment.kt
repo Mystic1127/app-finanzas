@@ -93,11 +93,14 @@ class DeviceAccountsFragment : Fragment() {
                     val id = it.id.toLong()
                     val uid = Prefs.getFirebaseUidForUser(appContext, id)
                     val linkedEmail = Prefs.getFirebaseEmailForUser(appContext, id)
+                    val linked = !uid.isNullOrBlank()
+                    val cleanEmail = displayEmail(linkedEmail).ifBlank { displayEmail(it.email) }
                     DeviceAccountUi(
                         id = id,
-                        name = it.nombre.orEmpty().ifBlank { linkedEmail.substringBefore('@').ifBlank { "Cuenta" } },
-                        email = linkedEmail.ifBlank { it.email.orEmpty() },
-                        linked = !uid.isNullOrBlank(),
+                        name = it.nombre.orEmpty().ifBlank { cleanEmail.substringBefore('@').ifBlank { "Cuenta" } },
+                        email = cleanEmail.ifBlank { if (linked) "Cuenta vinculada" else "Cuenta local" },
+                        status = accountStatusFor(Prefs.getFirebaseProviderForUser(appContext, id), linked),
+                        linked = linked,
                         active = id == current
                     )
                 }
@@ -149,9 +152,25 @@ private data class DeviceAccountUi(
     val id: Long,
     val name: String,
     val email: String,
+    val status: String,
     val linked: Boolean,
     val active: Boolean
 )
+
+private fun displayEmail(raw: String?): String {
+    val clean = raw?.trim().orEmpty()
+    if (clean.isBlank()) return ""
+    if (clean.contains("@spendly.firebase.local", ignoreCase = true)) return ""
+    if (clean.startsWith("firebase:", ignoreCase = true)) return ""
+    return clean
+}
+
+private fun accountStatusFor(provider: String, linked: Boolean): String = when {
+    provider.equals("google.com", ignoreCase = true) -> "Cuenta vinculada con Google"
+    provider.equals("password", ignoreCase = true) -> "Cuenta con correo"
+    linked -> "Cuenta vinculada"
+    else -> "Cuenta local en este dispositivo"
+}
 
 @Composable
 private fun DeviceAccountsScreen(
@@ -226,11 +245,7 @@ private fun DeviceAccountCard(account: DeviceAccountUi, onRemove: (DeviceAccount
                 }
             }
             Text(
-                text = when {
-                    account.active -> "Activa actualmente"
-                    account.linked -> "Cuenta vinculada"
-                    else -> "Solo local en este dispositivo"
-                },
+                text = if (account.active) "Activa actualmente - ${account.status}" else account.status,
                 color = if (account.active || account.linked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,

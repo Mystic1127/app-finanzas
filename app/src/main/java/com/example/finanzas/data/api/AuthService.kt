@@ -36,6 +36,8 @@ data class PasswordResetResult(
 class AuthFailure(message: String) : Exception(message)
 
 object AuthService {
+    private const val PROVIDER_GOOGLE = "google.com"
+    private const val PROVIDER_PASSWORD = "password"
 
     suspend fun login(ctx: Context, email: String, pass: String): AuthResult? = withContext(Dispatchers.IO) {
         val firebaseUser = try {
@@ -57,7 +59,7 @@ object AuthService {
 
         val cleanEmail = firebaseUser.email ?: email.trim()
         val localUser = getOrCreateFirebaseLocalUser(ctx, firebaseUser, cleanEmail)
-        Prefs.setFirebaseLink(ctx.applicationContext, localUser.id.toLong(), firebaseUser.uid, cleanEmail)
+        Prefs.setFirebaseLink(ctx.applicationContext, localUser.id.toLong(), firebaseUser.uid, cleanEmail, PROVIDER_PASSWORD)
         AuthResult(
             token = "firebase:${firebaseUser.uid}",
             userId = localUser.id,
@@ -135,7 +137,7 @@ object AuthService {
             null
         }
         val localUser = linkedUser ?: repo.createFirebaseUserForUid(firebaseUser.displayName, email, firebaseUser.uid)
-        Prefs.setFirebaseLink(appContext, localUser.id.toLong(), firebaseUser.uid, email)
+        Prefs.setFirebaseLink(appContext, localUser.id.toLong(), firebaseUser.uid, email, PROVIDER_GOOGLE)
         AuthResult("firebase:${firebaseUser.uid}", localUser.id, localUser.nombre, email, linkedUser == null)
     }
 
@@ -153,7 +155,7 @@ object AuthService {
         }
         val cleanEmail = firebaseUser.email ?: return@withContext null
         val localUser = getOrCreateFirebaseLocalUser(ctx, firebaseUser, cleanEmail, fallbackName)
-        Prefs.setFirebaseLink(ctx.applicationContext, localUser.id.toLong(), firebaseUser.uid, cleanEmail)
+        Prefs.setFirebaseLink(ctx.applicationContext, localUser.id.toLong(), firebaseUser.uid, cleanEmail, PROVIDER_PASSWORD)
         AuthResult(
             token = "firebase:${firebaseUser.uid}",
             userId = localUser.id,
@@ -216,7 +218,7 @@ object AuthService {
             )
             if (!uploadResult.ok) return@withContext uploadResult
 
-            Prefs.setFirebaseLink(appContext, currentUserId, firebaseUser.uid, firebaseUser.email)
+            Prefs.setFirebaseLink(appContext, currentUserId, firebaseUser.uid, firebaseUser.email, PROVIDER_GOOGLE)
             Prefs.setToken(appContext, "firebase:${firebaseUser.uid}")
             Prefs.setUserSession(
                 appContext,

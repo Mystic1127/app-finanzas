@@ -196,9 +196,11 @@ object RecurringTransactionStore {
         val existing = templateId?.takeIf { it > 0 }?.let { id ->
             dao.listAll(userId).firstOrNull { it.id == id }
         }
+        // Positive source ids belong to real transactions. Negative source ids are standalone
+        // rules created from Settings, so transaction lookup flows intentionally ignore them.
         val sourceId = existing?.sourceTransactionId
             ?: sourceTransactionId?.takeIf { it != 0 }
-            ?: generateStandaloneSourceId(dao.listAll(userId))
+            ?: generateStandaloneSourceId(userId, dao.listStandaloneSourceIds().toSet())
         val entity = RecurringTransactionEntity(
             id = existing?.id ?: 0,
             userId = userId,
@@ -230,13 +232,19 @@ object RecurringTransactionStore {
         return true
     }
 
-    private fun generateStandaloneSourceId(existing: List<RecurringTransactionEntity>): Int {
-        val used = existing.map { it.sourceTransactionId }.toSet()
+    private fun generateStandaloneSourceId(userId: Int, usedSourceIds: Set<Int>): Int {
+        val bucket = (userId.coerceAtLeast(1).toLong() % 200_000L).let { if (it == 0L) 200_000L else it }
+        val firstCandidate = -((bucket * 10_000L) + 1L)
+        repeat(9_999) { offset ->
+            val candidate = (firstCandidate - offset).toInt()
+            if (candidate < 0 && candidate !in usedSourceIds) return candidate
+        }
         repeat(12) {
             val candidate = -Random.nextInt(1_000_000, Int.MAX_VALUE)
-            if (candidate !in used) return candidate
+            if (candidate !in usedSourceIds) return candidate
         }
-        return (existing.minOfOrNull { it.sourceTransactionId } ?: 0).coerceAtMost(0) - 1
+        val minUsed = usedSourceIds.minOrNull() ?: 0
+        return if (minUsed > Int.MIN_VALUE) minUsed.coerceAtMost(0) - 1 else -1
     }
 
     @JvmStatic
@@ -511,6 +519,10 @@ object RecurringTransactionStore {
 
     @JvmStatic
     fun bitForCalendarDay(dayOfWeek: Int): Int = 1 shl (dayOfWeek - Calendar.SUNDAY)
+
+    internal fun isStandaloneRuleSourceId(sourceTransactionId: Int): Boolean = sourceTransactionId < 0
+
+    internal fun isRealTransactionSourceId(sourceTransactionId: Int): Boolean = sourceTransactionId > 0
 
     private fun migrateLegacyPrefs(context: Context, userId: Int) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

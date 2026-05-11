@@ -109,6 +109,7 @@ class PerfilFragment : Fragment() {
     private var accounts by mutableStateOf<List<AccountUi>>(emptyList())
     private var googleLinked by mutableStateOf(false)
     private var googleLinkEmail by mutableStateOf("")
+    private var currentAccountStatus by mutableStateOf("Cuenta local en este dispositivo")
     private var googleLinking by mutableStateOf(false)
     private var googleLinkMessage by mutableStateOf<String?>(null)
 
@@ -194,6 +195,7 @@ class PerfilFragment : Fragment() {
                         accounts = accounts,
                         googleLinked = googleLinked,
                         googleLinkEmail = googleLinkEmail,
+                        currentAccountStatus = currentAccountStatus,
                         googleLinking = googleLinking,
                         googleLinkMessage = googleLinkMessage,
                         onLinkGoogle = {
@@ -266,11 +268,17 @@ class PerfilFragment : Fragment() {
             val remembered = Prefs.getRememberedUserIds(appContext)
             val users = LocalRepository.getInstance(appContext).listUsers()
             val mapped = users.filter { remembered.contains(it.id.toLong()) }.map {
-                val firebaseEmail = Prefs.getFirebaseEmailForUser(appContext, it.id.toLong())
+                val id = it.id.toLong()
+                val firebaseEmail = Prefs.getFirebaseEmailForUser(appContext, id)
+                val cleanEmail = displayEmail(firebaseEmail).ifBlank { displayEmail(it.email ?: "") }
+                val linked = !Prefs.getFirebaseUidForUser(appContext, id).isNullOrBlank()
                 AccountUi(
-                    id = it.id.toLong(),
+                    id = id,
                     name = it.nombre ?: "",
-                    email = firebaseEmail.ifBlank { it.email ?: "" }
+                    email = cleanEmail.ifBlank {
+                        if (linked) "Cuenta vinculada" else "Cuenta local"
+                    },
+                    status = accountStatusFor(Prefs.getFirebaseProviderForUser(appContext, id), linked)
                 )
             }
             withContext(Dispatchers.Main) {
@@ -293,7 +301,8 @@ class PerfilFragment : Fragment() {
         val userId = Prefs.getCurrentUserId(ctx)
         val uid = Prefs.getFirebaseUidForUser(ctx, userId)
         googleLinked = !uid.isNullOrBlank()
-        googleLinkEmail = Prefs.getFirebaseEmailForUser(ctx, userId)
+        googleLinkEmail = displayEmail(Prefs.getFirebaseEmailForUser(ctx, userId))
+        currentAccountStatus = accountStatusFor(Prefs.getFirebaseProviderForUser(ctx, userId), googleLinked)
     }
 
     private fun startGoogleLink() {
@@ -446,6 +455,7 @@ class PerfilFragment : Fragment() {
 
     private fun loadProfileDetails() {
         val emailForLookup = profileEmail
+        if (emailForLookup == "-" || isInternalFirebaseEmail(emailForLookup)) return
         if (emailForLookup == "—") return
 
         val appContext = requireContext().applicationContext
@@ -688,6 +698,14 @@ class PerfilFragment : Fragment() {
         }
     }
 
+    private fun displayEmail(raw: String?): String {
+        val clean = raw?.trim().orEmpty()
+        return if (clean.isBlank() || isInternalFirebaseEmail(clean) || clean.startsWith("firebase:", ignoreCase = true)) "" else clean
+    }
+
+    private fun isInternalFirebaseEmail(value: String): Boolean =
+        value.contains("@spendly.firebase.local", ignoreCase = true)
+
     companion object {
         private const val CURRENCY_PEN = "PEN (S/)"
         private const val CURRENCY_USD = "USD ($)"
@@ -700,8 +718,25 @@ class PerfilFragment : Fragment() {
 private data class AccountUi(
     val id: Long,
     val name: String,
-    val email: String
+    val email: String,
+    val status: String
 )
+
+private fun friendlyAccountText(value: String, linked: Boolean): String {
+    val clean = value.trim()
+    if (clean.isBlank()) return if (linked) "Cuenta vinculada" else "Cuenta local"
+    if (clean.contains("@spendly.firebase.local", ignoreCase = true) || clean.startsWith("firebase:", ignoreCase = true)) {
+        return if (linked) "Cuenta vinculada" else "Cuenta local"
+    }
+    return clean
+}
+
+private fun accountStatusFor(provider: String, linked: Boolean): String = when {
+    provider.equals("google.com", ignoreCase = true) -> "Cuenta vinculada con Google"
+    provider.equals("password", ignoreCase = true) -> "Cuenta con correo"
+    linked -> "Cuenta vinculada"
+    else -> "Cuenta local en este dispositivo"
+}
 
 @Composable
 private fun ProfileScreen(
@@ -733,6 +768,7 @@ private fun ProfileScreen(
     accounts: List<AccountUi>,
     googleLinked: Boolean,
     googleLinkEmail: String,
+    currentAccountStatus: String,
     googleLinking: Boolean,
     googleLinkMessage: String?,
     onLinkGoogle: () -> Unit,
@@ -766,9 +802,15 @@ private fun ProfileScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = email,
+                    text = friendlyAccountText(email, googleLinked),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Text(
+                    text = currentAccountStatus,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(top = 4.dp)
                 )
                 HorizontalDivider(
@@ -849,9 +891,15 @@ private fun ProfileScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = account.email,
+                                text = friendlyAccountText(account.email, account.email == "Cuenta vinculada"),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = account.status,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(top = 3.dp)
                             )
                             if (account.id == currentUserId) {
                                 Text(

@@ -109,6 +109,9 @@ interface RecurringTransactionDao {
     @Query("SELECT * FROM transacciones_recurrentes WHERE user_id=:userId ORDER BY id ASC")
     fun listAll(userId: Int): List<RecurringTransactionEntity>
 
+    @Query("SELECT source_transaction_id FROM transacciones_recurrentes WHERE source_transaction_id < 0")
+    fun listStandaloneSourceIds(): List<Int>
+
     @Query("SELECT * FROM transacciones_recurrentes WHERE user_id=:userId AND source_transaction_id=:sourceTransactionId LIMIT 1")
     fun findBySource(userId: Int, sourceTransactionId: Int): RecurringTransactionEntity?
 

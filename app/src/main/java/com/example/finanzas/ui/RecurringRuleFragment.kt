@@ -120,7 +120,7 @@ class RecurringRuleFragment : Fragment() {
                 templateId = input.templateId,
                 sourceTransactionId = input.sourceTransactionId,
                 frequency = input.frequency,
-                daysMask = 0,
+                daysMask = input.daysMask,
                 isActive = input.active,
                 isTransfer = input.type == RuleType.TRANSFER,
                 categoryId = input.categoryId,
@@ -157,6 +157,7 @@ class RecurringRuleFragment : Fragment() {
             amount = amount.toString(),
             categoryId = categoryId,
             frequency = frequency,
+            daysMask = daysMask,
             firstDate = firstDate,
             note = note.orEmpty(),
             active = isActive == 1,
@@ -183,6 +184,7 @@ private data class RecurringRuleInitial(
     val amount: String = "",
     val categoryId: Int = 0,
     val frequency: String = RecurringTransactionStore.FREQUENCY_MONTHLY,
+    val daysMask: Int = 0,
     val firstDate: Long = System.currentTimeMillis(),
     val note: String = "",
     val active: Boolean = true,
@@ -198,6 +200,7 @@ private data class RecurringRuleInput(
     val amount: Double,
     val categoryId: Int,
     val frequency: String,
+    val daysMask: Int,
     val firstDate: Long,
     val note: String,
     val active: Boolean,
@@ -218,6 +221,7 @@ private fun RecurringRuleScreen(
     var amount by remember(initial) { mutableStateOf(initial.amount) }
     var categoryId by remember(initial) { mutableStateOf(initial.categoryId) }
     var frequency by remember(initial) { mutableStateOf(initial.frequency) }
+    var daysMask by remember(initial) { mutableStateOf(initial.daysMask) }
     var firstDateText by remember(initial) { mutableStateOf(formatDate(initial.firstDate)) }
     var note by remember(initial) { mutableStateOf(initial.note) }
     var active by remember(initial) { mutableStateOf(initial.active) }
@@ -238,7 +242,7 @@ private fun RecurringRuleScreen(
 
     val firstDate = parseDate(firstDateText)
     val amountValue = amount.replace(',', '.').toDoubleOrNull()
-    val nextRun = if (firstDate != null) previewNextRun(firstDate, frequency, type, amountValue ?: 0.0, categoryId, accountType, destinationType) else null
+    val nextRun = if (firstDate != null) previewNextRun(firstDate, frequency, daysMask, type, amountValue ?: 0.0, categoryId, accountType, destinationType) else null
 
     Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
         Column(
@@ -296,6 +300,15 @@ private fun RecurringRuleScreen(
                     options = frequencyOptions.map { frequencyLabel(it) },
                     onPick = { picked -> frequency = frequencyOptions.first { frequencyLabel(it) == picked } }
                 )
+                if (frequency == RecurringTransactionStore.FREQUENCY_CUSTOM) {
+                    Spacer(Modifier.height(12.dp))
+                    CustomDaysPicker(
+                        selectedMask = daysMask,
+                        onToggle = { day ->
+                            daysMask = daysMask xor RecurringTransactionStore.bitForCalendarDay(day)
+                        }
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
                 RuleTextField("Fecha de inicio (dd/MM/yyyy)", firstDateText, { firstDateText = it }, KeyboardType.Number)
                 Spacer(Modifier.height(12.dp))
@@ -326,6 +339,7 @@ private fun RecurringRuleScreen(
                     val validation = when {
                         parsedAmount == null || parsedAmount <= 0.0 -> "Ingresa un monto valido."
                         parsedDate == null -> "Ingresa una fecha valida."
+                        frequency == RecurringTransactionStore.FREQUENCY_CUSTOM && daysMask == 0 -> "Selecciona al menos un dia para la frecuencia personalizada."
                         type != RuleType.TRANSFER && categoryId <= 0 -> "Selecciona una categoria."
                         else -> null
                     }
@@ -341,6 +355,7 @@ private fun RecurringRuleScreen(
                                 amount = parsedAmount!!,
                                 categoryId = categoryId,
                                 frequency = frequency,
+                                daysMask = daysMask,
                                 firstDate = parsedDate!!,
                                 note = note,
                                 active = active,
@@ -475,11 +490,70 @@ private fun SimpleChoice(label: String, value: String, options: List<String>, on
     }
 }
 
+@Composable
+private fun CustomDaysPicker(selectedMask: Int, onToggle: (Int) -> Unit) {
+    val days = listOf(
+        Calendar.MONDAY to "Lun",
+        Calendar.TUESDAY to "Mar",
+        Calendar.WEDNESDAY to "Mie",
+        Calendar.THURSDAY to "Jue",
+        Calendar.FRIDAY to "Vie",
+        Calendar.SATURDAY to "Sab",
+        Calendar.SUNDAY to "Dom"
+    )
+    Column {
+        Text(
+            "Dias de ejecucion",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        days.chunked(4).forEachIndexed { rowIndex, rowDays ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = if (rowIndex == 0) 0.dp else 8.dp)
+            ) {
+                rowDays.forEach { (day, label) ->
+                    val active = (selectedMask and RecurringTransactionStore.bitForCalendarDay(day)) != 0
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                            .clickable { onToggle(day) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+                repeat(4 - rowDays.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+        Text(
+            if (selectedMask == 0) "Elige al menos un dia." else "Se ejecutara solo en los dias seleccionados.",
+            color = if (selectedMask == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+    }
+}
+
 private val frequencyOptions = listOf(
     RecurringTransactionStore.FREQUENCY_WEEKDAYS,
     RecurringTransactionStore.FREQUENCY_EVERYDAY,
     RecurringTransactionStore.FREQUENCY_WEEKLY,
-    RecurringTransactionStore.FREQUENCY_MONTHLY
+    RecurringTransactionStore.FREQUENCY_MONTHLY,
+    RecurringTransactionStore.FREQUENCY_CUSTOM
 )
 
 private fun frequencyLabel(value: String): String = when (value) {
@@ -487,6 +561,7 @@ private fun frequencyLabel(value: String): String = when (value) {
     RecurringTransactionStore.FREQUENCY_EVERYDAY -> "Diario"
     RecurringTransactionStore.FREQUENCY_WEEKLY -> "Semanal"
     RecurringTransactionStore.FREQUENCY_MONTHLY -> "Mensual"
+    RecurringTransactionStore.FREQUENCY_CUSTOM -> "Dias especificos"
     else -> "Mensual"
 }
 
@@ -508,6 +583,7 @@ private fun parseDate(value: String): Long? = runCatching {
 private fun previewNextRun(
     firstDate: Long,
     frequency: String,
+    daysMask: Int,
     type: RuleType,
     amount: Double,
     categoryId: Int,
@@ -519,7 +595,7 @@ private fun previewNextRun(
         userId = 1,
         sourceTransactionId = -1,
         frequency = frequency,
-        daysMask = 0,
+        daysMask = daysMask,
         isActive = 1,
         isTransfer = if (type == RuleType.TRANSFER) 1 else 0,
         categoryId = categoryId,

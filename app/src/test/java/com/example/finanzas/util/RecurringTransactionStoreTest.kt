@@ -58,6 +58,53 @@ class RecurringTransactionStoreTest {
         )
     }
 
+    @Test
+    fun negativeSourceTransactionIdMeansStandaloneRule() {
+        assertTrue(RecurringTransactionStore.isStandaloneRuleSourceId(-42))
+        assertFalse(RecurringTransactionStore.isStandaloneRuleSourceId(42))
+        assertTrue(RecurringTransactionStore.isRealTransactionSourceId(42))
+        assertFalse(RecurringTransactionStore.isRealTransactionSourceId(-42))
+    }
+
+    @Test
+    fun customFrequencyMatchesOnlySelectedWeekdays() {
+        val first = date(2026, Calendar.MAY, 4)
+        val mask = RecurringTransactionStore.bitForCalendarDay(Calendar.MONDAY) or
+            RecurringTransactionStore.bitForCalendarDay(Calendar.WEDNESDAY) or
+            RecurringTransactionStore.bitForCalendarDay(Calendar.FRIDAY)
+
+        assertTrue(
+            RecurringTransactionStore.matchesFrequencyOnDate(
+                RecurringTransactionStore.FREQUENCY_CUSTOM,
+                first,
+                mask,
+                date(2026, Calendar.MAY, 6)
+            )
+        )
+        assertFalse(
+            RecurringTransactionStore.matchesFrequencyOnDate(
+                RecurringTransactionStore.FREQUENCY_CUSTOM,
+                first,
+                mask,
+                date(2026, Calendar.MAY, 7)
+            )
+        )
+    }
+
+    @Test
+    fun customFrequencyWithoutSelectedDaysDoesNotMatch() {
+        val first = date(2026, Calendar.MAY, 4)
+
+        assertFalse(
+            RecurringTransactionStore.matchesFrequencyOnDate(
+                RecurringTransactionStore.FREQUENCY_CUSTOM,
+                first,
+                0,
+                date(2026, Calendar.MAY, 4)
+            )
+        )
+    }
+
     private fun date(year: Int, month: Int, day: Int): Long {
         return Calendar.getInstance().apply {
             clear()
