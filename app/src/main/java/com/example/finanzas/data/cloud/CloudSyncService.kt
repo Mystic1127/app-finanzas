@@ -32,6 +32,8 @@ object CloudSyncService {
     private const val KEY_LAST_REMOTE_PREFIX = "last_remote_"
     private const val KEY_LAST_VERSION_PREFIX = "last_version_"
     private const val KEY_DIRTY_PREFIX = "dirty_"
+    private const val KEY_LAST_LOCAL_CHANGE_PREFIX = "last_local_change_"
+    private const val KEY_LAST_UPLOADED_LOCAL_CHANGE_PREFIX = "last_uploaded_local_change_"
     private const val KEY_RESTORE_NOTICE_REMOTE_PREFIX = "restore_notice_remote_"
     private const val FIELD_PAYLOAD = "payload"
     private const val FIELD_UPDATED_AT = "updatedAtMillis"
@@ -57,11 +59,16 @@ object CloudSyncService {
     @JvmOverloads
     fun scheduleUpload(context: Context, markDirty: Boolean = true) {
         val appContext = context.applicationContext
-        val uid = activeFirebaseUid(appContext) ?: return
+        val linkedUid = linkedFirebaseUidForCurrentUser(appContext) ?: return
         if (markDirty) {
-            prefs(appContext).edit().putBoolean(dirtyKey(uid), true).apply()
+            markLocalChanged(appContext, linkedUid)
         }
         scope.launch {
+            val activeUid = activeFirebaseUid(appContext)
+            if (activeUid == null) {
+                Log.d(TAG, "Upload deferred uidHash=${linkedUid.hashCode()} localDirty=$markDirty")
+                return@launch
+            }
             runCatching { uploadNow(appContext) }
                 .onFailure { Log.w(TAG, "No se pudo subir snapshot a Firestore", it) }
         }
@@ -98,7 +105,11 @@ object CloudSyncService {
             val localHasData = repo.currentUserHasSyncableData()
             val syncPrefs = prefs(appContext)
             val lastRemote = syncPrefs.getLong(lastRemoteKey(uid), 0L)
-            val localDirty = syncPrefs.getBoolean(dirtyKey(uid), false) || (lastRemote <= 0L && localHasData)
+            val localLastChange = syncPrefs.getLong(lastLocalChangeKey(uid), 0L)
+            val lastUploadedLocalChange = syncPrefs.getLong(lastUploadedLocalChangeKey(uid), 0L)
+            val localDirty = syncPrefs.getBoolean(dirtyKey(uid), false) ||
+                (localLastChange > lastUploadedLocalChange) ||
+                (lastRemote <= 0L && localHasData)
 
             if (remote.exists() && remoteUpdatedAt > 0L && (!localHasData || (!localDirty && remoteUpdatedAt > lastRemote))) {
                 val payload = remote.getString(FIELD_PAYLOAD).orEmpty()
@@ -110,9 +121,10 @@ object CloudSyncService {
                         syncPrefs.edit()
                             .putLong(lastRemoteKey(uid), remoteUpdatedAt)
                             .putLong(lastVersionKey(uid), LocalRepository.getDataVersion())
+                            .putLong(lastUploadedLocalChangeKey(uid), maxOf(localLastChange, lastUploadedLocalChange))
                             .putBoolean(dirtyKey(uid), false)
                             .apply()
-                        Log.d(TAG, "Sync remote unchanged uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+                        Log.d(TAG, "Sync remote unchanged uidHash=${uid.hashCode()} localDirty=$localDirty localLastChange=$localLastChange remoteUpdatedAt=$remoteUpdatedAt restoreApplied=false uploadApplied=false elapsedMs=${System.currentTimeMillis() - startedAt}")
                         return@withContext Result(true, message = "Datos locales al dia")
                     }
                     val remoteDeviceId = remote.getString(FIELD_DEVICE_ID).orEmpty()
@@ -122,6 +134,7 @@ object CloudSyncService {
                         .putLong(lastRemoteKey(uid), remoteUpdatedAt)
                         .putLong(restoreNoticeRemoteKey(uid), if (showNotice) remoteUpdatedAt else syncPrefs.getLong(restoreNoticeRemoteKey(uid), 0L))
                         .putLong(lastVersionKey(uid), LocalRepository.getDataVersion())
+                        .putLong(lastUploadedLocalChangeKey(uid), maxOf(localLastChange, remoteUpdatedAt))
                         .putBoolean(dirtyKey(uid), false)
                         .apply()
                     appContext.sendBroadcast(
@@ -129,22 +142,22 @@ object CloudSyncService {
                             .setPackage(appContext.packageName)
                             .putExtra(EXTRA_SHOW_RESTORE_NOTICE, showNotice)
                     )
-                    Log.d(TAG, "Sync restore uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+                    Log.d(TAG, "Sync restore uidHash=${uid.hashCode()} localDirty=$localDirty localLastChange=$localLastChange remoteUpdatedAt=$remoteUpdatedAt restoreApplied=true uploadApplied=false elapsedMs=${System.currentTimeMillis() - startedAt}")
                     return@withContext Result(true, restoredFromCloud = true, message = "Datos restaurados desde la nube")
                 }
             }
 
             if (remote.exists() && remoteUpdatedAt > 0L && !localDirty && remoteUpdatedAt == lastRemote) {
-                Log.d(TAG, "Sync cached uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+                Log.d(TAG, "Sync cached uidHash=${uid.hashCode()} localDirty=$localDirty localLastChange=$localLastChange remoteUpdatedAt=$remoteUpdatedAt restoreApplied=false uploadApplied=false elapsedMs=${System.currentTimeMillis() - startedAt}")
                 return@withContext Result(true, message = "Datos locales al día")
             }
 
             if (localHasData) {
                 uploadNow(appContext)
-                Log.d(TAG, "Sync upload uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+                Log.d(TAG, "Sync upload uidHash=${uid.hashCode()} localDirty=$localDirty localLastChange=$localLastChange remoteUpdatedAt=$remoteUpdatedAt restoreApplied=false uploadApplied=true elapsedMs=${System.currentTimeMillis() - startedAt}")
                 Result(true, uploadedToCloud = true, message = "Datos sincronizados con la nube")
             } else {
-                Log.d(TAG, "Sync noop uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+                Log.d(TAG, "Sync noop uidHash=${uid.hashCode()} localDirty=$localDirty localLastChange=$localLastChange remoteUpdatedAt=$remoteUpdatedAt restoreApplied=false uploadApplied=false elapsedMs=${System.currentTimeMillis() - startedAt}")
                 Result(true, message = "Sesión conectada")
             }
         } finally {
@@ -164,6 +177,8 @@ object CloudSyncService {
         }
         val snapshot = LocalRepository.getInstance(appContext).exportCurrentUserSyncSnapshot()
         val now = System.currentTimeMillis()
+        val syncPrefs = prefs(appContext)
+        val localLastChange = syncPrefs.getLong(lastLocalChangeKey(uid), 0L)
         syncDocument(uid).set(
             mapOf(
                 FIELD_PAYLOAD to encode(snapshot.toString()),
@@ -175,12 +190,13 @@ object CloudSyncService {
                 FIELD_SCHEMA_VERSION to 1
             )
         ).await()
-        prefs(appContext).edit()
+        syncPrefs.edit()
             .putLong(lastRemoteKey(uid), now)
             .putLong(lastVersionKey(uid), LocalRepository.getDataVersion())
+            .putLong(lastUploadedLocalChangeKey(uid), maxOf(localLastChange, now))
             .putBoolean(dirtyKey(uid), false)
             .apply()
-        Log.d(TAG, "Upload uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+        Log.d(TAG, "Upload uidHash=${uid.hashCode()} localDirty=false localLastChange=$localLastChange remoteUpdatedAt=$now uploadApplied=true elapsedMs=${System.currentTimeMillis() - startedAt}")
         Result(true, uploadedToCloud = true, message = "Datos subidos a Firestore")
     }
 
@@ -234,6 +250,8 @@ object CloudSyncService {
         prefs(appContext).edit()
             .putLong(lastRemoteKey(uid), now)
             .putLong(lastVersionKey(uid), LocalRepository.getDataVersion())
+            .putLong(lastLocalChangeKey(uid), now)
+            .putLong(lastUploadedLocalChangeKey(uid), now)
             .putBoolean(dirtyKey(uid), false)
             .apply()
         Log.d(TAG, "Link upload uidHash=${uid.hashCode()} elapsedMs=${System.currentTimeMillis() - startedAt}")
@@ -264,6 +282,10 @@ object CloudSyncService {
     private fun lastVersionKey(uid: String) = KEY_LAST_VERSION_PREFIX + uid
 
     private fun dirtyKey(uid: String) = KEY_DIRTY_PREFIX + uid
+
+    private fun lastLocalChangeKey(uid: String) = KEY_LAST_LOCAL_CHANGE_PREFIX + uid
+
+    private fun lastUploadedLocalChangeKey(uid: String) = KEY_LAST_UPLOADED_LOCAL_CHANGE_PREFIX + uid
 
     private fun restoreNoticeRemoteKey(uid: String) = KEY_RESTORE_NOTICE_REMOTE_PREFIX + uid
 
@@ -317,6 +339,21 @@ object CloudSyncService {
         if (localUserId <= 0) return null
         val linkedUid = Prefs.getFirebaseUidForUser(context.applicationContext, localUserId)
         return if (token == "firebase:$uid" && linkedUid == uid) uid else null
+    }
+
+    private fun linkedFirebaseUidForCurrentUser(context: Context): String? {
+        val localUserId = Prefs.getCurrentUserId(context.applicationContext)
+        if (localUserId <= 0) return null
+        return Prefs.getFirebaseUidForUser(context.applicationContext, localUserId)
+    }
+
+    private fun markLocalChanged(context: Context, uid: String) {
+        val now = System.currentTimeMillis()
+        prefs(context).edit()
+            .putBoolean(dirtyKey(uid), true)
+            .putLong(lastLocalChangeKey(uid), now)
+            .apply()
+        Log.d(TAG, "Local dirty marked uidHash=${uid.hashCode()} localLastChange=$now")
     }
 
     private fun remoteSnapshotHasSyncableData(payload: String): Boolean {

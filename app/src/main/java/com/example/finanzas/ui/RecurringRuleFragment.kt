@@ -57,13 +57,15 @@ import com.example.finanzas.R
 import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.local.room.RecurringTransactionEntity
-import com.example.finanzas.data.model.Categoria
+import com.example.finanzas.data.model.Transaccion
 import com.example.finanzas.ui.compose.SpendlyComposeTheme
 import com.example.finanzas.ui.compose.SpendlyOutlinedButton
 import com.example.finanzas.ui.compose.SpendlyPrimaryButton
 import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable
 import com.example.finanzas.util.Format
 import com.example.finanzas.util.RecurringTransactionStore
+import com.example.finanzas.util.CategoryPrefs
+import com.example.finanzas.util.UiFormUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,7 +75,7 @@ import java.util.Date
 import java.util.Locale
 
 class RecurringRuleFragment : Fragment() {
-    private var categories by mutableStateOf<List<Categoria>>(emptyList())
+    private var categories by mutableStateOf<List<RecurringCategoryUi>>(emptyList())
     private var initial by mutableStateOf<RecurringRuleInitial?>(null)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
@@ -85,6 +87,9 @@ class RecurringRuleFragment : Fragment() {
                     RecurringRuleScreen(
                         categories = categories,
                         initial = initial,
+                        onPickTime = { current, onPicked ->
+                            UiFormUtils.showTimePicker(requireContext(), current) { picked -> onPicked(picked) }
+                        },
                         onBack = { findNavController().popBackStack() },
                         onSave = ::saveRule
                     )
@@ -102,6 +107,14 @@ class RecurringRuleFragment : Fragment() {
         val appContext = requireContext().applicationContext
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val loadedCategories = LocalRepository.getInstance(appContext).listCategorias()
+                .map {
+                    RecurringCategoryUi(
+                        id = it.id,
+                        name = it.nombre.orEmpty(),
+                        income = it.esIngreso,
+                        hidden = CategoryPrefs.isDeleted(appContext, it)
+                    )
+                }
             val template = if (templateId > 0) RecurringTransactionStore.findTemplate(appContext, templateId) else null
             val mapped = template?.toInitial()
             withContext(Dispatchers.Main) {
@@ -209,10 +222,25 @@ private data class RecurringRuleInput(
     val currency: String
 )
 
+private data class RecurringCategoryUi(
+    val id: Int,
+    val name: String,
+    val income: Boolean,
+    val hidden: Boolean
+) {
+    val displayName: String
+        get() = if (hidden) "$name (oculta)" else name
+
+    val isSpecial: Boolean
+        get() = name.equals(Transaccion.INITIAL_BALANCE_CATEGORY, ignoreCase = true) ||
+            name.equals(Transaccion.TRANSFER_CATEGORY, ignoreCase = true)
+}
+
 @Composable
 private fun RecurringRuleScreen(
-    categories: List<Categoria>,
+    categories: List<RecurringCategoryUi>,
     initial: RecurringRuleInitial?,
+    onPickTime: (String, (String) -> Unit) -> Unit,
     onBack: () -> Unit,
     onSave: (RecurringRuleInput) -> Unit
 ) {
@@ -223,24 +251,27 @@ private fun RecurringRuleScreen(
     var frequency by remember(initial) { mutableStateOf(initial.frequency) }
     var daysMask by remember(initial) { mutableStateOf(initial.daysMask) }
     var firstDateText by remember(initial) { mutableStateOf(formatDate(initial.firstDate)) }
+    var firstTimeText by remember(initial) { mutableStateOf(formatTime(initial.firstDate)) }
     var note by remember(initial) { mutableStateOf(initial.note) }
     var active by remember(initial) { mutableStateOf(initial.active) }
     var accountType by remember(initial) { mutableStateOf(initial.accountType) }
     var destinationType by remember(initial) { mutableStateOf(initial.destinationAccountType) }
     var error by remember(initial) { mutableStateOf<String?>(null) }
 
+    val selectedHiddenCategory = categories.firstOrNull { it.id == categoryId && it.hidden }
     val filteredCategories = categories.filter {
-        when (type) {
-            RuleType.INCOME -> it.esIngreso
-            RuleType.EXPENSE -> !it.esIngreso
+        val matchesType = when (type) {
+            RuleType.INCOME -> it.income
+            RuleType.EXPENSE -> !it.income
             RuleType.TRANSFER -> false
         }
+        matchesType && !it.isSpecial && (!it.hidden || it.id == categoryId)
     }
     if (type != RuleType.TRANSFER && categoryId <= 0 && filteredCategories.isNotEmpty()) {
         categoryId = filteredCategories.first().id
     }
 
-    val firstDate = parseDate(firstDateText)
+    val firstDate = parseDateTime(firstDateText, firstTimeText)
     val amountValue = amount.replace(',', '.').toDoubleOrNull()
     val nextRun = if (firstDate != null) previewNextRun(firstDate, frequency, daysMask, type, amountValue ?: 0.0, categoryId, accountType, destinationType) else null
 
@@ -268,10 +299,18 @@ private fun RecurringRuleScreen(
                     Spacer(Modifier.height(12.dp))
                     SimpleChoice(
                         label = "Categoria",
-                        value = filteredCategories.firstOrNull { it.id == categoryId }?.nombre ?: "Selecciona categoria",
-                        options = filteredCategories.map { it.nombre },
-                        onPick = { label -> categoryId = filteredCategories.firstOrNull { it.nombre == label }?.id ?: categoryId }
+                        value = filteredCategories.firstOrNull { it.id == categoryId }?.displayName ?: "Selecciona categoria",
+                        options = filteredCategories.map { it.displayName },
+                        onPick = { label -> categoryId = filteredCategories.firstOrNull { it.displayName == label }?.id ?: categoryId }
                     )
+                    if (selectedHiddenCategory != null) {
+                        Text(
+                            "Esta categoria esta oculta y solo se muestra porque esta regla ya la usa.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
                 }
             }
 
@@ -312,6 +351,12 @@ private fun RecurringRuleScreen(
                 Spacer(Modifier.height(12.dp))
                 RuleTextField("Fecha de inicio (dd/MM/yyyy)", firstDateText, { firstDateText = it }, KeyboardType.Number)
                 Spacer(Modifier.height(12.dp))
+                RulePickerField(
+                    label = "Hora de ejecucion",
+                    value = firstTimeText,
+                    onClick = { onPickTime(firstTimeText.ifBlank { DEFAULT_TIME }) { firstTimeText = it } }
+                )
+                Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Switch(checked = active, onCheckedChange = { active = it })
                     Text(if (active) "Activo" else "Pausado", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
@@ -334,7 +379,7 @@ private fun RecurringRuleScreen(
             SpendlyPrimaryButton(
                 text = "Guardar recurrente",
                 onClick = {
-                    val parsedDate = parseDate(firstDateText)
+                    val parsedDate = parseDateTime(firstDateText, firstTimeText)
                     val parsedAmount = amount.replace(',', '.').toDoubleOrNull()
                     val validation = when {
                         parsedAmount == null || parsedAmount <= 0.0 -> "Ingresa un monto valido."
@@ -449,6 +494,43 @@ private fun RuleTextField(label: String, value: String, onChange: (String) -> Un
             cursorColor = MaterialTheme.colorScheme.primary
         )
     )
+}
+
+@Composable
+private fun RulePickerField(label: String, value: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth(),
+            enabled = false,
+            label = { Text(label) },
+            singleLine = true,
+            trailingIcon = {
+                Icon(
+                    painterResource(R.drawable.ic_schedule),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f),
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledContainerColor = Color.Transparent,
+                disabledTrailingIconColor = MaterialTheme.colorScheme.primary
+            )
+        )
+    }
 }
 
 @Composable
@@ -567,14 +649,21 @@ private fun frequencyLabel(value: String): String = when (value) {
 
 private fun accountLabel(value: String): String = if (value.equals("CASH", true)) "Efectivo" else "Tarjeta/cuenta"
 
+private const val DEFAULT_TIME = "09:00"
+
 private fun formatDate(value: Long): String = SimpleDateFormat("dd/MM/yyyy", Locale("es", "PE")).format(Date(value))
 
-private fun parseDate(value: String): Long? = runCatching {
-    val date = SimpleDateFormat("dd/MM/yyyy", Locale("es", "PE")).apply { isLenient = false }.parse(value.trim()) ?: return null
+private fun formatTime(value: Long): String = SimpleDateFormat("HH:mm", Locale("es", "PE")).format(Date(value))
+
+private fun parseDateTime(dateValue: String, timeValue: String): Long? = runCatching {
+    val date = SimpleDateFormat("dd/MM/yyyy", Locale("es", "PE")).apply { isLenient = false }.parse(dateValue.trim()) ?: return null
+    val time = timeValue.trim().ifBlank { DEFAULT_TIME }
+    if (!UiFormUtils.isValidTime(time)) return null
+    val parts = time.split(":")
     Calendar.getInstance().apply {
-        time = date
-        set(Calendar.HOUR_OF_DAY, 9)
-        set(Calendar.MINUTE, 0)
+        timeInMillis = date.time
+        set(Calendar.HOUR_OF_DAY, parts[0].toInt())
+        set(Calendar.MINUTE, parts[1].toInt())
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis

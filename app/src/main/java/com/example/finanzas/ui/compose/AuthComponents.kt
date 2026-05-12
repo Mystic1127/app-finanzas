@@ -1,7 +1,5 @@
 package com.example.finanzas.ui.compose
 
-import android.graphics.Rect
-import android.view.ViewTreeObserver
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
@@ -21,7 +19,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,12 +37,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,7 +53,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -147,8 +139,7 @@ internal fun SpendlyAuthScreenContainer(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scrollState = rememberScrollState()
-    val imeVisible = rememberKeyboardVisible()
-    val scrollModifier = if (scrollEnabled || (scrollWhenImeVisible && imeVisible)) {
+    val scrollModifier = if (scrollEnabled || scrollWhenImeVisible) {
         Modifier.verticalScroll(scrollState)
     } else {
         Modifier
@@ -160,31 +151,11 @@ internal fun SpendlyAuthScreenContainer(
                 .then(scrollModifier)
                 .systemBarsPadding()
                 .navigationBarsPadding()
-                .imePadding()
                 .padding(horizontal = horizontalPadding, vertical = verticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             content = content
         )
     }
-}
-
-@Composable
-private fun rememberKeyboardVisible(): Boolean {
-    val view = LocalView.current
-    var visible by remember { mutableStateOf(false) }
-    DisposableEffect(view) {
-        val rect = Rect()
-        val listener = ViewTreeObserver.OnGlobalLayoutListener {
-            view.getWindowVisibleDisplayFrame(rect)
-            val rootHeight = view.rootView.height
-            visible = rootHeight > 0 && rootHeight - rect.bottom > rootHeight * 0.15f
-        }
-        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
-        onDispose {
-            view.viewTreeObserver.removeOnGlobalLayoutListener(listener)
-        }
-    }
-    return visible
 }
 
 @Composable

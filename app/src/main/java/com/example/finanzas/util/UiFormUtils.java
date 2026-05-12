@@ -34,6 +34,10 @@ public final class UiFormUtils {
     private UiFormUtils() {
     }
 
+    public interface TimePickCallback {
+        void onPicked(@NonNull String time);
+    }
+
     public static void bindDatePicker(@NonNull Context context, @NonNull EditText input) {
         input.setFocusable(false);
         input.setClickable(true);
@@ -71,8 +75,12 @@ public final class UiFormUtils {
     }
 
     public static void showTimePicker(@NonNull Context context, @NonNull EditText input) {
+        showTimePicker(context, input.getText() == null ? "" : input.getText().toString(), input::setText);
+    }
+
+    public static void showTimePicker(@NonNull Context context, @Nullable String currentTime, @NonNull TimePickCallback callback) {
         Calendar calendar = Calendar.getInstance();
-        String current = input.getText() == null ? "" : input.getText().toString().trim();
+        String current = currentTime == null ? "" : currentTime.trim();
         if (isValidTime(current)) {
             String[] parts = current.split(":");
             calendar.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));
@@ -80,7 +88,7 @@ public final class UiFormUtils {
         }
 
         TimePickerDialog dialog = new TimePickerDialog(context,
-                (view, hourOfDay, minute) -> input.setText(String.format(LOCALE, "%02d:%02d", hourOfDay, minute)),
+                (view, hourOfDay, minute) -> callback.onPicked(String.format(LOCALE, "%02d:%02d", hourOfDay, minute)),
                 calendar.get(Calendar.HOUR_OF_DAY),
                 calendar.get(Calendar.MINUTE),
                 true);

@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.example.finanzas.R
 import com.example.finanzas.data.api.SettingsService
+import com.example.finanzas.data.cloud.CloudSyncService
 import com.example.finanzas.data.local.LocalDatabase
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.local.room.RecurringTransactionEntity
@@ -26,6 +27,7 @@ import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 object RecurringTransactionStore {
@@ -42,6 +44,7 @@ object RecurringTransactionStore {
     const val ACTION_RECURRING_TRANSACTION = "com.example.finanzas.action.RECURRING_TRANSACTION"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val dueInFlight = AtomicBoolean(false)
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     @JvmStatic
@@ -255,9 +258,18 @@ object RecurringTransactionStore {
     fun processDueAndScheduleAsync(context: Context, onComplete: (() -> Unit)?) {
         val appContext = context.applicationContext
         scope.launch {
-            runCatching { processDue(appContext) }
-            runCatching { scheduleAllActive(appContext) }
-            onComplete?.invoke()
+            if (!dueInFlight.compareAndSet(false, true)) {
+                runCatching { scheduleAllActive(appContext) }
+                onComplete?.invoke()
+                return@launch
+            }
+            try {
+                runCatching { processDue(appContext) }
+                runCatching { scheduleAllActive(appContext) }
+            } finally {
+                dueInFlight.set(false)
+                onComplete?.invoke()
+            }
         }
     }
 
@@ -306,6 +318,7 @@ object RecurringTransactionStore {
                 TransactionLabelStore.setLabel(context, newId, item.labelId)
             }
             dao.updateLastGeneratedDay(item.id, userId, todayDay)
+            CloudSyncService.scheduleUpload(context)
             notifyGenerated(context, item, newId)
         }
     }
@@ -434,11 +447,13 @@ object RecurringTransactionStore {
         }
         ensureChannel(context)
         val amount = Format.money(item.amount, item.currency)
-        val content = when {
+        val baseContent = when {
             item.isTransfer == 1 -> context.getString(R.string.recurring_transaction_notification_transfer, amount)
             item.isIncome == 1 -> context.getString(R.string.recurring_transaction_notification_income, amount)
             else -> context.getString(R.string.recurring_transaction_notification_expense, amount)
         }
+        val detail = recurringNotificationDetail(item)
+        val content = if (detail.isBlank()) baseContent else "$baseContent - $detail"
         val openIntent = Intent(context, MainActivity::class.java)
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -458,6 +473,12 @@ object RecurringTransactionStore {
             NotificationManagerCompat.from(context).notify(REQUEST_CODE_OFFSET + transactionId, notification)
         } catch (_: SecurityException) {
         }
+    }
+
+    private fun recurringNotificationDetail(item: RecurringTransactionEntity): String {
+        val note = item.note.orEmpty().trim()
+        val account = if (item.accountType.equals("CASH", true)) "Efectivo" else "Tarjeta/cuenta"
+        return listOf(note, account).filter { it.isNotBlank() }.joinToString(" - ")
     }
 
     private fun ensureChannel(context: Context) {
