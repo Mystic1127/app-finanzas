@@ -30,3 +30,7 @@ google-services.json
 
 # Misc
 *.iml
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/

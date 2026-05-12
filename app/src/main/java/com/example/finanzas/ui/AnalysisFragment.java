@@ -26,6 +26,10 @@ import com.example.finanzas.data.api.SettingsService;
 import com.example.finanzas.data.model.AnalysisCategoryPoint;
 import com.example.finanzas.data.model.AnalysisChartState;
 import com.example.finanzas.data.model.AnalysisMonthlyPoint;
+import com.example.finanzas.data.model.FinancialAssistantGeneratedBy;
+import com.example.finanzas.data.model.FinancialAssistantResult;
+import com.example.finanzas.data.model.FinancialAssistantRiskLevel;
+import com.example.finanzas.data.model.FinancialAssistantUiState;
 import com.example.finanzas.data.model.HomeSummary;
 import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable;
 import com.example.finanzas.ui.viewmodel.HomeViewModel;
@@ -60,12 +64,14 @@ public class AnalysisFragment extends Fragment {
     private TextView tvSavingsHero;
     private TextView tvSavingsDetail;
     private TextView tvSavingsMessage;
-    private TextView tvScore;
-    private TextView tvInsight;
-    private TextView tvSavingStatus;
-    private TextView tvSaving;
-    private MaterialButton btnFinancialDetail;
-    private MaterialButton btnSavingDetail;
+    private TextView tvAssistantRisk;
+    private TextView tvAssistantSource;
+    private TextView tvAssistantSummary;
+    private TextView tvAssistantSaving;
+    private TextView tvAssistantConcern;
+    private TextView tvAssistantAction;
+    private TextView tvAssistantAlert;
+    private MaterialButton btnAssistantRefresh;
     private CartesianChartView chartIncomeExpense;
     private CartesianChartView chartExpenseTrend;
     private CartesianChartView chartBalance;
@@ -113,14 +119,16 @@ public class AnalysisFragment extends Fragment {
         tvSavingsHero = view.findViewById(R.id.tvAnalysisSavingsHero);
         tvSavingsDetail = view.findViewById(R.id.tvAnalysisSavingsDetail);
         tvSavingsMessage = view.findViewById(R.id.tvAnalysisSavingsMessage);
-        tvScore = view.findViewById(R.id.tvAnalysisScore);
-        tvInsight = view.findViewById(R.id.tvAnalysisInsight);
-        tvSavingStatus = view.findViewById(R.id.tvAnalysisSavingStatus);
-        tvSaving = view.findViewById(R.id.tvAnalysisSaving);
-        btnFinancialDetail = view.findViewById(R.id.btnAnalysisFinancialDetail);
-        btnSavingDetail = view.findViewById(R.id.btnAnalysisSavingDetail);
-        styleDetailButton(btnFinancialDetail);
-        styleDetailButton(btnSavingDetail);
+        tvAssistantRisk = view.findViewById(R.id.tvAnalysisAssistantRisk);
+        tvAssistantSource = view.findViewById(R.id.tvAnalysisAssistantSource);
+        tvAssistantSummary = view.findViewById(R.id.tvAnalysisAssistantSummary);
+        tvAssistantSaving = view.findViewById(R.id.tvAnalysisAssistantSaving);
+        tvAssistantConcern = view.findViewById(R.id.tvAnalysisAssistantConcern);
+        tvAssistantAction = view.findViewById(R.id.tvAnalysisAssistantAction);
+        tvAssistantAlert = view.findViewById(R.id.tvAnalysisAssistantAlert);
+        btnAssistantRefresh = view.findViewById(R.id.btnAnalysisAssistantRefresh);
+        styleDetailButton(btnAssistantRefresh);
+        btnAssistantRefresh.setIconResource(R.drawable.ic_refresh_24);
         chartIncomeExpense = view.findViewById(R.id.chartAnalysisIncomeExpense);
         chartExpenseTrend = view.findViewById(R.id.chartAnalysisExpenseTrend);
         chartBalance = view.findViewById(R.id.chartAnalysisBalance);
@@ -140,8 +148,7 @@ public class AnalysisFragment extends Fragment {
 
         swipe.setOnRefreshListener(() -> load(true));
         chartExpenseTrend.setOnClickListener(v -> showLatestExpensePoint());
-        btnFinancialDetail.setOnClickListener(v -> showFinancialDetail());
-        btnSavingDetail.setOnClickListener(v -> showSavingDetail());
+        btnAssistantRefresh.setOnClickListener(v -> viewModel.refreshFinancialAssistant(true));
         viewModel.getLoading().observe(getViewLifecycleOwner(), loading ->
                 swipe.setRefreshing(Boolean.TRUE.equals(loading)));
         viewModel.getCurrencyCode().observe(getViewLifecycleOwner(), code -> {
@@ -156,6 +163,9 @@ public class AnalysisFragment extends Fragment {
         });
         viewModel.getAnalysisCharts().observe(getViewLifecycleOwner(), state -> {
             if (state != null && isAdded()) renderAnalysisCharts(state);
+        });
+        viewModel.getFinancialAssistant().observe(getViewLifecycleOwner(), state -> {
+            if (state != null && isAdded()) renderFinancialAssistant(state);
         });
         load(false);
     }
@@ -205,18 +215,71 @@ public class AnalysisFragment extends Fragment {
         lastSummaryRenderKey = renderKey;
         lastSummary = summary;
         tvPeriod.setText(Format.monthYear(summary.getAnio(), summary.getMes()));
-        tvScore.setText(getString(
-                R.string.home_financial_score_value,
-                summary.getScoreFinanciero(),
-                nonEmpty(summary.getScoreEstado(), getString(R.string.home_financial_missing))
-        ));
-        tvInsight.setText(nonEmpty(summary.getInsightPrincipal(), getString(R.string.home_financial_missing))
-                + "\n" + nonEmpty(summary.getScoreExplicacion(), ""));
-        tvSavingStatus.setText(nonEmpty(summary.getEstadoAhorro(), getString(R.string.home_smart_saving_status_adjusted)));
-        String saving = summary.getAhorroSugerido() > 0
-                ? getString(R.string.home_smart_saving_suggested_value, Format.money(summary.getAhorroSugerido(), currencyCode))
-                : getString(R.string.home_smart_saving_not_recommended);
-        tvSaving.setText(saving + "\n" + nonEmpty(summary.getRecomendacionAhorroMeta(), getString(R.string.home_smart_saving_goal_empty)));
+    }
+
+    private void renderFinancialAssistant(@NonNull FinancialAssistantUiState state) {
+        if (state instanceof FinancialAssistantUiState.Loading) {
+            tvAssistantRisk.setText(R.string.financial_assistant_loading_chip);
+            styleRiskChip(FinancialAssistantRiskLevel.MEDIUM);
+            tvAssistantSource.setVisibility(View.GONE);
+            tvAssistantSummary.setText(R.string.financial_assistant_loading);
+            tvAssistantSaving.setText("...");
+            tvAssistantConcern.setText(R.string.financial_assistant_pending);
+            tvAssistantAction.setText(R.string.financial_assistant_wait_action);
+            tvAssistantAlert.setVisibility(View.GONE);
+            btnAssistantRefresh.setEnabled(false);
+            return;
+        }
+        if (state instanceof FinancialAssistantUiState.Ready) {
+            FinancialAssistantResult result = ((FinancialAssistantUiState.Ready) state).getResult();
+            btnAssistantRefresh.setEnabled(true);
+            tvAssistantRisk.setText(result.getRiskLabel());
+            styleRiskChip(result.getRiskLevel());
+            tvAssistantSource.setVisibility(result.getGeneratedBy() == FinancialAssistantGeneratedBy.local_fallback ? View.VISIBLE : View.GONE);
+            tvAssistantSource.setText(R.string.financial_assistant_local_source);
+            tvAssistantSummary.setText(result.getSummary());
+            tvAssistantSaving.setText(result.getSuggestedSavingAmount() > 0.0
+                    ? Format.money(result.getSuggestedSavingAmount(), currencyCode)
+                    : getString(R.string.financial_assistant_no_saving));
+            tvAssistantConcern.setText(result.getMainConcern());
+            tvAssistantAction.setText(result.getRecommendedAction());
+            List<String> alerts = result.getAlerts();
+            tvAssistantAlert.setVisibility(alerts.isEmpty() ? View.GONE : View.VISIBLE);
+            if (!alerts.isEmpty()) {
+                tvAssistantAlert.setText(alerts.get(0));
+            }
+            return;
+        }
+        btnAssistantRefresh.setEnabled(true);
+        tvAssistantRisk.setText(R.string.financial_assistant_pending);
+        styleRiskChip(FinancialAssistantRiskLevel.LOW);
+        tvAssistantSource.setVisibility(View.GONE);
+        tvAssistantSummary.setText(R.string.financial_assistant_empty);
+        tvAssistantSaving.setText("...");
+        tvAssistantConcern.setText(R.string.financial_assistant_pending);
+        tvAssistantAction.setText(R.string.financial_assistant_wait_action);
+        tvAssistantAlert.setVisibility(View.GONE);
+    }
+
+    private void styleRiskChip(@NonNull FinancialAssistantRiskLevel riskLevel) {
+        int bg;
+        int text;
+        if (riskLevel == FinancialAssistantRiskLevel.HIGH) {
+            bg = R.color.risk_high_bg;
+            text = R.color.risk_high_text;
+        } else if (riskLevel == FinancialAssistantRiskLevel.MEDIUM) {
+            bg = R.color.risk_medium_bg;
+            text = R.color.risk_medium_text;
+        } else {
+            bg = R.color.risk_low_bg;
+            text = R.color.risk_low_text;
+        }
+        GradientDrawable chip = new GradientDrawable();
+        chip.setColor(ContextCompat.getColor(requireContext(), bg));
+        chip.setStroke(dp(1), ContextCompat.getColor(requireContext(), text));
+        chip.setCornerRadius(dp(12));
+        tvAssistantRisk.setBackground(chip);
+        tvAssistantRisk.setTextColor(ContextCompat.getColor(requireContext(), text));
     }
 
     private void renderAnalysisCharts(@NonNull AnalysisChartState state) {

@@ -3,6 +3,7 @@ package com.example.finanzas.di
 import android.content.Context
 import com.example.finanzas.data.repository.BudgetRepository
 import com.example.finanzas.data.repository.DashboardRepository
+import com.example.finanzas.data.repository.FinancialAssistantRepository
 import com.example.finanzas.data.repository.GoalRepository
 import com.example.finanzas.data.repository.ReminderRepository
 import com.example.finanzas.data.repository.TransactionRepository
@@ -15,6 +16,7 @@ class AppGraph(context: Context) {
 
     val transactionRepository by lazy { TransactionRepository(appContext) }
     val dashboardRepository by lazy { DashboardRepository(appContext) }
+    val financialAssistantRepository by lazy { FinancialAssistantRepository(appContext) }
     val budgetRepository by lazy { BudgetRepository(appContext) }
     val goalRepository by lazy { GoalRepository(appContext) }
     val reminderRepository by lazy { ReminderRepository(appContext) }

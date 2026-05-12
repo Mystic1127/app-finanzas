@@ -9,6 +9,7 @@ import com.example.finanzas.data.api.SettingsService
 import com.example.finanzas.data.local.LocalRepository
 import com.example.finanzas.data.model.AnalysisChartState
 import com.example.finanzas.data.model.DashboardModulePref
+import com.example.finanzas.data.model.FinancialAssistantUiState
 import com.example.finanzas.data.model.HomeSummary
 import com.example.finanzas.data.model.TravelPreference
 import com.example.finanzas.di.AppGraph
@@ -55,12 +56,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _analysisCharts = MutableLiveData<AnalysisChartState?>()
     val analysisCharts: LiveData<AnalysisChartState?> = _analysisCharts
 
+    private val _financialAssistant = MutableLiveData<FinancialAssistantUiState>(FinancialAssistantUiState.Idle)
+    val financialAssistant: LiveData<FinancialAssistantUiState> = _financialAssistant
+
     private var loadedYear = 0
     private var loadedMonth = 0
     private var loadedVersion = -1L
     private var loadedUserId = -1L
     private var loadGeneration = 0L
     private var currentLoadJob: Job? = null
+    private var assistantJob: Job? = null
 
     private fun hydrateUiPreferences(summary: HomeSummary): HomeSummary {
         runCatching {
@@ -192,6 +197,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 publishSummary(enriched.first, userId, anio, mes, version, clearDerived = false)
                 _smartAlert.value = enriched.second
                 _insights.value = enriched.third
+                refreshFinancialAssistant(enriched.first, force, generation)
                 PerfLogger.logSince("HomeFragment", "enrichmentReady", loadStart)
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -203,6 +209,34 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     _loading.value = false
                     currentLoadJob = null
                 }
+            }
+        }
+    }
+
+    fun refreshFinancialAssistant(forceRemote: Boolean = true) {
+        val summary = _summary.value ?: return
+        refreshFinancialAssistant(summary, forceRemote, loadGeneration)
+    }
+
+    private fun refreshFinancialAssistant(summary: HomeSummary, forceRemote: Boolean, generation: Long) {
+        assistantJob?.cancel()
+        _financialAssistant.value = FinancialAssistantUiState.Loading
+        assistantJob = viewModelScope.launch {
+            val start = PerfLogger.now()
+            try {
+                val result = graph.financialAssistantRepository.analyze(summary, forceRemote)
+                if (isCurrentLoad(generation)) {
+                    _financialAssistant.value = FinancialAssistantUiState.Ready(result)
+                    PerfLogger.logSince("FinancialAssistant", "ready generatedBy=${result.generatedBy}", start)
+                }
+            } catch (_: Throwable) {
+                if (isCurrentLoad(generation)) {
+                    val result = graph.financialAssistantRepository.analyze(summary, forceRemote = false)
+                    _financialAssistant.value = FinancialAssistantUiState.Ready(result)
+                    PerfLogger.logSince("FinancialAssistant", "fallbackReady", start)
+                }
+            } finally {
+                if (isCurrentLoad(generation)) assistantJob = null
             }
         }
     }
@@ -290,7 +324,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun clearCache() {
         loadGeneration++
         currentLoadJob?.cancel()
+        assistantJob?.cancel()
         currentLoadJob = null
+        assistantJob = null
         loadedUserId = -1L
         loadedYear = 0
         loadedMonth = 0
@@ -298,6 +334,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         graph.dashboardRepository.clearCache()
         _summary.value = null
         _analysisCharts.value = null
+        _financialAssistant.value = FinancialAssistantUiState.Idle
         _smartAlert.value = null
         _insights.value = emptyList()
         _loading.value = false
