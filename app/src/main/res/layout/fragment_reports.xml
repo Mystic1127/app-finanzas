@@ -59,6 +59,47 @@
                     android:text="@string/reports_export_pdf"
                     app:icon="@drawable/ic_upload_24" />
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReportPreviousMonth"
+                        style="@style/Widget.Finanzas.Button.Secondary"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:text="@string/reports_previous_month"
+                        app:cornerRadius="16dp"
+                        app:icon="@drawable/ic_keyboard_arrow_left"
+                        app:iconGravity="textStart" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReportCurrentMonth"
+                        style="@style/Widget.Finanzas.Button.Secondary"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:text="@string/reports_current_month"
+                        app:cornerRadius="16dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReportNextMonth"
+                        style="@style/Widget.Finanzas.Button.Secondary"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:text="@string/reports_next_month"
+                        app:cornerRadius="16dp"
+                        app:icon="@drawable/ic_keyboard_arrow_right"
+                        app:iconGravity="textEnd" />
+                </LinearLayout>
+
                 <TextView
                     android:id="@+id/tvReportsEmpty"
                     android:layout_width="match_parent"
@@ -263,7 +304,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="@string/reports_recent_title"
+                            android:text="@string/reports_month_transactions_title"
                             android:textColor="@color/md_theme_onSurface"
                             android:textStyle="bold" />
 

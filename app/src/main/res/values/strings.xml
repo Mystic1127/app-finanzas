@@ -412,12 +412,15 @@
     <string name="reports_subtitle">Resumen mensual listo para revisar o compartir.</string>
     <string name="reports_export_pdf">Exportar PDF</string>
     <string name="reports_empty">No hay datos suficientes para este mes. El reporte se puede exportar con estado vacío.</string>
+    <string name="reports_previous_month">Anterior</string>
+    <string name="reports_current_month">Actual</string>
+    <string name="reports_next_month">Siguiente</string>
     <string name="reports_categories_title">Top categorías</string>
     <string name="reports_trend_title">Evolución mensual</string>
-    <string name="reports_recent_title">Transacciones recientes</string>
+    <string name="reports_month_transactions_title">Transacciones del mes</string>
     <string name="reports_no_categories">Sin gastos por categoría.</string>
     <string name="reports_no_trend">Sin historial suficiente para mostrar evolución.</string>
-    <string name="reports_no_transactions">Sin transacciones recientes.</string>
+    <string name="reports_no_transactions">Sin transacciones en este mes.</string>
     <string name="reports_pdf_ready">PDF generado: %1$s</string>
     <string name="reports_pdf_error">No se pudo generar el PDF.</string>
     <string name="reports_share_title">Compartir reporte financiero</string>

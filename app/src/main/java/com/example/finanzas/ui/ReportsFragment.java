@@ -30,6 +30,7 @@ import com.example.finanzas.util.UiFormUtils;
 import com.google.android.material.button.MaterialButton;
 
 import java.io.File;
+import java.util.Calendar;
 import java.util.List;
 
 public class ReportsFragment extends Fragment {
@@ -55,6 +56,8 @@ public class ReportsFragment extends Fragment {
     private long loadStartMs;
     private boolean firstRenderLogged;
     private FinancialReport lastRenderedReport;
+    private int selectedYear;
+    private int selectedMonth;
 
     @Nullable
     @Override
@@ -86,8 +89,15 @@ public class ReportsFragment extends Fragment {
         detailsContainer = view.findViewById(R.id.reportDetailsContainer);
         btnToggleDetails = view.findViewById(R.id.btnReportToggleDetails);
         MaterialButton btnExport = view.findViewById(R.id.btnExportReportPdf);
+        MaterialButton btnPreviousMonth = view.findViewById(R.id.btnReportPreviousMonth);
+        MaterialButton btnCurrentMonth = view.findViewById(R.id.btnReportCurrentMonth);
+        MaterialButton btnNextMonth = view.findViewById(R.id.btnReportNextMonth);
         view.findViewById(R.id.btnReportsBack).setOnClickListener(v ->
                 NavHostFragment.findNavController(this).popBackStack());
+
+        Calendar now = Calendar.getInstance();
+        selectedYear = now.get(Calendar.YEAR);
+        selectedMonth = now.get(Calendar.MONTH) + 1;
 
         lastRenderedReport = null;
         viewModel = new ViewModelProvider(requireActivity()).get(ReportsViewModel.class);
@@ -96,10 +106,13 @@ public class ReportsFragment extends Fragment {
             manualRefresh = true;
             loadStartMs = PerfLogger.now();
             PerfLogger.log("ReportsFragment", "loadStart force=true");
-            viewModel.loadCurrentMonth(true);
+            loadSelectedMonth(true);
         });
         btnExport.setOnClickListener(v -> viewModel.exportPdf());
         btnToggleDetails.setOnClickListener(v -> toggleDetails());
+        btnPreviousMonth.setOnClickListener(v -> shiftSelectedMonth(-1));
+        btnCurrentMonth.setOnClickListener(v -> resetToCurrentMonth());
+        btnNextMonth.setOnClickListener(v -> shiftSelectedMonth(1));
         FinancialReport cachedReport = viewModel.getReport().getValue();
         if (cachedReport != null) {
             render(cachedReport);
@@ -119,7 +132,7 @@ public class ReportsFragment extends Fragment {
         super.onResume();
         loadStartMs = PerfLogger.now();
         PerfLogger.log("ReportsFragment", "loadStart");
-        viewModel.loadCurrentMonth();
+        loadSelectedMonth(false);
     }
 
     private void observeViewModel() {
@@ -183,6 +196,30 @@ public class ReportsFragment extends Fragment {
         btnToggleDetails.setText(show ? R.string.reports_view_less : R.string.reports_view_more);
     }
 
+    private void loadSelectedMonth(boolean force) {
+        viewModel.load(selectedYear, selectedMonth, force);
+    }
+
+    private void shiftSelectedMonth(int delta) {
+        Calendar cal = Calendar.getInstance();
+        cal.set(selectedYear, selectedMonth - 1, 1);
+        cal.add(Calendar.MONTH, delta);
+        selectedYear = cal.get(Calendar.YEAR);
+        selectedMonth = cal.get(Calendar.MONTH) + 1;
+        lastRenderedReport = null;
+        loadStartMs = PerfLogger.now();
+        loadSelectedMonth(false);
+    }
+
+    private void resetToCurrentMonth() {
+        Calendar now = Calendar.getInstance();
+        selectedYear = now.get(Calendar.YEAR);
+        selectedMonth = now.get(Calendar.MONTH) + 1;
+        lastRenderedReport = null;
+        loadStartMs = PerfLogger.now();
+        loadSelectedMonth(false);
+    }
+
     private String buildCategories(@Nullable List<CategoryChartSlice> items, @NonNull String currency) {
         if (items == null || items.isEmpty()) return getString(R.string.reports_no_categories);
         StringBuilder out = new StringBuilder();
@@ -217,8 +254,7 @@ public class ReportsFragment extends Fragment {
     private String buildTransactions(@Nullable List<Transaccion> items, @NonNull String currency) {
         if (items == null || items.isEmpty()) return getString(R.string.reports_no_transactions);
         StringBuilder out = new StringBuilder();
-        int max = Math.min(6, items.size());
-        for (int i = 0; i < max; i++) {
+        for (int i = 0; i < items.size(); i++) {
             Transaccion tx = items.get(i);
             String type = tx.isEsIngreso() ? getString(R.string.tipo_ingreso_on) : getString(R.string.tipo_ingreso_off);
             double signed = tx.isEsIngreso() ? tx.getMonto() : -tx.getMonto();
@@ -229,7 +265,7 @@ public class ReportsFragment extends Fragment {
                     .append(tx.getCategoriaNombre() == null ? getString(R.string.home_uncategorized) : tx.getCategoriaNombre())
                     .append(" · ")
                     .append(Format.money(signed, currency));
-            if (i < max - 1) out.append("\n");
+            if (i < items.size() - 1) out.append("\n");
         }
         return out.toString();
     }

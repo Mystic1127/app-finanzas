@@ -91,7 +91,6 @@ class MonthlyReportPdfExporter(private val context: Context) {
         }
         drawSummary(writer, report)
         drawCategories(writer, report)
-        drawInsights(writer, report)
         drawTransactions(writer, report)
 
         val generated = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "PE")).format(Date(report.generatedAt))
@@ -178,29 +177,14 @@ class MonthlyReportPdfExporter(private val context: Context) {
         writer.move(8f)
     }
 
-    private fun drawInsights(writer: PdfWriter, report: FinancialReport) {
-        val summary = report.summary
-        val insights = (listOfNotNull(summary.insightPrincipal, summary.alertaPrincipal) + summary.alertas + summary.notasInformativas)
-            .filter { it.isNotBlank() }
-            .distinct()
-            .take(3)
-        drawSectionTitle(writer, "Alertas clave", "Lectura rapida")
-        if (insights.isEmpty()) {
-            drawMutedBlock(writer, "Sin alertas relevantes por ahora.")
-        } else {
-            insights.forEach { drawInsight(writer, it) }
-        }
-        writer.move(8f)
-    }
-
     private fun drawTransactions(writer: PdfWriter, report: FinancialReport) {
-        drawSectionTitle(writer, "Ultimos movimientos", "Solo los mas recientes")
+        drawSectionTitle(writer, "Transacciones del mes", "Todos los movimientos del periodo")
         if (report.recentTransactions.isEmpty()) {
-            drawMutedBlock(writer, "Sin transacciones recientes en este periodo.")
+            drawMutedBlock(writer, "Sin transacciones en este mes.")
             return
         }
 
-        report.recentTransactions.take(6).forEach { tx ->
+        report.recentTransactions.forEach { tx ->
             drawTransactionRow(writer, tx, report.currencyCode)
         }
     }
@@ -215,22 +199,22 @@ class MonthlyReportPdfExporter(private val context: Context) {
     }
 
     private fun drawCompactFacts(writer: PdfWriter, items: List<Pair<String, String>>) {
-        writer.ensure(86f)
-        val rect = RectF(margin, writer.y, pageWidth - margin, writer.y + 78f)
+        writer.ensure(124f)
+        val rect = RectF(margin, writer.y, pageWidth - margin, writer.y + 112f)
         writer.canvas.drawRoundRect(rect, 16f, 16f, fill(PdfPalette.card))
         writer.canvas.drawRoundRect(rect, 16f, 16f, stroke(PdfPalette.line))
-        val labelPaint = textPaint(8.8f, PdfPalette.subtle)
-        val valuePaint = textPaint(9.5f, PdfPalette.ink, Typeface.BOLD)
-        val colW = contentWidth / 4f
-        items.take(8).forEachIndexed { index, item ->
-            val col = index % 4
-            val row = index / 4
-            val x = margin + 14f + col * colW
-            val y = writer.y + 24f + row * 34f
+        val labelPaint = textPaint(10.5f, PdfPalette.subtle)
+        val valuePaint = textPaint(13.5f, PdfPalette.ink, Typeface.BOLD)
+        val colW = (contentWidth - 32f) / 2f
+        items.take(4).forEachIndexed { index, item ->
+            val col = index % 2
+            val row = index / 2
+            val x = margin + 18f + col * (colW + 24f)
+            val y = writer.y + 34f + row * 46f
             writer.canvas.drawText(item.first, x, y, labelPaint)
-            writer.canvas.drawText(truncate(item.second, 18), x, y + 14f, valuePaint)
+            writer.canvas.drawText(truncate(item.second, 22), x, y + 19f, valuePaint)
         }
-        writer.move(92f)
+        writer.move(126f)
     }
 
     private fun drawCategoryRow(
@@ -309,14 +293,6 @@ class MonthlyReportPdfExporter(private val context: Context) {
         val ratio = if (maxValue > 0.0) (value / maxValue).coerceIn(0.0, 1.0).toFloat() else 0f
         writer.canvas.drawRoundRect(RectF(margin, barTop, margin + contentWidth * ratio, barTop + 10f), 5f, 5f, fill(color))
         writer.move(if (big) 40f else 32f)
-    }
-
-    private fun drawInsight(writer: PdfWriter, text: String) {
-        writer.ensure(42f)
-        val top = writer.y
-        writer.canvas.drawCircle(margin + 8f, top + 12f, 4f, fill(PdfPalette.primary))
-        drawWrapped(writer.canvas, text, margin + 22f, top + 6f, contentWidth - 22f, textPaint(10f, PdfPalette.ink), 15f)
-        writer.move(36f)
     }
 
     private fun drawMutedBlock(writer: PdfWriter, text: String) {
