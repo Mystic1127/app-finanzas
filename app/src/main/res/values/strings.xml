@@ -412,9 +412,9 @@
     <string name="reports_subtitle">Resumen mensual listo para revisar o compartir.</string>
     <string name="reports_export_pdf">Exportar PDF</string>
     <string name="reports_empty">No hay datos suficientes para este mes. El reporte se puede exportar con estado vacío.</string>
-    <string name="reports_previous_month">Anterior</string>
+    <string name="reports_previous_month">Ant.</string>
     <string name="reports_current_month">Actual</string>
-    <string name="reports_next_month">Siguiente</string>
+    <string name="reports_next_month">Sig.</string>
     <string name="reports_categories_title">Top categorías</string>
     <string name="reports_trend_title">Evolución mensual</string>
     <string name="reports_month_transactions_title">Transacciones del mes</string>

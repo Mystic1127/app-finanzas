@@ -72,9 +72,15 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
+                        android:minWidth="0dp"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:singleLine="true"
                         android:text="@string/reports_previous_month"
+                        android:textSize="12sp"
                         app:cornerRadius="16dp"
                         app:icon="@drawable/ic_keyboard_arrow_left"
+                        app:iconPadding="2dp"
                         app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
@@ -85,7 +91,12 @@
                         android:layout_marginStart="8dp"
                         android:layout_marginEnd="8dp"
                         android:layout_weight="1"
+                        android:minWidth="0dp"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:singleLine="true"
                         android:text="@string/reports_current_month"
+                        android:textSize="12sp"
                         app:cornerRadius="16dp" />
 
                     <com.google.android.material.button.MaterialButton
@@ -94,9 +105,15 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
+                        android:minWidth="0dp"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:singleLine="true"
                         android:text="@string/reports_next_month"
+                        android:textSize="12sp"
                         app:cornerRadius="16dp"
                         app:icon="@drawable/ic_keyboard_arrow_right"
+                        app:iconPadding="2dp"
                         app:iconGravity="textEnd" />
                 </LinearLayout>
 

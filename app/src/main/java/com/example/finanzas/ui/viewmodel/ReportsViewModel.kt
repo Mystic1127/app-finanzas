@@ -97,17 +97,31 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
                 val previousSummary = previousSummaryDeferred.await()
                 val previousPreviousTx = previousPreviousTxDeferred.await()
-                withContext(Dispatchers.Default) {
-                    graph.financialDashboardEngine.enrichDashboard(summary, currentTx, previousTx, trend)
-                    graph.financialDashboardEngine.applyScoreTrend(
-                        summary,
-                        previousSummary,
-                        previousTx,
-                        previousPreviousTx
-                    )
+                val hasMonthMovements = currentTx.isNotEmpty()
+                if (!hasMonthMovements) {
+                    resetEmptyReportSummary(summary)
+                    summary.tendenciaMensual.clear()
+                    summary.tendenciaMensual.addAll(trend)
+                } else {
+                    if (!isCurrentMonth(anio, mes)) {
+                        scopeHistoricalReportSummary(summary)
+                    }
+                    withContext(Dispatchers.Default) {
+                        graph.financialDashboardEngine.enrichDashboard(summary, currentTx, previousTx, trend)
+                        if (!isCurrentMonth(anio, mes)) {
+                            scopeHistoricalReportSummary(summary)
+                        }
+                        graph.financialDashboardEngine.applyScoreTrend(
+                            summary,
+                            previousSummary,
+                            previousTx,
+                            previousPreviousTx
+                        )
+                    }
                 }
 
                 val status = when {
+                    !hasMonthMovements -> "Sin datos"
                     summary.saldoActualTotal < 0.0 -> "Saldo actual negativo"
                     summary.proyeccionFinMes < 0.0 && !summary.isProyeccionPreliminar -> "Proyección ajustada"
                     summary.saldo < 0.0 && summary.saldoActualTotal > 0.0 -> "Gasto visible mayor que ingresos"
@@ -171,5 +185,45 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         _report.value = null
         _pdfPath.value = null
         _loading.value = false
+    }
+
+    private fun isCurrentMonth(anio: Int, mes: Int): Boolean {
+        val cal = Calendar.getInstance()
+        return cal.get(Calendar.YEAR) == anio && cal.get(Calendar.MONTH) + 1 == mes
+    }
+
+    private fun scopeHistoricalReportSummary(summary: com.example.finanzas.data.model.HomeSummary) {
+        summary.saldoActualTotal = summary.saldo
+        summary.proyeccionFinMes = summary.saldo
+        summary.ahorroSugerido = summary.saldo.coerceAtLeast(0.0)
+        summary.efectivo = 0.0
+        summary.tarjetaCuenta = summary.saldo
+    }
+
+    private fun resetEmptyReportSummary(summary: com.example.finanzas.data.model.HomeSummary) {
+        summary.ingresos = 0.0
+        summary.gastos = 0.0
+        summary.saldo = 0.0
+        summary.ingresosRecurrentes = 0.0
+        summary.balanceVisibleMes = 0.0
+        summary.balanceOperativoMes = 0.0
+        summary.saldoActualTotal = 0.0
+        summary.efectivo = 0.0
+        summary.tarjetaCuenta = 0.0
+        summary.gastoProyectado = 0.0
+        summary.gastoPromedioDiario = 0.0
+        summary.proyeccionFinMes = 0.0
+        summary.ahorroSugerido = 0.0
+        summary.scoreFinanciero = 0
+        summary.scoreEstado = "Sin datos"
+        summary.scoreExplicacion = "Sin movimientos en el periodo."
+        summary.scoreTendencia = "Sin datos suficientes"
+        summary.estadoFinanciero = "SIN_DATOS"
+        summary.insightPrincipal = "Sin movimientos en este mes."
+        summary.alertaPrincipal = null
+        summary.chartCategorias.clear()
+        summary.alertas.clear()
+        summary.notasInformativas.clear()
+        summary.recomendacionesInteligentes.clear()
     }
 }

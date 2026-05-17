@@ -1,4 +1,4 @@
-package com.example.finanzas.util
+﻿package com.example.finanzas.util
 
 import android.content.Context
 import android.graphics.Canvas
@@ -91,10 +91,11 @@ class MonthlyReportPdfExporter(private val context: Context) {
         }
         drawSummary(writer, report)
         drawCategories(writer, report)
+        writer.newPage()
         drawTransactions(writer, report)
 
         val generated = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "PE")).format(Date(report.generatedAt))
-        writer.footer("Spendly • Generado el $generated", textPaint(9f, PdfPalette.subtle))
+        writer.footer("Spendly - Generado el $generated", textPaint(9f, PdfPalette.subtle))
     }
 
     private fun drawHeader(writer: PdfWriter, report: FinancialReport) {
@@ -107,7 +108,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
         writer.canvas.drawRoundRect(RectF(margin, writer.y, margin + 80f, writer.y + 34f), 17f, 17f, fill(PdfPalette.primary))
         writer.canvas.drawText("Spendly", margin + 15f, writer.y + 22f, logo)
         writer.canvas.drawText("Reporte financiero mensual", margin, writer.y + 58f, title)
-        writer.canvas.drawText("${report.monthLabel} • Moneda base: ${report.currencyCode}", margin, writer.y + 78f, subtitle)
+        writer.canvas.drawText("${report.monthLabel} - Moneda base: ${report.currencyCode}", margin, writer.y + 78f, subtitle)
         drawPill(writer.canvas, pageWidth - margin - 128f, writer.y + 46f, 128f, 26f, report.status, PdfPalette.softGreen, badge)
         writer.move(104f)
     }
@@ -273,7 +274,7 @@ class MonthlyReportPdfExporter(private val context: Context) {
         writer.canvas.drawRoundRect(rect, 14f, 14f, fill(PdfPalette.card))
         writer.canvas.drawRoundRect(rect, 14f, 14f, stroke(PdfPalette.line))
         drawPill(writer.canvas, margin + 12f, top + 13f, 86f, 24f, type, soft, textPaint(8.8f, color, Typeface.BOLD))
-        writer.canvas.drawText("$dateText • $timeText", margin + 112f, top + 18f, textPaint(9f, PdfPalette.subtle))
+        writer.canvas.drawText("$dateText - $timeText", margin + 112f, top + 18f, textPaint(9f, PdfPalette.subtle))
         writer.canvas.drawText(truncate(category, 30), margin + 112f, top + 36f, textPaint(11f, PdfPalette.ink, Typeface.BOLD))
         writer.canvas.drawText(account, margin + 290f, top + 36f, textPaint(9.2f, PdfPalette.muted))
         if (!note.isNullOrBlank()) {
@@ -403,6 +404,11 @@ class MonthlyReportPdfExporter(private val context: Context) {
 
         fun finish() {
             finishCurrent()
+        }
+
+        fun newPage() {
+            finishCurrent()
+            startPage()
         }
 
         private fun finishCurrent() {

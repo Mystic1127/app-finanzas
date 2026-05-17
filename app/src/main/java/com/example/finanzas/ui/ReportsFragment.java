@@ -259,11 +259,11 @@ public class ReportsFragment extends Fragment {
             String type = tx.isEsIngreso() ? getString(R.string.tipo_ingreso_on) : getString(R.string.tipo_ingreso_off);
             double signed = tx.isEsIngreso() ? tx.getMonto() : -tx.getMonto();
             out.append(Format.date(tx.getFecha()))
-                    .append(" · ")
+                    .append(" - ")
                     .append(type)
-                    .append(" · ")
+                    .append(" - ")
                     .append(tx.getCategoriaNombre() == null ? getString(R.string.home_uncategorized) : tx.getCategoriaNombre())
-                    .append(" · ")
+                    .append(" - ")
                     .append(Format.money(signed, currency));
             if (i < items.size() - 1) out.append("\n");
         }
