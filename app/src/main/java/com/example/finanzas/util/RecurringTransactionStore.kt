@@ -187,7 +187,8 @@ object RecurringTransactionStore {
         firstDate: Long,
         currency: String,
         accountType: String,
-        destinationAccountType: String?
+        destinationAccountType: String?,
+        labelId: String?
     ): Boolean {
         val cleanFrequency = normalizeFrequency(frequency) ?: return false
         val cleanDaysMask = normalizeDaysMask(cleanFrequency, daysMask)
@@ -223,7 +224,7 @@ object RecurringTransactionStore {
                 null
             },
             note = note.orEmpty(),
-            labelId = existing?.labelId,
+            labelId = labelId?.takeIf { TransactionLabelStore.findLabel(appContext, it) != null },
             firstDate = firstDate,
             lastGeneratedDay = existing?.lastGeneratedDay
         )

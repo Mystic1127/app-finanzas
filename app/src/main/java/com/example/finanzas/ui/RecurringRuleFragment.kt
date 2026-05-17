@@ -65,6 +65,7 @@ import com.example.finanzas.ui.view.SpendlyDecorBackgroundDrawable
 import com.example.finanzas.util.Format
 import com.example.finanzas.util.RecurringTransactionStore
 import com.example.finanzas.util.CategoryPrefs
+import com.example.finanzas.util.TransactionLabelStore
 import com.example.finanzas.util.UiFormUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,6 +77,7 @@ import java.util.Locale
 
 class RecurringRuleFragment : Fragment() {
     private var categories by mutableStateOf<List<RecurringCategoryUi>>(emptyList())
+    private var labels by mutableStateOf<List<RecurringLabelUi>>(emptyList())
     private var initial by mutableStateOf<RecurringRuleInitial?>(null)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
@@ -86,6 +88,7 @@ class RecurringRuleFragment : Fragment() {
                 SpendlyComposeTheme {
                     RecurringRuleScreen(
                         categories = categories,
+                        labels = labels,
                         initial = initial,
                         onPickTime = { current, onPicked ->
                             UiFormUtils.showTimePicker(requireContext(), current) { picked -> onPicked(picked) }
@@ -115,11 +118,14 @@ class RecurringRuleFragment : Fragment() {
                         hidden = CategoryPrefs.isDeleted(appContext, it)
                     )
                 }
+            val loadedLabels = TransactionLabelStore.listLabels(appContext)
+                .map { RecurringLabelUi(it.id, it.name, it.colorInt()) }
             val template = if (templateId > 0) RecurringTransactionStore.findTemplate(appContext, templateId) else null
             val mapped = template?.toInitial()
             withContext(Dispatchers.Main) {
                 if (!isAdded) return@withContext
                 categories = loadedCategories
+                labels = loadedLabels
                 initial = mapped ?: RecurringRuleInitial()
             }
         }
@@ -143,7 +149,8 @@ class RecurringRuleFragment : Fragment() {
                 firstDate = input.firstDate,
                 currency = input.currency,
                 accountType = input.accountType,
-                destinationAccountType = input.destinationAccountType
+                destinationAccountType = input.destinationAccountType,
+                labelId = input.labelId
             )
             withContext(Dispatchers.Main) {
                 if (!isAdded) return@withContext
@@ -176,7 +183,8 @@ class RecurringRuleFragment : Fragment() {
             active = isActive == 1,
             accountType = accountType,
             destinationAccountType = destinationAccountType ?: "CASH",
-            currency = currency
+            currency = currency,
+            labelId = labelId
         )
 
     companion object {
@@ -203,7 +211,8 @@ private data class RecurringRuleInitial(
     val active: Boolean = true,
     val accountType: String = "CARD",
     val destinationAccountType: String = "CASH",
-    val currency: String = "PEN"
+    val currency: String = "PEN",
+    val labelId: String? = null
 )
 
 private data class RecurringRuleInput(
@@ -219,7 +228,8 @@ private data class RecurringRuleInput(
     val active: Boolean,
     val accountType: String,
     val destinationAccountType: String,
-    val currency: String
+    val currency: String,
+    val labelId: String?
 )
 
 private data class RecurringCategoryUi(
@@ -236,9 +246,16 @@ private data class RecurringCategoryUi(
             name.equals(Transaccion.TRANSFER_CATEGORY, ignoreCase = true)
 }
 
+private data class RecurringLabelUi(
+    val id: String,
+    val name: String,
+    val color: Int
+)
+
 @Composable
 private fun RecurringRuleScreen(
     categories: List<RecurringCategoryUi>,
+    labels: List<RecurringLabelUi>,
     initial: RecurringRuleInitial?,
     onPickTime: (String, (String) -> Unit) -> Unit,
     onBack: () -> Unit,
@@ -256,6 +273,7 @@ private fun RecurringRuleScreen(
     var active by remember(initial) { mutableStateOf(initial.active) }
     var accountType by remember(initial) { mutableStateOf(initial.accountType) }
     var destinationType by remember(initial) { mutableStateOf(initial.destinationAccountType) }
+    var labelId by remember(initial) { mutableStateOf(initial.labelId) }
     var error by remember(initial) { mutableStateOf<String?>(null) }
 
     val selectedHiddenCategory = categories.firstOrNull { it.id == categoryId && it.hidden }
@@ -373,6 +391,14 @@ private fun RecurringRuleScreen(
                 RuleTextField("Nota o descripcion", note, { note = it }, KeyboardType.Text)
             }
 
+            RuleSection(title = "Etiqueta visual", icon = R.drawable.ic_etiqueta) {
+                LabelChoice(
+                    labels = labels,
+                    selectedId = labelId,
+                    onPick = { labelId = it }
+                )
+            }
+
             error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 12.dp))
             }
@@ -406,7 +432,8 @@ private fun RecurringRuleScreen(
                                 active = active,
                                 accountType = accountType,
                                 destinationAccountType = destinationType,
-                                currency = initial.currency.ifBlank { "PEN" }
+                                currency = initial.currency.ifBlank { "PEN" },
+                                labelId = labelId
                             )
                         )
                     }
@@ -414,6 +441,74 @@ private fun RecurringRuleScreen(
             )
             Spacer(Modifier.height(14.dp))
             SpendlyOutlinedButton(text = "Cancelar", onClick = onBack)
+        }
+    }
+}
+
+@Composable
+private fun LabelChoice(labels: List<RecurringLabelUi>, selectedId: String?, onPick: (String?) -> Unit) {
+    val noneActive = selectedId.isNullOrBlank()
+    Column {
+        LabelOption(
+            name = "Sin etiqueta",
+            color = MaterialTheme.colorScheme.outline,
+            active = noneActive,
+            onClick = { onPick(null) }
+        )
+        labels.forEach { label ->
+            Spacer(Modifier.height(8.dp))
+            LabelOption(
+                name = label.name,
+                color = Color(label.color),
+                active = label.id == selectedId,
+                onClick = { onPick(label.id) }
+            )
+        }
+        if (labels.isEmpty()) {
+            Text(
+                "Crea etiquetas desde Nueva Transaccion para reutilizarlas aqui.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun LabelOption(name: String, color: Color, active: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (active) color.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(
+            name,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+            fontSize = 13.sp,
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
+        )
+        if (active) {
+            Icon(
+                painterResource(R.drawable.ic_check_circle),
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

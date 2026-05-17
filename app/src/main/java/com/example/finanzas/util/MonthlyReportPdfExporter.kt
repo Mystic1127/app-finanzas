@@ -90,7 +90,6 @@ class MonthlyReportPdfExporter(private val context: Context) {
             drawEmptyState(writer)
         }
         drawSummary(writer, report)
-        drawIncomeExpense(writer, report)
         drawCategories(writer, report)
         drawInsights(writer, report)
         drawTransactions(writer, report)
@@ -124,14 +123,12 @@ class MonthlyReportPdfExporter(private val context: Context) {
 
     private fun drawSummary(writer: PdfWriter, report: FinancialReport) {
         val summary = report.summary
-        drawSectionTitle(writer, "Resumen ejecutivo", "Lo importante primero")
+        drawSectionTitle(writer, "Resumen esencial", "Solo los indicadores clave")
 
         val metrics = listOf(
             Metric("Ingresos", Format.money(summary.ingresos, report.currencyCode), PdfPalette.income),
             Metric("Gastos", Format.money(summary.gastos, report.currencyCode), PdfPalette.expense),
             Metric("Balance", Format.money(summary.saldo, report.currencyCode), if (summary.saldo >= 0) PdfPalette.income else PdfPalette.expense),
-            Metric("Saldo actual", Format.money(summary.saldoActualTotal, report.currencyCode), PdfPalette.primary),
-            Metric("Fin de mes", Format.money(summary.proyeccionFinMes, report.currencyCode), if (summary.proyeccionFinMes >= 0) PdfPalette.primary else PdfPalette.expense),
             Metric("Score", "${summary.scoreFinanciero}/100", PdfPalette.transfer)
         )
 
@@ -147,13 +144,9 @@ class MonthlyReportPdfExporter(private val context: Context) {
         }
 
         val compact = listOf(
-            "Efectivo" to Format.money(summary.efectivo, report.currencyCode),
-            "Tarjeta/cuenta" to Format.money(summary.tarjetaCuenta, report.currencyCode),
-            "Saldo inicial efectivo" to Format.money(summary.initialCashBalance, report.currencyCode),
-            "Saldo inicial tarjeta/cuenta" to Format.money(summary.initialCardBalance, report.currencyCode),
-            "Gasto proyectado" to Format.money(summary.gastoProyectado, report.currencyCode),
+            "Saldo actual" to Format.money(summary.saldoActualTotal, report.currencyCode),
+            "Fin de mes" to Format.money(summary.proyeccionFinMes, report.currencyCode),
             "Ahorro estimado" to Format.money(summary.ahorroSugerido, report.currencyCode),
-            "Confianza" to (summary.confianzaProyeccion ?: "Sin datos"),
             "Estado financiero" to (summary.scoreEstado ?: "Sin estado")
         )
         drawCompactFacts(writer, compact)
@@ -170,14 +163,14 @@ class MonthlyReportPdfExporter(private val context: Context) {
     }
 
     private fun drawCategories(writer: PdfWriter, report: FinancialReport) {
-        drawSectionTitle(writer, "Top categorias de gasto", "Ranking por monto del periodo")
+        drawSectionTitle(writer, "Top categorias", "Mayores gastos del periodo")
         if (report.topCategories.isEmpty()) {
             drawMutedBlock(writer, "Sin gastos por categoria para mostrar.")
             return
         }
 
         val maxCategory = report.topCategories.maxOfOrNull { it.gastado } ?: 0.0
-        report.topCategories.forEachIndexed { index, item ->
+        report.topCategories.take(5).forEachIndexed { index, item ->
             val color = PdfPalette.categoryColors[index % PdfPalette.categoryColors.size]
             val name = item.categoriaNombre?.takeIf { it.isNotBlank() } ?: "Sin categoria"
             drawCategoryRow(writer, index + 1, name, item.gastado, maxCategory, report.currencyCode, color)
@@ -190,8 +183,8 @@ class MonthlyReportPdfExporter(private val context: Context) {
         val insights = (listOfNotNull(summary.insightPrincipal, summary.alertaPrincipal) + summary.alertas + summary.notasInformativas)
             .filter { it.isNotBlank() }
             .distinct()
-            .take(4)
-        drawSectionTitle(writer, "Alertas e insights", "Lectura rapida")
+            .take(3)
+        drawSectionTitle(writer, "Alertas clave", "Lectura rapida")
         if (insights.isEmpty()) {
             drawMutedBlock(writer, "Sin alertas relevantes por ahora.")
         } else {
@@ -201,13 +194,13 @@ class MonthlyReportPdfExporter(private val context: Context) {
     }
 
     private fun drawTransactions(writer: PdfWriter, report: FinancialReport) {
-        drawSectionTitle(writer, "Transacciones recientes", "Fecha, hora, origen y monto")
+        drawSectionTitle(writer, "Ultimos movimientos", "Solo los mas recientes")
         if (report.recentTransactions.isEmpty()) {
             drawMutedBlock(writer, "Sin transacciones recientes en este periodo.")
             return
         }
 
-        report.recentTransactions.forEach { tx ->
+        report.recentTransactions.take(6).forEach { tx ->
             drawTransactionRow(writer, tx, report.currencyCode)
         }
     }
