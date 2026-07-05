@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/md_theme_background"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="28dp"
+    android:paddingBottom="28dp">
+
+    <LinearLayout
+        android:id="@+id/welcomeContent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toTopOf="@id/welcomeActions"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.48">
+
+        <FrameLayout
+            android:layout_width="184dp"
+            android:layout_height="132dp"
+            android:background="@drawable/bg_welcome_visual"
+            android:padding="18dp">
+
+            <View
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="top|start"
+                android:background="@drawable/stat_item_bg" />
+
+            <View
+                android:layout_width="96dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center|end"
+                android:background="@drawable/bg_surface_card" />
+
+            <View
+                android:layout_width="124dp"
+                android:layout_height="16dp"
+                android:layout_gravity="bottom|center_horizontal"
+                android:background="@drawable/bg_surface_card" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="34dp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0"
+            android:text="@string/app_name_spendly"
+            android:textColor="@color/md_theme_onSurface"
+            android:textSize="42sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="@string/welcome_tagline"
+            android:textColor="@color/md_theme_onSurfaceVariant"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/welcomeActions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnWelcomeLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="54dp"
+            android:text="@string/welcome_login" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnWelcomeRegister"
+            style="@style/Widget.Finanzas.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:minHeight="54dp"
+            android:text="@string/welcome_register" />
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

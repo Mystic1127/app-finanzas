@@ -1,0 +1,686 @@
+package com.example.finanzas.ui;
+
+import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.widget.Toast;
+import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.GravityCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
+import androidx.navigation.NavDestination;
+import androidx.navigation.NavOptions;
+import androidx.navigation.fragment.NavHostFragment;
+import androidx.navigation.ui.AppBarConfiguration;
+import androidx.navigation.ui.NavigationUI;
+
+import com.example.finanzas.BuildConfig;
+import com.example.finanzas.R;
+import com.example.finanzas.data.api.SettingsService;
+import com.example.finanzas.data.cloud.CloudSyncService;
+import com.example.finanzas.data.local.LocalRepository;
+import com.example.finanzas.ui.viewmodel.BudgetViewModel;
+import com.example.finanzas.ui.viewmodel.HomeViewModel;
+import com.example.finanzas.ui.viewmodel.ReportsViewModel;
+import com.example.finanzas.ui.viewmodel.TransactionsViewModel;
+import com.example.finanzas.util.Prefs;
+import com.example.finanzas.util.RecurringTransactionStore;
+import com.example.finanzas.util.NavigationAnimations;
+import com.example.finanzas.util.PinSession;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.navigation.NavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+
+import java.util.Objects;
+import java.util.Calendar;
+
+public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_POST_NOTIFICATIONS = 1001;
+
+    private AppBarConfiguration appBarConfiguration;
+    private NavController navController;
+    private DrawerLayout drawerLayout;
+    private NavigationView navView;
+    private MaterialToolbar toolbar;
+    private View navHostView;
+    private View bottomNavContainer;
+    private View bottomNavScrim;
+    private FragmentManager navHostChildFragmentManager;
+    private int contentTopMargin;
+    private int contentBottomMargin;
+    private int pendingDrawerDestination = 0;
+    private boolean requestedBottomChromeVisible = false;
+    private ViewTreeObserver.OnPreDrawListener pendingBottomChromeHideListener;
+    private View pendingBottomChromeHideView;
+    private FragmentManager.FragmentLifecycleCallbacks pendingBottomChromeHideCallback;
+    private long lastCloudRestoreReloadAt = 0L;
+    private final BroadcastReceiver cloudSyncRestoredReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!CloudSyncService.ACTION_SYNC_RESTORED.equals(intent.getAction())) return;
+            reloadAfterCloudRestore(intent.getBooleanExtra(CloudSyncService.EXTRA_SHOW_RESTORE_NOTICE, false));
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        SettingsService.applyThemeMode(this);
+        SplashScreen.installSplashScreen(this);
+        super.onCreate(savedInstanceState);
+        seedBenchmarkSessionIfBenchmarkBuild();
+        setContentView(R.layout.activity_main);
+
+        PinSession.lock();
+        RecurringTransactionStore.processDueAsync(this);
+
+
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        configureSystemBars();
+
+        drawerLayout = findViewById(R.id.drawer_layout);
+        drawerLayout.setScrimColor(ContextCompat.getColor(this, R.color.drawer_scrim));
+        navView = findViewById(R.id.nav_view);
+        navView.setBackgroundColor(ContextCompat.getColor(this, R.color.drawer_body_background));
+        drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
+            @Override
+            public void onDrawerSlide(@NonNull View drawerView, float slideOffset) {
+                if (slideOffset > 0f) {
+                    applyDrawerSystemBars();
+                }
+            }
+
+            @Override
+            public void onDrawerOpened(@NonNull View drawerView) {
+                applyDrawerSystemBars();
+            }
+
+            @Override
+            public void onDrawerClosed(@NonNull View drawerView) {
+                configureSystemBars();
+            }
+        });
+        navHostView = findViewById(R.id.nav_host_fragment);
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
+        contentTopMargin = params.topMargin;
+        contentBottomMargin = params.bottomMargin;
+
+        NavHostFragment navHost =
+                (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
+        navHost = Objects.requireNonNull(navHost, "NavHostFragment not found");
+        navController = navHost.getNavController();
+        navHostChildFragmentManager = navHost.getChildFragmentManager();
+
+
+        appBarConfiguration = new AppBarConfiguration.Builder(
+                R.id.nav_home,
+                R.id.nav_analysis,
+                R.id.nav_new,
+                R.id.nav_budget,
+                R.id.nav_planning,
+                R.id.nav_welcome,
+                R.id.nav_login,
+                R.id.nav_register
+        ).setOpenableLayout(drawerLayout).build();
+
+        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
+        NavigationUI.setupWithNavController(navView, navController);
+        setupBottomNavigation();
+        ContextCompat.registerReceiver(
+                this,
+                cloudSyncRestoredReceiver,
+                new IntentFilter(CloudSyncService.ACTION_SYNC_RESTORED),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
+
+
+        navView.setNavigationItemSelectedListener(this::onDrawerItemSelected);
+
+
+        navController.addOnDestinationChangedListener((controller, destination, args) -> {
+            configureSystemBars();
+            int destId = destination.getId();
+            boolean isAuthScreen = (destId == R.id.nav_login
+                    || destId == R.id.nav_register
+                    || destId == R.id.nav_welcome
+                    || destId == R.id.nav_email_verification
+                    || destId == R.id.nav_pin_lock);
+            boolean isImmersiveAuthScreen = (destId == R.id.nav_login
+                    || destId == R.id.nav_register
+                    || destId == R.id.nav_welcome
+                    || destId == R.id.nav_email_verification
+                    || destId == R.id.nav_change_password
+                    || destId == R.id.nav_pin_setup);
+            if (isImmersiveAuthScreen) {
+                applyAuthSystemBars();
+            }
+            boolean hasLocalHeader = destId == R.id.nav_home
+                    || destId == R.id.nav_analysis
+                    || destId == R.id.nav_new
+                    || destId == R.id.nav_list
+                    || destId == R.id.nav_budget
+                    || destId == R.id.nav_settings
+                    || destId == R.id.nav_categories
+                    || destId == R.id.nav_planning
+                    || destId == R.id.nav_reports
+                    || destId == R.id.nav_imports
+                    || destId == R.id.nav_perfil
+                    || destId == R.id.nav_recurring_settings
+                    || destId == R.id.nav_recurring_rule
+                    || destId == R.id.nav_device_accounts
+                    || destId == R.id.nav_initial_balance;
+            toolbar.setVisibility((isImmersiveAuthScreen || hasLocalHeader) ? View.GONE : View.VISIBLE);
+            setContentTopMargin((isImmersiveAuthScreen || hasLocalHeader) ? 0 : contentTopMargin);
+            boolean editingTransaction = destId == R.id.nav_new
+                    && args != null
+                    && args.containsKey(NuevaTransaccionFragment.EXTRA_ID);
+            boolean bottomVisible = isBottomDestination(destId) && !editingTransaction;
+            setContentBottomMargin(contentBottomMargin);
+            applyBottomChromeVisibility(bottomVisible);
+            updateBottomSelection(destId);
+
+            if (isAuthScreen) {
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+                if (getSupportActionBar() != null) {
+                    getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+                }
+                toolbar.setNavigationIcon(null);
+            } else {
+                drawerLayout.setDrawerLockMode(isDrawerDestination(destId)
+                        ? DrawerLayout.LOCK_MODE_UNLOCKED
+                        : DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
+                if (getSupportActionBar() != null) {
+                    getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+                }
+            }
+
+            if (navView != null) {
+                String token = Prefs.getToken(this);
+                boolean loggedIn = token != null || Prefs.isLoggedIn(this);
+
+                MenuItem logoutItem = navView.getMenu().findItem(R.id.nav_logout);
+                if (logoutItem != null) logoutItem.setVisible(loggedIn);
+            }
+
+            if (!isAuthScreen) {
+                requestNotificationPermissionIfNeeded();
+                enforcePinIfNeeded();
+            }
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        CloudSyncService.scheduleSync(this);
+        enforcePinIfNeeded();
+    }
+
+    @Override
+    protected void onDestroy() {
+        unregisterReceiver(cloudSyncRestoredReceiver);
+        super.onDestroy();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            configureSystemBars();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        CloudSyncService.scheduleUpload(this, false);
+        if (!isChangingConfigurations() && Prefs.hasPin(this)) {
+            PinSession.lock();
+        }
+    }
+
+    private boolean onDrawerItemSelected(@NonNull MenuItem item) {
+        int destId = item.getItemId();
+        if (destId == R.id.nav_home
+                || destId == R.id.nav_analysis
+                || destId == R.id.nav_list
+                || destId == R.id.nav_budget
+                || destId == R.id.nav_planning
+                || destId == R.id.nav_settings
+                || destId == R.id.nav_reports
+                || destId == R.id.nav_goals
+                || destId == R.id.nav_reminders
+                || destId == R.id.nav_imports
+                || destId == R.id.nav_perfil) {
+            navigateAfterDrawerCloses(destId);
+            return true;
+        }
+
+        if (destId == R.id.nav_logout) {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            navView.postDelayed(() -> {
+
+                Prefs.clearAuth(this);
+                FirebaseAuth.getInstance().signOut();
+                clearGoogleSignInCache();
+                clearScopedViewModelCaches();
+                LocalRepository.invalidateDataVersion();
+
+            PinSession.lock();
+
+            Toast.makeText(this, R.string.nav_logout_done, Toast.LENGTH_SHORT).show();
+
+            NavOptions out = new NavOptions.Builder()
+                    .setPopUpTo(navController.getGraph().getId(), true)
+                    .build();
+            navController.navigate(R.id.nav_welcome, null, out);
+            }, 160L);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void clearGoogleSignInCache() {
+        GoogleSignInOptions options = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        GoogleSignIn.getClient(this, options).signOut();
+    }
+
+    private void clearScopedViewModelCaches() {
+        ViewModelProvider provider = new ViewModelProvider(this);
+        provider.get(HomeViewModel.class).clearCache();
+        provider.get(TransactionsViewModel.class).clearCache();
+        provider.get(ReportsViewModel.class).clearCache();
+        provider.get(BudgetViewModel.class).clearCache();
+    }
+
+    private void reloadAfterCloudRestore(boolean showNotice) {
+        long now = System.currentTimeMillis();
+        if (now - lastCloudRestoreReloadAt < 1200L) {
+            return;
+        }
+        lastCloudRestoreReloadAt = now;
+        if (navController == null || navController.getCurrentDestination() == null) return;
+        clearScopedViewModelCaches();
+        LocalRepository.invalidateDataVersion();
+        if (navController.getCurrentDestination().getId() == R.id.nav_home) {
+            navHostView.postDelayed(() -> {
+                if (navController == null || navController.getCurrentDestination() == null) return;
+                if (navController.getCurrentDestination().getId() != R.id.nav_home) return;
+                Calendar cal = Calendar.getInstance();
+                new ViewModelProvider(this)
+                        .get(HomeViewModel.class)
+                        .loadSummary(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, true);
+            }, 120L);
+        }
+        if (showNotice) {
+            Toast.makeText(this, "Datos restaurados desde la nube", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void switchToUser(long userId, String email, String name) {
+        if (userId <= 0) return;
+        Prefs.setToken(this, "local-token");
+        Prefs.setUserSession(this, userId, email, name);
+        LocalRepository.invalidateDataVersion();
+        clearScopedViewModelCaches();
+        PinSession.lock();
+
+        Toast.makeText(this, getString(R.string.account_switch_success), Toast.LENGTH_SHORT).show();
+        NavOptions opts = new NavOptions.Builder()
+                .setPopUpTo(navController.getGraph().getId(), true)
+                .build();
+        navController.navigate(R.id.nav_home, null, opts);
+    }
+
+    private void setupBottomNavigation() {
+        bottomNavContainer = findViewById(R.id.bottom_nav_container);
+        bottomNavScrim = findViewById(R.id.bottom_nav_scrim);
+        bindBottomItem(R.id.bottomNavHome, R.id.nav_home);
+        bindBottomItem(R.id.bottomNavAnalysis, R.id.nav_analysis);
+        bindBottomItem(R.id.bottomNavNew, R.id.nav_new);
+        bindBottomItem(R.id.bottomNavBudget, R.id.nav_budget);
+        bindBottomItem(R.id.bottomNavPlanning, R.id.nav_planning);
+    }
+
+    private void bindBottomItem(int viewId, int destinationId) {
+        View item = findViewById(viewId);
+        if (item == null) return;
+        item.setOnClickListener(v -> navigateFromBottom(destinationId));
+        if (viewId == R.id.bottomNavNew) {
+            View circle = findViewById(R.id.bottomAddCircle);
+            if (circle != null) {
+                circle.setOnClickListener(v -> navigateFromBottom(destinationId));
+            }
+            View icon = findViewById(R.id.bottomIconNew);
+            if (icon != null) {
+                icon.setOnClickListener(v -> navigateFromBottom(destinationId));
+            }
+        }
+    }
+
+    private void seedBenchmarkSessionIfBenchmarkBuild() {
+        String buildType = BuildConfig.BUILD_TYPE;
+        boolean benchmarkBuild = "nonMinifiedRelease".equals(buildType)
+                || "benchmarkRelease".equals(buildType)
+                || "benchmark".equals(buildType);
+        if (!benchmarkBuild) return;
+
+        Prefs.setToken(this, "macrobenchmark-token");
+        Prefs.setUserSession(this, 1L, "macrobenchmark@spendly.test", "Macrobenchmark");
+        Prefs.clearPin(this);
+        Prefs.markTesterThanksSeen(this);
+        SettingsService.saveCurrency(this, "PEN", 0.0, new SettingsService.SaveCb() {
+            @Override public void onSuccess() {}
+            @Override public void onFail() {}
+        });
+    }
+
+    private void navigateFromBottom(int destinationId) {
+        NavDestination current = navController.getCurrentDestination();
+        if (current != null && current.getId() == destinationId) return;
+
+        navController.navigate(destinationId, null, NavigationAnimations.mainSection(R.id.nav_home));
+    }
+
+    private boolean isBottomDestination(int destId) {
+        return destId == R.id.nav_home
+                || destId == R.id.nav_analysis
+                || destId == R.id.nav_new
+                || destId == R.id.nav_budget
+                || destId == R.id.nav_planning;
+    }
+
+    private void applyBottomChromeVisibility(boolean visible) {
+        requestedBottomChromeVisible = visible;
+        if (visible) {
+            cancelPendingBottomChromeHide();
+            setBottomChromeVisibility(View.VISIBLE);
+        } else if (isBottomChromeVisible()) {
+            hideBottomChromeOnNextContentDraw();
+        } else {
+            setBottomChromeVisibility(View.GONE);
+        }
+    }
+
+    private boolean isBottomChromeVisible() {
+        return (bottomNavContainer != null && bottomNavContainer.getVisibility() == View.VISIBLE)
+                || (bottomNavScrim != null && bottomNavScrim.getVisibility() == View.VISIBLE);
+    }
+
+    private void setBottomChromeVisibility(int visibility) {
+        if (bottomNavContainer != null) bottomNavContainer.setVisibility(visibility);
+        if (bottomNavScrim != null) bottomNavScrim.setVisibility(visibility);
+    }
+
+    private void hideBottomChromeOnNextContentDraw() {
+        cancelPendingBottomChromeHide();
+        if (navHostChildFragmentManager == null) {
+            setBottomChromeVisibility(View.GONE);
+            return;
+        }
+
+        pendingBottomChromeHideCallback = new FragmentManager.FragmentLifecycleCallbacks() {
+            @Override
+            public void onFragmentViewCreated(@NonNull FragmentManager fm, @NonNull Fragment fragment,
+                                              @NonNull View view, Bundle savedInstanceState) {
+                if (fm != navHostChildFragmentManager || requestedBottomChromeVisible) return;
+                hideBottomChromeOnViewPreDraw(view);
+            }
+        };
+        navHostChildFragmentManager.registerFragmentLifecycleCallbacks(pendingBottomChromeHideCallback, false);
+        navHostView.post(() -> {
+            if (requestedBottomChromeVisible || pendingBottomChromeHideListener != null || navHostChildFragmentManager == null) {
+                return;
+            }
+            Fragment current = navHostChildFragmentManager.getPrimaryNavigationFragment();
+            if (current != null && current.getView() != null) {
+                hideBottomChromeOnViewPreDraw(current.getView());
+            }
+        });
+    }
+
+    private void hideBottomChromeOnViewPreDraw(@NonNull View view) {
+        if (pendingBottomChromeHideListener != null) return;
+        ViewTreeObserver observer = view.getViewTreeObserver();
+        if (!observer.isAlive()) {
+            setBottomChromeVisibility(View.GONE);
+            return;
+        }
+        pendingBottomChromeHideView = view;
+        pendingBottomChromeHideListener = new ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                cancelPendingBottomChromeHide();
+                if (!requestedBottomChromeVisible) {
+                    setBottomChromeVisibility(View.GONE);
+                }
+                return true;
+            }
+        };
+        observer.addOnPreDrawListener(pendingBottomChromeHideListener);
+        view.invalidate();
+    }
+
+    private void cancelPendingBottomChromeHide() {
+        if (pendingBottomChromeHideCallback != null && navHostChildFragmentManager != null) {
+            navHostChildFragmentManager.unregisterFragmentLifecycleCallbacks(pendingBottomChromeHideCallback);
+            pendingBottomChromeHideCallback = null;
+        }
+        if (pendingBottomChromeHideListener != null && pendingBottomChromeHideView != null) {
+            ViewTreeObserver observer = pendingBottomChromeHideView.getViewTreeObserver();
+            if (observer.isAlive()) {
+                observer.removeOnPreDrawListener(pendingBottomChromeHideListener);
+            }
+        }
+        pendingBottomChromeHideListener = null;
+        pendingBottomChromeHideView = null;
+    }
+
+    private boolean isDrawerDestination(int destId) {
+        return destId == R.id.nav_home
+                || destId == R.id.nav_analysis
+                || destId == R.id.nav_budget
+                || destId == R.id.nav_planning;
+    }
+
+    private void updateBottomSelection(int destId) {
+        applyBottomItem(R.id.bottomIconHome, R.id.bottomLabelHome, R.id.bottomDotHome, destId == R.id.nav_home);
+        applyBottomItem(R.id.bottomIconAnalysis, R.id.bottomLabelAnalysis, R.id.bottomDotAnalysis, destId == R.id.nav_analysis);
+        applyBottomItem(0, 0, R.id.bottomDotNew, destId == R.id.nav_new);
+        applyBottomItem(R.id.bottomIconBudget, R.id.bottomLabelBudget, R.id.bottomDotBudget, destId == R.id.nav_budget);
+        applyBottomItem(R.id.bottomIconPlanning, R.id.bottomLabelPlanning, R.id.bottomDotPlanning, destId == R.id.nav_planning);
+    }
+
+    private void applyBottomItem(int iconId, int labelId, int dotId, boolean selected) {
+        int color = ContextCompat.getColor(this, selected ? R.color.md_theme_primary : R.color.md_theme_onSurfaceVariant);
+        if (iconId != 0) {
+            ImageView icon = findViewById(iconId);
+            if (icon != null) icon.setColorFilter(color);
+        }
+        if (labelId != 0) {
+            TextView label = findViewById(labelId);
+            if (label != null) {
+                label.setTextColor(color);
+                label.setTypeface(null, selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            }
+        }
+        View dot = findViewById(dotId);
+        if (dot != null) dot.setVisibility(selected ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    private void navigateAfterDrawerCloses(int destId) {
+        NavDestination current = navController.getCurrentDestination();
+        if (current != null && current.getId() == destId) {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            return;
+        }
+
+        pendingDrawerDestination = destId;
+        drawerLayout.closeDrawer(GravityCompat.START);
+        navView.postDelayed(() -> {
+            if (pendingDrawerDestination != destId) return;
+            pendingDrawerDestination = 0;
+            navController.navigate(destId, null, NavigationAnimations.mainSection(R.id.nav_home));
+        }, 160L);
+    }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        return NavigationUI.navigateUp(navController, appBarConfiguration)
+                || super.onSupportNavigateUp();
+    }
+
+    private void enforcePinIfNeeded() {
+        if (navController == null || !Prefs.hasPin(this) || PinSession.isUnlocked()) {
+            return;
+        }
+        NavDestination dest = navController.getCurrentDestination();
+        if (dest == null) return;
+        int destId = dest.getId();
+        if (destId == R.id.nav_pin_lock || destId == R.id.nav_login
+                || destId == R.id.nav_register || destId == R.id.nav_welcome
+                || destId == R.id.nav_email_verification || destId == R.id.nav_pin_setup) {
+            return;
+        }
+        navController.navigate(R.id.nav_pin_lock);
+    }
+
+    private void configureSystemBars() {
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+
+        int systemBarColor = night ? Color.rgb(2, 8, 18) : Color.rgb(253, 254, 254);
+
+        getWindow().clearFlags(
+                WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
+                        | WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION
+        );
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+
+        getWindow().setStatusBarColor(systemBarColor);
+        getWindow().setNavigationBarColor(systemBarColor);
+
+        // Si Samsung/Android deja la status bar transparente, esto evita que se vea una capa verde debajo.
+        getWindow().getDecorView().setBackgroundColor(systemBarColor);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+
+        controller.setAppearanceLightStatusBars(!night);
+        controller.setAppearanceLightNavigationBars(!night);
+    }
+
+    private void applyDrawerSystemBars() {
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+        int statusColor = ContextCompat.getColor(this, R.color.gradient_start);
+        int navigationColor = ContextCompat.getColor(this, R.color.drawer_body_background);
+
+        getWindow().setStatusBarColor(statusColor);
+        getWindow().setNavigationBarColor(navigationColor);
+        getWindow().getDecorView().setBackgroundColor(navigationColor);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(!night);
+    }
+
+    private void applyAuthSystemBars() {
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+        int authBarColor = night ? Color.rgb(2, 8, 18) : Color.rgb(253, 254, 254);
+        getWindow().setStatusBarColor(authBarColor);
+        getWindow().setNavigationBarColor(authBarColor);
+        getWindow().getDecorView().setBackgroundColor(authBarColor);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(!night);
+        controller.setAppearanceLightNavigationBars(!night);
+    }
+
+    private void setContentTopMargin(int topMargin) {
+        if (navHostView == null) return;
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
+        if (params.topMargin == topMargin) return;
+        params.topMargin = topMargin;
+        navHostView.setLayoutParams(params);
+    }
+
+    private void setContentBottomMargin(int bottomMargin) {
+        if (navHostView == null) return;
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) navHostView.getLayoutParams();
+        if (params.bottomMargin == bottomMargin) return;
+        params.bottomMargin = bottomMargin;
+        navHostView.setLayoutParams(params);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        ActivityCompat.requestPermissions(
+                this,
+                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                REQUEST_POST_NOTIFICATIONS
+        );
+    }
+}

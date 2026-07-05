@@ -1,0 +1,32 @@
+# Android Studio
+.gradle/
+.idea/
+local.properties
+
+# Gradle
+.gradle/
+**/build/
+**/.gradle/
+
+# Generated files
+captures/
+.cxx/
+.externalNativeBuild/
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Keystore (if you add one later)
+*.jks
+*.keystore
+
+# Kotlin build cache
+kotlinc/
+.kotlin/
+
+# Google Services
+google-services.json
+
+# Misc
+*.iml

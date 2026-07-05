@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/md_theme_background"
+    android:orientation="vertical"
+    android:paddingStart="22dp"
+    android:paddingTop="@dimen/screen_header_top"
+    android:paddingEnd="22dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/screen_header_height">
+
+        <FrameLayout
+            android:id="@+id/btnInitialBalanceBack"
+            android:layout_width="@dimen/screen_header_icon"
+            android:layout_height="@dimen/screen_header_icon"
+            android:layout_gravity="start|center_vertical"
+            android:background="@drawable/bg_circle_button"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="@color/md_theme_onSurface" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/perfil_initial_balances_title"
+            android:textColor="@color/md_theme_onSurface"
+            android:textSize="@dimen/screen_header_title"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:layout_width="@dimen/screen_header_icon"
+            android:layout_height="@dimen/screen_header_icon"
+            android:layout_gravity="end|center_vertical"
+            android:background="@drawable/bg_soft_green_circle">
+
+            <ImageView
+                android:layout_width="25dp"
+                android:layout_height="25dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_account_balance_wallet"
+                app:tint="@color/md_theme_onPrimaryContainer" />
+        </FrameLayout>
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="64dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="64dp"
+        android:lineSpacingExtra="2dp"
+        android:text="@string/perfil_initial_balances_subtitle"
+        android:textColor="@color/md_theme_onSurfaceVariant"
+        android:textSize="14sp" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="18dp"
+        android:layout_weight="1"
+        android:clipToPadding="false">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="24dp">
+
+        <TextView
+            android:id="@+id/tvInitialBalanceStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_panel_reference"
+            android:padding="16dp"
+            android:text="@string/perfil_initial_balances_configured"
+            android:textColor="@color/md_theme_onSurface"
+            android:textSize="15sp"
+            android:visibility="gone" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardInitialBalanceForm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="0dp"
+            app:cardBackgroundColor="@color/md_theme_surface"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="5dp"
+            app:cardUseCompatPadding="true"
+            app:strokeColor="@color/md_theme_outlineVariant"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="18dp"
+                android:paddingTop="18dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="20dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilInitialCurrency"
+                    style="@style/Widget.Finanzas.TextInputLayout.Dropdown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/transaction_currency"
+                    app:boxCornerRadiusBottomEnd="16dp"
+                    app:boxCornerRadiusBottomStart="16dp"
+                    app:boxCornerRadiusTopEnd="16dp"
+                    app:boxCornerRadiusTopStart="16dp"
+                    app:endIconDrawable="@drawable/ic_keyboard_arrow_down"
+                    app:endIconMode="dropdown_menu">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/actInitialCurrency"
+                        style="@style/Widget.Finanzas.AutoCompleteTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilInitialCash"
+                        style="@style/Widget.Finanzas.TextInputLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/perfil_initial_cash_hint"
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp"
+                        app:placeholderText="@string/transaction_amount_placeholder">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etInitialCash"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal"
+                            android:paddingEnd="66dp"
+                            android:selectAllOnFocus="true" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:id="@+id/tvInitialCashSymbol"
+                        android:layout_width="42dp"
+                        android:layout_height="36dp"
+                        android:layout_gravity="end|center_vertical"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/bg_initial_symbol_chip"
+                        android:gravity="center"
+                        android:textColor="@color/md_theme_onPrimaryContainer"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        tools:text="€" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilInitialCard"
+                        style="@style/Widget.Finanzas.TextInputLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/perfil_initial_card_hint"
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp"
+                        app:placeholderText="@string/transaction_amount_placeholder">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etInitialCard"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal"
+                            android:paddingEnd="66dp"
+                            android:selectAllOnFocus="true" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:id="@+id/tvInitialCardSymbol"
+                        android:layout_width="42dp"
+                        android:layout_height="36dp"
+                        android:layout_gravity="end|center_vertical"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/bg_initial_symbol_chip"
+                        android:gravity="center"
+                        android:textColor="@color/md_theme_onPrimaryContainer"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        tools:text="€" />
+                </FrameLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveInitialBalance"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="22dp"
+                    android:backgroundTint="@color/md_theme_primary"
+                    android:text="@string/perfil_initial_balances_save"
+                    android:textAllCaps="false"
+                    android:textColor="@color/md_theme_onPrimary"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="18dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

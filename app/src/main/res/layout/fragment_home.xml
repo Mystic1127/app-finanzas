@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/md_theme_background"
+    android:fitsSystemWindows="true">
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeHome"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="16dp"
+            android:paddingTop="@dimen/screen_header_top"
+            android:paddingEnd="16dp">
+
+            <LinearLayout
+                android:id="@+id/homeDashboardContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="132dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/screen_header_height">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="@string/nav_home_title"
+                        android:textColor="@color/md_theme_onSurface"
+                        android:textSize="@dimen/screen_header_title"
+                        android:textStyle="bold" />
+
+                    <FrameLayout
+                        android:id="@+id/btnHomeSettings"
+                        android:layout_width="@dimen/screen_header_icon"
+                        android:layout_height="@dimen/screen_header_icon"
+                        android:layout_gravity="end|center_vertical"
+                        android:background="@drawable/bg_circle_button"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_settings"
+                            app:tint="@color/md_theme_onSurfaceVariant" />
+                    </FrameLayout>
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvHomePeriod"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/home_total_balance_title"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:textSize="19sp" />
+
+                <TextView
+                    android:id="@+id/tvHomeBalanceTotal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:autoSizeMaxTextSize="40sp"
+                    android:autoSizeMinTextSize="24sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:autoSizeTextType="uniform"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="@color/md_theme_onSurface"
+                    android:textSize="40sp"
+                    android:textStyle="bold"
+                    tools:text="S/ 1,000.00" />
+
+                <GridLayout
+                    android:id="@+id/moduleHomeSummary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:columnCount="2"
+                    android:useDefaultMargins="false">
+
+                    <include
+                        android:id="@+id/cardIncome"
+                        layout="@layout/item_home_metric"
+                        android:layout_width="0dp"
+                        android:layout_height="108dp"
+                        android:layout_columnWeight="1"
+                        android:layout_marginEnd="5dp" />
+
+                    <include
+                        android:id="@+id/cardExpense"
+                        layout="@layout/item_home_metric"
+                        android:layout_width="0dp"
+                        android:layout_height="108dp"
+                        android:layout_columnWeight="1"
+                        android:layout_marginStart="5dp" />
+
+                    <include
+                        android:id="@+id/cardCash"
+                        layout="@layout/item_home_metric"
+                        android:layout_width="0dp"
+                        android:layout_height="108dp"
+                        android:layout_columnWeight="1"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginEnd="5dp" />
+
+                    <include
+                        android:id="@+id/cardCard"
+                        layout="@layout/item_home_metric"
+                        android:layout_width="0dp"
+                        android:layout_height="108dp"
+                        android:layout_columnWeight="1"
+                        android:layout_marginStart="5dp"
+                        android:layout_marginTop="10dp" />
+                </GridLayout>
+
+                <GridLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:columnCount="2"
+                    android:id="@+id/listHomeAccounts"
+                    android:useDefaultMargins="true" />
+
+                <TextView
+                    android:id="@+id/tvHomeBudgetMissing"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/home_budget_missing_hint"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:textSize="14sp" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardHomeBudget"
+                    style="@style/Widget.Finanzas.Card.HomeMetric"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingTop="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="16dp">
+
+                        <TextView
+                            android:id="@+id/tvHomeBudgetPercent"
+                            android:layout_width="82dp"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/income"
+                            android:textSize="30sp"
+                            android:textStyle="bold"
+                            tools:text="45%" />
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="56dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="18dp"
+                            android:background="@color/md_theme_outlineVariant" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvHomeBudgetTop"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/income"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                tools:text="Gasto más en Vivienda" />
+
+                            <com.google.android.material.progressindicator.LinearProgressIndicator
+                                android:id="@+id/progressHomeBudget"
+                                android:layout_width="match_parent"
+                                android:layout_height="10dp"
+                                android:layout_marginTop="14dp"
+                                app:indicatorColor="@color/income"
+                                app:trackColor="@color/md_theme_outlineVariant"
+                                app:trackCornerRadius="5dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/home_latest_transactions_title"
+                        android:textColor="@color/md_theme_onSurface"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/btnHomeSeeTransactions"
+                        android:layout_width="44dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/bg_pill_outline"
+                        android:contentDescription="@string/home_ver_lista"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:scaleType="center"
+                        android:src="@drawable/ic_eye"
+                        app:tint="@color/md_theme_primary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/listHomeLatestTransactions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:id="@+id/tvHomeLatestEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:padding="18dp"
+                    android:text="@string/lista_vacia_titulo"
+                    android:textColor="@color/md_theme_onSurfaceVariant"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/progressHome"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

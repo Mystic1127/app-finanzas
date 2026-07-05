@@ -1,0 +1,215 @@
+package com.example.finanzas.ui
+
+import android.os.Bundle
+import android.text.TextUtils
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
+import com.example.finanzas.R
+import com.example.finanzas.data.api.AuthService
+import com.example.finanzas.ui.compose.SpendlyAuthCard
+import com.example.finanzas.ui.compose.SpendlyAuthHeader
+import com.example.finanzas.ui.compose.SpendlyAuthScreenContainer
+import com.example.finanzas.ui.compose.SpendlyComposeTheme
+import com.example.finanzas.ui.compose.SpendlyPrimaryButton
+import com.example.finanzas.ui.compose.SpendlySecondaryTextButton
+import com.example.finanzas.ui.compose.SpendlyVisibilityToggle
+import com.example.finanzas.ui.compose.spendlyBringFocusedFieldIntoView
+import com.example.finanzas.util.DeviceAuthHelper
+import com.example.finanzas.util.Prefs
+import com.example.finanzas.util.PinSession
+import kotlinx.coroutines.launch
+
+class PinLockFragment : Fragment() {
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View = ComposeView(requireContext()).apply {
+        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        setContent {
+            SpendlyComposeTheme {
+                PinLockScreen(
+                    onUnlock = ::unlockWithPin,
+                    onForgotPin = ::confirmClearPin,
+                    onRecoverPinByEmail = ::recoverPinByEmail
+                )
+            }
+        }
+    }
+
+    override fun onViewCreated(v: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(v, savedInstanceState)
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // Evitar salir sin PIN.
+                }
+            }
+        )
+    }
+
+    private fun unlockWithPin(pin: String): String? {
+        if (pin.length != 4 || !TextUtils.isDigitsOnly(pin)) {
+            return getString(R.string.pin_setup_invalid)
+        }
+        if (!Prefs.verifyPin(requireContext(), pin)) {
+            return getString(R.string.pin_lock_wrong)
+        }
+
+        PinSession.unlock()
+        findNavController().popBackStack()
+        return null
+    }
+
+    private fun confirmClearPin() {
+        if (Prefs.getCurrentUserId(requireContext()) <= 0 || !Prefs.hasPin(requireContext())) {
+            Toast.makeText(requireContext(), R.string.auth_recovery_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        DeviceAuthHelper.authenticate(
+            fragment = this,
+            onSuccess = {
+                Toast.makeText(requireContext(), R.string.device_auth_verified, Toast.LENGTH_SHORT).show()
+                findNavController().navigate(
+                    R.id.nav_pin_setup,
+                    Bundle().apply { putBoolean(PinSetupFragment.ARG_RECOVERY_MODE, true) }
+                )
+            },
+            onCancel = {
+                Toast.makeText(requireContext(), R.string.device_auth_cancelled, Toast.LENGTH_SHORT).show()
+            },
+            onFailure = {
+                Toast.makeText(requireContext(), R.string.device_auth_failed, Toast.LENGTH_SHORT).show()
+            },
+            onNoDeviceLock = {
+                Toast.makeText(requireContext(), R.string.device_auth_no_lock, Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+
+    private fun recoverPinByEmail() {
+        val ctx = requireContext().applicationContext
+        val linkedUid = Prefs.getFirebaseUidForCurrentUser(ctx)
+        val email = Prefs.getFirebaseEmailForUser(ctx, Prefs.getCurrentUserId(ctx))
+            .ifBlank { Prefs.getCurrentUserEmail(ctx) }
+        if (linkedUid.isNullOrBlank() || email.isBlank()) {
+            Toast.makeText(requireContext(), R.string.pin_lock_email_recovery_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = AuthService.sendPasswordResetEmail(email)
+            if (!isAdded) return@launch
+            val message = if (result.ok) {
+                getString(R.string.pin_lock_email_recovery_sent)
+            } else {
+                result.message
+            }
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
+@Composable
+private fun PinLockScreen(
+    onUnlock: (String) -> String?,
+    onForgotPin: () -> Unit,
+    onRecoverPinByEmail: () -> Unit
+) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var pinVisible by rememberSaveable { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
+    SpendlyAuthScreenContainer {
+        SpendlyAuthCard {
+            SpendlyAuthHeader(
+                appName = stringResource(R.string.app_name_spendly),
+                title = stringResource(R.string.pin_lock_title),
+                subtitle = stringResource(R.string.pin_lock_message)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            OutlinedTextField(
+                value = pin,
+                onValueChange = { value ->
+                    pin = value.filter(Char::isDigit).take(4)
+                    error = null
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .spendlyBringFocusedFieldIntoView(),
+                singleLine = true,
+                label = { Text(stringResource(R.string.pin_lock_hint)) },
+                isError = error != null,
+                supportingText = error?.let { { Text(it) } },
+                textStyle = androidx.compose.ui.text.TextStyle(textAlign = TextAlign.Center),
+                visualTransformation = if (pinVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onDone = {
+                        error = onUnlock(pin)
+                        if (error == null) focusManager.clearFocus()
+                    }
+                ),
+                trailingIcon = {
+                    SpendlyVisibilityToggle(
+                        visible = pinVisible,
+                        onToggleVisible = { pinVisible = !pinVisible },
+                        showDescription = "Mostrar PIN",
+                        hideDescription = "Ocultar PIN"
+                    )
+                }
+            )
+
+            SpendlyPrimaryButton(
+                text = stringResource(R.string.pin_lock_button),
+                loading = false,
+                enabled = true,
+                onClick = { error = onUnlock(pin) }
+            )
+
+            SpendlySecondaryTextButton(
+                text = stringResource(R.string.pin_lock_forgot),
+                enabled = true,
+                onClick = onForgotPin
+            )
+
+            SpendlySecondaryTextButton(
+                text = stringResource(R.string.pin_lock_recover_email),
+                enabled = true,
+                onClick = onRecoverPinByEmail
+            )
+        }
+    }
+}
